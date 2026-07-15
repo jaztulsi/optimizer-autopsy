@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="SNR-SURGEON: a 16-week research and publication plan — predict-and-repair optimization for LLM training divergence via directional gradient SNR collapse.">
+<title>SNR-SURGEON — 16-Week Research Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F7F9;
+  --surface:#FFFFFF;
+  --ink:#0F1522;
+  --ink-2:#4A5568;
+  --line:#E3E7EE;
+  --signal:#0E9F6E;      /* rescued / go */
+  --signal-soft:#E3F5EE;
+  --alarm:#E5484D;       /* divergence / kill */
+  --alarm-soft:#FDECEC;
+  --warn:#B45309;        /* caution */
+  --warn-soft:#FDF3E3;
+  --trace:#2F5FE0;       /* detector / instrumentation blue */
+  --trace-soft:#E9EFFD;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --disp:'Space Grotesk',sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto} *{animation:none!important;transition:none!important}}
+body{font-family:var(--body);background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--trace);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:3px solid var(--trace);outline-offset:2px;border-radius:4px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 24px}
+code,.mono{font-family:var(--mono)}
+
+/* ---- nav ---- */
+nav{position:sticky;top:0;z-index:50;background:rgba(246,247,249,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;gap:8px;height:56px;overflow-x:auto;scrollbar-width:none}
+.nav-in::-webkit-scrollbar{display:none}
+.nav-brand{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.02em;white-space:nowrap;margin-right:12px;color:var(--ink)}
+.nav-brand .dot{color:var(--signal)}
+nav a.tab{font-size:13.5px;font-weight:500;color:var(--ink-2);padding:6px 10px;border-radius:6px;white-space:nowrap}
+nav a.tab:hover{background:var(--surface);color:var(--ink);text-decoration:none}
+
+/* ---- hero ---- */
+header{padding:56px 0 40px;border-bottom:1px solid var(--line)}
+.eyebrow{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--trace);margin-bottom:14px}
+h1{font-family:var(--disp);font-size:clamp(30px,5vw,46px);line-height:1.08;font-weight:700;letter-spacing:-.015em;max-width:22ch}
+.sub{margin-top:16px;font-size:17px;color:var(--ink-2);max-width:62ch}
+.sub strong{color:var(--ink)}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.chip{font-family:var(--mono);font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
+.chip b{color:var(--ink);font-weight:600}
+
+/* signature figure */
+.spikefig{margin-top:36px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 22px 8px;overflow:hidden}
+.spikefig figcaption{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);padding:10px 2px 14px;line-height:1.55}
+.spikefig svg{width:100%;height:auto;display:block}
+
+/* ---- sections ---- */
+section{padding:52px 0;border-bottom:1px solid var(--line)}
+h2{font-family:var(--disp);font-size:clamp(22px,3vw,29px);font-weight:700;letter-spacing:-.01em;margin-bottom:6px}
+.sec-kicker{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2);margin-bottom:10px}
+.lede{color:var(--ink-2);max-width:66ch;margin-bottom:26px}
+h3{font-family:var(--disp);font-size:18px;font-weight:600;margin:30px 0 10px}
+p+p{margin-top:12px}
+ul.tick{list-style:none}
+ul.tick li{padding-left:26px;position:relative;margin-bottom:8px}
+ul.tick li::before{content:"›";position:absolute;left:6px;color:var(--trace);font-weight:700;font-family:var(--mono)}
+
+/* cards */
+.grid{display:grid;gap:14px}
+.grid.c3{grid-template-columns:repeat(3,1fr)}
+.grid.c2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:820px){.grid.c3,.grid.c2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card h4{font-family:var(--disp);font-size:15.5px;font-weight:600;margin-bottom:8px}
+.card p{font-size:14.5px;color:var(--ink-2)}
+.card .num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--trace);display:block;margin-bottom:8px;letter-spacing:.08em}
+
+/* kill criteria */
+.kill{border-left:4px solid var(--alarm);background:var(--alarm-soft)}
+.kill h4{color:var(--alarm)}
+
+/* tables */
+.tbl-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:560px}
+th{font-family:var(--mono);font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;text-align:left;color:var(--ink-2);padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg)}
+td{padding:12px 16px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink)}
+tr:last-child td{border-bottom:none}
+td .mono{font-size:13px;color:var(--trace)}
+.pct{font-family:var(--mono);font-weight:600;white-space:nowrap}
+.pct.hi{color:var(--signal)} .pct.mid{color:var(--warn)} .pct.lo{color:var(--alarm)}
+
+/* formulas */
+.formula{background:var(--ink);color:#E8EDF5;border-radius:12px;padding:18px 20px;font-family:var(--mono);font-size:14px;line-height:1.8;overflow-x:auto;margin:14px 0;white-space:pre}
+.formula .c{color:#8FA3C0}
+.flabel{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--trace);margin-top:22px}
+
+/* timeline */
+.phase{margin-top:34px}
+.phase-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.phase-tag{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;padding:4px 10px;border-radius:6px}
+.p1{background:var(--trace-soft);color:var(--trace)}
+.p2{background:var(--warn-soft);color:var(--warn)}
+.p3{background:var(--signal-soft);color:var(--signal)}
+.p4{background:#EFE9FB;color:#6D4AC9}
+.phase-head h3{margin:0}
+.week{display:grid;grid-template-columns:130px 1fr;gap:16px;padding:16px 0;border-top:1px solid var(--line)}
+@media(max-width:640px){.week{grid-template-columns:1fr;gap:6px}}
+.wk-label{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--ink)}
+.wk-label span{display:block;font-weight:400;font-size:12px;color:var(--ink-2);margin-top:2px}
+.week ul{list-style:none;font-size:14.5px}
+.week li{padding-left:20px;position:relative;margin-bottom:6px;color:var(--ink-2)}
+.week li::before{content:"—";position:absolute;left:0;color:var(--line)}
+.week li b{color:var(--ink);font-weight:600}
+.week li.crit::before{content:"●";color:var(--alarm);font-size:10px;top:4px}
+.week li.crit{color:var(--ink)}
+
+.owner{font-family:var(--mono);font-size:11.5px;font-weight:600;background:var(--trace-soft);color:var(--trace);border-radius:5px;padding:1px 6px;margin-right:4px;white-space:nowrap}
+
+footer{padding:44px 0 64px;color:var(--ink-2);font-size:13.5px}
+footer .mono{font-size:12.5px}
+.toplink{font-family:var(--mono);font-size:12.5px}
+</style>
+</head>
+<body id="top">
+
+<nav><div class="wrap nav-in">
+  <span class="nav-brand">SNR-SURGEON<span class="dot">●</span></span>
+  <a class="tab" href="#overview">Overview</a>
+  <a class="tab" href="#learn">Learn</a>
+  <a class="tab" href="#papers">Papers</a>
+  <a class="tab" href="#math">Math</a>
+  <a class="tab" href="#infra">Infra</a>
+  <a class="tab" href="#team">Team</a>
+  <a class="tab" href="#timeline">Timeline</a>
+  <a class="tab" href="#pub">Publication</a>
+  <a class="tab" href="#risks">Risks</a>
+</div></nav>
+
+<header><div class="wrap">
+  <div class="eyebrow">16-Week Research &amp; Publication Plan · Jul 15 – Nov 3, 2026</div>
+  <h1>Training failure is predictable, preventable, and repairable — without ever restarting.</h1>
+  <p class="sub"><strong>SNR-SURGEON</strong> detects gradient signal-to-noise collapse along the sharpest loss directions steps before divergence, surgically damps only the unstable directions, and repairs Adam's poisoned moment buffers — rescuing the run with no checkpoint restart.</p>
+  <div class="hero-meta">
+    <span class="chip">Team <b>5 people + mentor</b></span>
+    <span class="chip">Scale <b>CIFAR → GPT-2 124M → 410M</b></span>
+    <span class="chip">Workshop <b>NeurIPS 2026</b></span>
+    <span class="chip">Full paper <b>TMLR / ICML 2027</b></span>
+  </div>
+
+  <figure class="spikefig">
+    <svg viewBox="0 0 900 300" role="img" aria-label="Diagram: a training loss curve where the detector fires before a spike; the damped and repaired run recovers (green) while the counterfactual diverges (red dashed). Below, the directional SNR trace collapses ahead of the crossing.">
+      <!-- axes -->
+      <line x1="50" y1="20" x2="50" y2="196" stroke="#E3E7EE" stroke-width="1.5"/>
+      <line x1="50" y1="196" x2="880" y2="196" stroke="#E3E7EE" stroke-width="1.5"/>
+      <text x="18" y="110" font-family="IBM Plex Mono" font-size="11" fill="#4A5568" transform="rotate(-90 18 110)">loss</text>
+      <!-- pre-spike loss -->
+      <path d="M50,60 C150,110 260,140 380,152 C440,158 480,160 520,162" fill="none" stroke="#0F1522" stroke-width="2.5"/>
+      <!-- divergent counterfactual -->
+      <path d="M520,162 C560,150 585,90 605,40 C618,12 630,6 645,4" fill="none" stroke="#E5484D" stroke-width="2.5" stroke-dasharray="6 5"/>
+      <text x="612" y="26" font-family="IBM Plex Mono" font-size="11.5" fill="#E5484D">no intervention → divergence</text>
+      <!-- rescued curve -->
+      <path d="M520,162 C555,158 570,150 595,153 C650,160 760,172 880,178" fill="none" stroke="#0E9F6E" stroke-width="2.5"/>
+      <text x="700" y="160" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">rescued — no restart</text>
+      <!-- detection marker -->
+      <line x1="460" y1="30" x2="460" y2="196" stroke="#2F5FE0" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <circle cx="460" cy="158" r="4.5" fill="#2F5FE0"/>
+      <text x="330" y="42" font-family="IBM Plex Mono" font-size="11.5" fill="#2F5FE0">1 · detect (SNR collapse)</text>
+      <!-- damp marker -->
+      <line x1="520" y1="60" x2="520" y2="196" stroke="#B45309" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <text x="470" y="72" font-family="IBM Plex Mono" font-size="11.5" fill="#B45309">2 · damp</text>
+      <!-- repair marker -->
+      <line x1="595" y1="120" x2="595" y2="196" stroke="#0E9F6E" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <text x="560" y="134" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">3 · repair m,v</text>
+      <!-- lead time bracket -->
+      <path d="M460,210 L460,218 L520,218 L520,210" fill="none" stroke="#4A5568" stroke-width="1.2"/>
+      <text x="452" y="234" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">lead time (theory-bounded)</text>
+      <!-- SNR trace -->
+      <text x="18" y="278" font-family="IBM Plex Mono" font-size="11" fill="#2F5FE0" transform="rotate(-90 18 278)">SNR</text>
+      <line x1="50" y1="292" x2="880" y2="292" stroke="#E3E7EE" stroke-width="1.5"/>
+      <path d="M50,258 C150,256 260,260 340,262 C400,264 430,270 460,282 C475,288 490,291 520,291 C560,291 575,278 600,268 C650,260 760,258 880,258" fill="none" stroke="#2F5FE0" stroke-width="2"/>
+      <line x1="50" y1="284" x2="880" y2="284" stroke="#2F5FE0" stroke-width="1" stroke-dasharray="2 5" opacity=".5"/>
+      <text x="790" y="280" font-family="IBM Plex Mono" font-size="10.5" fill="#2F5FE0" opacity=".7">threshold τ</text>
+    </svg>
+    <figcaption>The paper in one figure: directional SNR (bottom, blue) collapses below τ before the spike. Detect → damp unstable eigendirections → repair Adam's moment buffers. Green = our run. Red dashed = the counterfactual everyone currently pays for with a checkpoint restart.</figcaption>
+  </figure>
+</div></header>
+
+<!-- OVERVIEW -->
+<section id="overview"><div class="wrap">
+  <div class="sec-kicker">00 · The paper in one page</div>
+  <h2>One central claim. Five components. Three kill criteria.</h2>
+  <p class="lede">Headline: <strong style="color:var(--ink)">predict-and-repair without restart, saving X% of compute vs. checkpoint-restart</strong> on spike-prone LLM pretraining. Everything else in the paper exists to support that sentence.</p>
+
+  <div class="grid c3">
+    <div class="card"><span class="num">C1 · DETECTOR</span><h4>Directional gradient SNR</h4><p>Tracked along the sharpest preconditioned-Hessian directions, estimated Hessian-free from microbatch disagreement. Collapses K steps before divergence.</p></div>
+    <div class="card"><span class="num">C2 · THEORY</span><h4>Guaranteed warning window</h4><p>In the Adam-preconditioned quadratic regime, directional SNR provably decays polynomially before the stability threshold is crossed.</p></div>
+    <div class="card"><span class="num">C3 · INTERVENTION</span><h4>Surgical damping</h4><p>Damp only the unstable eigendirections — explicit projected GD onto the stable subspace, preserving bulk descent.</p></div>
+    <div class="card"><span class="num">C4 · REPAIR</span><h4>Adam moment surgery</h4><p>Fix the poisoned components of m and v directly instead of restoring a checkpoint and skipping batches.</p></div>
+    <div class="card"><span class="num">C5 · CAUSAL VALIDATION</span><h4>Random-direction control</h4><p>Damping k random orthogonal directions at matched strength proves the identified directions — not damping per se — cause the rescue.</p></div>
+    <div class="card kill"><h4>⚠ Kill criteria (test early)</h4><p><b>Wk 4:</b> surgical ≯ matched-strength global clipping → paper collapses.<br><b>Wk 5:</b> lead time &lt; 20–30 steps over λ_max tracking → "predict" claim is weak.<br>Moment surgery ≈ zeroing v → demote to ablation, not headline.</p></div>
+  </div>
+</div></section>
+
+<!-- LEARN -->
+<section id="learn"><div class="wrap">
+  <div class="sec-kicker">01 · Weeks 1–2, everyone</div>
+  <h2>Background to master</h2>
+
+  <h3>Concepts checklist</h3>
+  <ul class="tick">
+    <li>Hessian of the loss, eigenvalues/eigenvectors; curvature λ and the GD stability threshold η·λ &lt; 2</li>
+    <li>Edge of Stability (EoS): λ_max hovers at 2/η during training</li>
+    <li>Adam's update rule, bias correction, the preconditioner v_t, and the preconditioned stability threshold (~38/η in the adaptive-EoS analysis)</li>
+    <li>Gradient noise scale &amp; SNR (McCandlish et al.)</li>
+    <li>Hessian-vector products via double backprop / Pearlmutter's trick; power iteration &amp; Lanczos for top-k eigenpairs</li>
+    <li>Loss spikes in LLM pretraining: causes (LR warmup, low precision, ε, data) and current fixes (skip batches, restart, clip)</li>
+    <li>Small-scale-proxies methodology (Wortsman et al.) — how to induce instability deliberately</li>
+    <li>Projected gradient descent and subspace methods</li>
+  </ul>
+
+  <h3>Videos — watch in this order</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>#</th><th>Resource</th><th>Why</th></tr>
+    <tr><td>1</td><td>3Blue1Brown — <i>Essence of Linear Algebra</i> (eigenvector chapters, esp. Ch. 14)</td><td>Eigen-intuition everything else builds on</td></tr>
+    <tr><td>2</td><td>3Blue1Brown — <i>Neural Networks</i> series (backprop chapters)</td><td>Gradient mechanics</td></tr>
+    <tr><td>3</td><td>Karpathy — <i>Zero to Hero</i>: "Let's build GPT" + <b>"Let's reproduce GPT-2 (124M)"</b></td><td>The 124M video <b>is</b> your Week-3 infra tutorial. Watch twice.</td></tr>
+    <tr><td>4</td><td>Jeremy Cohen — Edge of Stability talks (YouTube: "Cohen Edge of Stability" — Simons Institute / ML theory seminars)</td><td>The regime your theory lives in</td></tr>
+    <tr><td>5</td><td>YouTube: "loss spikes LLM training", "Hessian eigenvalue deep learning Lanczos"</td><td>Supplementary talks</td></tr>
+  </table></div>
+
+  <h3>Courses, notes &amp; tools</h3>
+  <ul class="tick">
+    <li><b>Roger Grosse — CSC2541 <i>Neural Net Training Dynamics</i> notes (Toronto)</b> — the single best resource for this project's theory side</li>
+    <li>Stanford CS231n optimization notes (<a href="https://cs231n.github.io">cs231n.github.io</a>) · Stanford CS25 (Transformers United) lectures on YouTube</li>
+    <li>Boyd &amp; Vandenberghe, <i>Convex Optimization</i>, Ch. 9 — unconstrained minimization, condition-number intuition</li>
+    <li>Tools: PyTorch <code>autograd.grad(create_graph=True)</code> for HVPs · <a href="https://github.com/amirgholami/PyHessian">PyHessian</a> (top eigenvalues, spectral density) · <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (LLM pretraining base) · Weights &amp; Biases — every run logged, non-negotiable</li>
+  </ul>
+</div></section>
+
+<!-- PAPERS -->
+<section id="papers"><div class="wrap">
+  <div class="sec-kicker">02 · Annotated reading list</div>
+  <h2>Papers, in reading order</h2>
+  <p class="lede">One shared Zotero library. Every paper gets a 5-line note: claim / method / what we borrow / how we differ / cite-where. P5 owns it. <b>Week 1:</b> fresh arXiv sweep for 2025–26 spike papers — a scooped detector changes framing, not the project, but you must know.</p>
+
+  <h3>Tier 1 — read fully, Weeks 1–2 · these define the problem</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Paper</th><th>arXiv</th><th>Why it matters</th></tr>
+    <tr><td>Cohen et al. — <i>GD on Neural Networks Typically Occurs at the Edge of Stability</i> (ICLR 2021)</td><td class="mono">2103.00065</td><td>Defines EoS; your theory lives here</td></tr>
+    <tr><td>Cohen et al. — <i>Adaptive Gradient Methods at the Edge of Stability</i></td><td class="mono">2207.14484</td><td>Adam-preconditioned sharpness — your working eigenbasis</td></tr>
+    <tr><td>Wortsman et al. — <i>Small-scale Proxies for Large-scale Transformer Training Instabilities</i></td><td class="mono">2309.14322</td><td>Your entire spike-induction methodology; cite to inherit legitimacy</td></tr>
+    <tr><td>Molybog et al. — <i>A Theory on Adam Instability in Large-Scale ML</i></td><td class="mono">2304.09871</td><td>The "poisoned moment buffer" story — foundation of the repair</td></tr>
+    <tr><td>McCandlish et al. — <i>An Empirical Model of Large-Batch Training</i></td><td class="mono">1812.06162</td><td>Gradient noise scale / SNR formalism your detector generalizes directionally</td></tr>
+  </table></div>
+
+  <h3>Tier 2 — read fully, Weeks 2–3 · baselines &amp; theory neighbors</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Paper</th><th>Where</th><th>Why</th></tr>
+    <tr><td><i>ZClip: Adaptive Spike Mitigation</i> (2025)</td><td class="mono">arXiv: "ZClip"</td><td>Baseline 1 — reimplement</td></tr>
+    <tr><td><i>AdaGC</i> adaptive gradient clipping (2025)</td><td class="mono">arXiv: "AdaGC"</td><td>Baseline 2 — reimplement</td></tr>
+    <tr><td>Damian, Nichani, Lee — <i>Self-Stabilization: The Implicit Bias of GD at EoS</i></td><td class="mono">2209.15594</td><td>EoS implicitly does projected GD — your corollary makes it explicit</td></tr>
+    <tr><td>Arora, Li, Panigrahi — <i>Understanding GD on the Edge of Stability</i></td><td class="mono">2205.09745</td><td>Quadratic-regime proof techniques</td></tr>
+    <tr><td>Chowdhery et al. — <i>PaLM</i> (loss-spike sections)</td><td class="mono">2204.02311</td><td>The restart-and-skip recipe you replace — quantify against this</td></tr>
+    <tr><td>Zeng et al. — <i>GLM-130B</i> (training-stability sections)</td><td class="mono">2210.02414</td><td>Real-world spike mitigation tricks (embedding grad shrink, etc.)</td></tr>
+    <tr><td>Ghorbani, Krishnan, Xiao — <i>Hessian Eigenvalue Density</i></td><td class="mono">1901.10159</td><td>Lanczos spectral methods at scale</td></tr>
+    <tr><td>Yao et al. — <i>PyHessian</i></td><td class="mono">1912.07145</td><td>Your Hessian tooling</td></tr>
+  </table></div>
+
+  <h3>Tier 3 — skim for related work, Weeks 3–4</h3>
+  <ul class="tick">
+    <li>Zhang et al. — <i>Why Gradient Clipping Accelerates Training</i> (arXiv 1905.11881)</li>
+    <li>SAM — Sharpness-Aware Minimization (arXiv 2010.01412) — contrast: they prevent sharpness, you detect + repair</li>
+    <li>Takase et al. — <i>Spike No More</i> (embedding-related spike prevention) · Gilmer et al. — instability &amp; LR-warmup studies</li>
+    <li>Anything 2025–26 matching: "loss spike", "training instability LLM", "gradient SNR", "Adam second moment spike"</li>
+  </ul>
+</div></section>
+
+<!-- MATH -->
+<section id="math"><div class="wrap">
+  <div class="sec-kicker">03 · Formula sheet</div>
+  <h2>All the math</h2>
+
+  <div class="flabel">Setup</div>
+  <div class="formula">L(θ), Hessian H = ∇²L(θ), eigenpairs (λᵢ, uᵢ), λ₁ ≥ λ₂ ≥ …
+minibatch gradient  g = ∇L(θ) + ξ,   Cov(ξ) = Σ/|B|</div>
+
+  <div class="flabel">Directional gradient SNR — the core quantity</div>
+  <div class="formula">SNR_u(t) = |E[gᵀu]| / √(Var(gᵀu)) = |∇L(θ)ᵀu| / √(uᵀΣu / |B|)
+
+<span class="c"># microbatch-disagreement estimator (near-zero overhead):</span>
+<span class="c"># microbatch grads g₁…g_m already exist under gradient accumulation</span>
+mean:  ḡᵀu
+var:   (1/(m−1)) Σⱼ (gⱼᵀu − ḡᵀu)²
+SNR̂_u = |ḡᵀu| / √(var̂/m)      <span class="c"># cost: m dot-products per tracked direction per step — free</span></div>
+
+  <div class="flabel">Directions to track — Adam's preconditioned eigenbasis</div>
+  <div class="formula">H̃ = D^(−1/2) H D^(−1/2),   D = diag(√v_t + ε)
+
+<span class="c"># top-k of H̃ via power iteration / Lanczos with preconditioned HVPs</span>
+<span class="c"># refresh every T_eig ∈ [50, 200] steps, warm-started from previous eigenvectors</span>
+<span class="c"># HVP cost ≈ 2 extra backprops per refresh — profile and report it</span></div>
+
+  <div class="flabel">Stability thresholds</div>
+  <div class="formula">GD:            η·λᵢ > 2       → divergence along uᵢ
+GD + momentum: η·λᵢ > 2(1+β)
+Adam (adaptive EoS): preconditioned sharpness λ̃ hovers ≈ 38/η
+                     (β₁=0.9, β₂=0.999 — derive cleanly in the appendix,
+                      don't just quote the constant)</div>
+
+  <div class="flabel">Theorem 1 — the statement to prove</div>
+  <div class="formula"><span class="c"># quadratic loss L(θ)=½θᵀHθ, per-direction coordinate x_t = uᵢᵀθ_t,</span>
+<span class="c"># SGD+momentum, then extend to frozen-preconditioner Adam approximation</span>
+x_{t+1} = x_t − η(λᵢx_t + ε_t) + β(x_t − x_{t−1}),  ε_t ~ noise, Var = σᵢ²
+<span class="c"># a stochastic linear recursion — AR(2)</span>
+
+Let ρ(λᵢ,η,β) = spectral radius of the companion matrix.
+As λᵢ(t) sharpens toward λ* at rate α, i.e. λᵢ(t) ≈ λ* − α(T−t):
+  • mean signal contracts like ρᵗ|x₀|,  ρ → 1
+  • stationary noise variance amplifies like σᵢ²/(1−ρ²) ~ σᵢ²/(c·(λ*−λᵢ))
+  ⇒ SNR_uᵢ(t) = O(√(λ*−λᵢ(t)))  — decays POLYNOMIALLY before the crossing
+  ⇒ lead time  T_lead ≥ f(α, σᵢ, detection threshold τ)   <span class="c"># computable warning-window bound</span>
+
+<span class="c"># Corollary (Theorem 2): surgical damping = projected GD onto</span>
+<span class="c"># span{uᵢ : ηλᵢ &lt; 2} — Damian et al.'s implicit self-stabilization,</span>
+<span class="c"># made explicit, earlier, controllable.</span>
+<span class="c"># Proof tools: AR(2) stationary variance, companion-matrix eigenvalues,</span>
+<span class="c"># standard perturbation bounds. 2–3 weeks with mentor help.</span></div>
+
+  <div class="flabel">The intervention — surgical damping</div>
+  <div class="formula">U = { i : SNR̂_uᵢ &lt; τ  and  λ̃ᵢ > γ·λ* }
+g_damped = g − Σ_{i∈U} (1−cᵢ)(gᵀuᵢ)uᵢ,   cᵢ ∈ [0,1]
+<span class="c"># cᵢ=0 is full projection; schedule cᵢ → 1 over R recovery steps</span></div>
+
+  <div class="flabel">The repair — Adam moment surgery</div>
+  <div class="formula">m_t ← m_t − (m_tᵀuᵢ)uᵢ                     <span class="c"># remove poisoned first-moment component</span>
+v_t ← along uᵢ: pre-spike EMA or robust median of recent uᵢᵀ(g⊙g)
+
+<span class="c"># required ablations: (a) full v reset  (b) global vs directional surgery  (c) no surgery</span>
+<span class="c"># HEADLINE: wall-clock/FLOPs saved vs checkpoint-restart-and-skip (the PaLM recipe)</span></div>
+
+  <div class="flabel">Metrics</div>
+  <ul class="tick" style="margin-top:10px">
+    <li><b>Lead time</b> — steps between detector trigger and divergence event (loss &gt; μ + kσ of trailing window), vs. baselines: gradient-norm threshold, λ_max tracking, ZClip's z-score</li>
+    <li><b>Rescue rate</b> — % of induced spikes where the run recovers to within δ of control loss within W steps</li>
+    <li><b>Compute saved</b> — FLOPs(restart from checkpoint + reskip data) − FLOPs(surgery), as % of run</li>
+    <li><b>Detector precision/recall</b> — ≥5 seeds per config, report CIs; false-positive rate on stable runs gets its own figure</li>
+    <li><b>Overhead</b> — wall-clock % added by eigenvector refresh + SNR tracking</li>
+  </ul>
+</div></section>
+
+<!-- INFRA -->
+<section id="infra"><div class="wrap">
+  <div class="sec-kicker">04 · Infrastructure &amp; compute</div>
+  <h2>Codebase, data, GPUs</h2>
+
+  <div class="grid c2">
+    <div class="card"><h4>Repo layout</h4><p class="mono" style="font-size:13px;color:var(--ink)">snr-surgeon/<br>&nbsp;&nbsp;detector/ · intervention/ · theory/<br>&nbsp;&nbsp;experiments/cnn/ · experiments/llm/ (nanoGPT fork)<br>&nbsp;&nbsp;baselines/ · analysis/</p><p style="margin-top:10px">Config-driven (YAML + hydra or plain argparse), every run seeded + wandb-logged. CI: a 5-minute CIFAR smoke test running the detector end-to-end. Reproducibility = reviewer trust.</p></div>
+    <div class="card"><h4>Datasets</h4><p><b>CNN track:</b> CIFAR-10/100 (torchvision).<br><b>LLM track:</b> OpenWebText (nanoGPT default) and/or FineWeb 10BT sample (HuggingFace <span class="mono" style="color:var(--trace)">HuggingFaceFW/fineweb</span>).</p><p style="margin-top:10px"><b>Key trick:</b> you don't need convergence — you need the spike window. Budget 2–5B tokens per 124M run, not 300B.</p></div>
+  </div>
+
+  <h3>Compute plan — the biggest risk, handle it in Week 1</h3>
+  <div class="tbl-scroll"><table>
+    <tr><th>Tier</th><th>What</th><th>Needs</th></tr>
+    <tr><td>CNN causal</td><td>ResNet-18/WRN on CIFAR, hundreds of short runs</td><td>1–2 consumer GPUs / Colab Pro / Kaggle — cheap</td></tr>
+    <tr><td>GPT-2 124M</td><td>~2–4 days on 8×A100, or 1–2 weeks on 1–2 A100s at reduced token budget</td><td>Cloud credits</td></tr>
+    <tr><td>GPT-2 410M (Pythia-style config)</td><td>4–8× the above; fewer seeds (3 acceptable — say so honestly)</td><td>Cloud credits — <b>the gating resource</b></td></tr>
+    <tr><td style="color:var(--alarm)">~1B</td><td colspan="2"><b>Cut.</b> 124M + 410M + small-scale-proxies citation is the plan of record. 1B only if a sponsor lands.</td></tr>
+  </table></div>
+  <p style="margin-top:14px"><b>Credit sources to hit in Week 1:</b> Google TPU Research Cloud (free TPU quota; nanoGPT JAX ports / levanter) · Lambda / Together / Modal research credits · Hack Club compute ask (HCB fiscal sponsorship experience) · mentor's university cluster · Vast.ai spot A100s.</p>
+
+  <h3>Spike-induction recipes (Wortsman + Molybog)</h3>
+  <ul class="tick">
+    <li>LR 2–5× above stable · short/no warmup · large batch + high LR combos</li>
+    <li>Remove/weaken QK-layernorm · low-precision (bf16 → fp16) on sensitive ops</li>
+    <li>Small Adam ε (1e-12) and ε perturbations · late-warmup LR bumps mid-run</li>
+    <li>Sweep at 124M to find 3–4 <i>reliable</i> spike recipes; reuse at 410M</li>
+  </ul>
+</div></section>
+
+<!-- TEAM -->
+<section id="team"><div class="wrap">
+  <div class="sec-kicker">05 · Team of 5 + mentor</div>
+  <h2>Roles &amp; cadence</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Person</th><th>Role</th><th>Owns</th></tr>
+    <tr><td><span class="owner">P1</span> Lead</td><td>Detector + integration</td><td>Directional SNR estimator, eigenvector tracking, moment surgery, integration, paper writing lead</td></tr>
+    <tr><td><span class="owner">P2</span></td><td>LLM runs A</td><td>nanoGPT fork, 124M runs, spike-induction sweeps</td></tr>
+    <tr><td><span class="owner">P3</span></td><td>LLM runs B</td><td>410M runs, logging infra, wandb dashboards, compute procurement ops</td></tr>
+    <tr><td><span class="owner">P4</span></td><td>Causal / CNN track</td><td>CNN experiments, random-direction control arm, damping &amp; surgery ablations</td></tr>
+    <tr><td><span class="owner">P5</span></td><td>Baselines + lit</td><td>ZClip / AdaGC / global-clip / LR-drop-restart reimplementations, lead-time benchmark harness, Zotero, related work</td></tr>
+    <tr><td><span class="owner">M</span> Mentor</td><td>Theory</td><td>Theorems 1 &amp; 2 formalization, proof checking, venue strategy, arXiv endorsement</td></tr>
+  </table></div>
+  <p style="margin-top:14px">Cadence: Monday 30-min standup · Friday results review · shared Notion/doc for decisions · every experiment has an owner and a wandb tag.</p>
+</div></section>
+
+<!-- TIMELINE -->
+<section id="timeline"><div class="wrap">
+  <div class="sec-kicker">06 · Week by week</div>
+  <h2>The 16-week timeline</h2>
+  <p class="lede">Fixed dates to confirm in Week 1: NeurIPS 2026 workshop list goes live ~Jul–Aug; deadlines cluster <b>late Aug – mid Sep</b>. Targets: OPT, M3L (Mathematics of Modern ML), HiLD (High-dimensional Learning Dynamics), ATTRIB / efficiency-themed. TMLR is rolling; ICML 2027 ≈ late Jan; NeurIPS 2027 abstracts ≈ May.</p>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-tag p1">PHASE 1 · WKS 1–3</span><h3>Foundations &amp; MVP detector</h3></div>
+    <div class="week"><div class="wk-label">Week 1<span>Jul 15–21</span></div><ul>
+      <li>All: Tier-1 papers + Karpathy GPT-2 video. Repo, wandb, Zotero live.</li>
+      <li><span class="owner">P1</span>Microbatch SNR estimator + HVP power iteration on toy quadratic + small MLP; verify vs analytic values.</li>
+      <li class="crit"><span class="owner">P2 P3</span><b>Compute-credit applications go out (TRC, Lambda, Modal, Hack Club). Cannot slip.</b> Stable 124M baseline launched.</li>
+      <li><span class="owner">P4</span>CIFAR ResNet harness; reproduce EoS (λ_max → 2/η) as sanity check.</li>
+      <li><span class="owner">P5</span>Fresh 2025–26 arXiv sweep; ZClip reimplementation started; post exact workshop deadlines in the team doc.</li>
+      <li><span class="owner">M</span>Mentor meeting #1: lock Theorem 1 statement + authorship + endorsement.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 2<span>Jul 22–28</span></div><ul>
+      <li><span class="owner">P1</span>Directional SNR tracking live on CIFAR runs; log SNR_u₁…u₅ through training.</li>
+      <li class="crit"><span class="owner">P4</span>First induced divergences (high LR); overlay SNR vs λ_max vs grad-norm. <b>First evidence plot: does SNR collapse lead the crossing?</b></li>
+      <li><span class="owner">P2</span>124M spike-induction sweep begins (recipes from §04).</li>
+      <li><span class="owner">P5</span>ZClip done; AdaGC started; lead-time benchmark harness spec.</li>
+      <li><span class="owner">M</span>AR(2) recursion written, stationary variance derived, numerical verification notebook.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 3<span>Jul 29–Aug 4</span></div><ul>
+      <li class="crit"><b>GO/NO-GO #1:</b> does directional SNR give a median lead over λ_max tracking across 5 seeds? Yes → proceed. Marginal → tune (τ, k, refresh rate) one week max. No → pivot to repair-only paper (still publishable).</li>
+      <li><span class="owner">P1 P4</span>Surgical damping implemented; first rescue attempts on CIFAR.</li>
+      <li><span class="owner">P2</span>3 reliable 124M spike recipes identified.</li>
+      <li><span class="owner">M</span>Theorem 1 draft proof (SGD+momentum case).</li>
+    </ul></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-tag p2">PHASE 2 · WKS 4–7</span><h3>Causal results + workshop paper</h3></div>
+    <div class="week"><div class="wk-label">Week 4<span>Aug 5–11</span></div><ul>
+      <li class="crit"><span class="owner">P4</span><b>THE critical ablation:</b> surgical damping vs matched-strength global clipping vs LR-drop, 5 seeds each. If surgical ≉ better, the framing changes NOW, cheaply.</li>
+      <li><span class="owner">P4</span>Random-direction control arm (damp k random orthogonal directions at matched strength) — the causal identification.</li>
+      <li><span class="owner">P1</span>Adam moment surgery v1 on CIFAR; rescue-rate + recovery-speed metrics.</li>
+      <li><span class="owner">P2</span>Detector running live inside 124M runs.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 5<span>Aug 12–18</span></div><ul>
+      <li>Freeze CNN-scale results: lead-time table, rescue rates, causal control, ablations — all plots publication-quality with error bars.</li>
+      <li><span class="owner">M</span>Theorem 1 finalized (SGD+momentum); Adam frozen-preconditioner extension sketched; Corollary 2 (projected GD) written.</li>
+      <li><span class="owner">P5</span>Benchmark harness produces the headline lead-time comparison figure.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 6<span>Aug 19–25</span></div><ul>
+      <li class="crit"><b>Write workshop paper</b> (4–8 pp by venue): CNN causal results + theory + preliminary 124M traces. P1 leads, everyone owns a section, mentor reviews.</li>
+      <li><span class="owner">P2 P3</span>First end-to-end 124M rescue: detect → damp → repair → continue.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 7<span>Aug 26–Sep 1</span></div><ul>
+      <li>Polish + internal red-team review ("what would Reviewer 2 say"); mentor sign-off.</li>
+      <li class="crit"><b>SUBMIT: arXiv preprint v1 + NeurIPS 2026 workshop.</b> If the deadline runs later into Sep, spend the extra week adding 124M results.</li>
+    </ul></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-tag p3">PHASE 3 · WKS 8–13</span><h3>LLM scale</h3></div>
+    <div class="week"><div class="wk-label">Week 8<span>Sep 2–8</span></div><ul>
+      <li class="crit"><span class="owner">P2</span>Systematic 124M campaign: N≥10 induced-spike runs × {SNR-Surgeon, ZClip, AdaGC, global clip, restart-and-skip}. <b>This is the paper's main table.</b></li>
+      <li><span class="owner">P3</span>410M config validated with a short stable run; compute confirmed at 124M-heavy + 410M-light.</li>
+      <li><span class="owner">P1</span>Overhead profiling (eigenvector refresh cost, wall-clock %) + optimizations (lower refresh rate, k=3 vs 10).</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Weeks 9–10<span>Sep 9–22</span></div><ul>
+      <li>124M campaign completes → lead times, rescue rates, final-loss deltas, compute-saved headline number.</li>
+      <li>410M spike-induction + rescue runs (3 seeds acceptable at this scale — state it honestly in the paper).</li>
+      <li><span class="owner">M</span>Full Adam-regime extension or clearly-scoped assumptions; theory–experiment agreement plot (reviewer catnip).</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Weeks 11–12<span>Sep 23–Oct 6</span></div><ul>
+      <li>410M campaign completes.</li>
+      <li class="crit"><span class="owner">P4</span>Robustness ablations: sensitivity to k, τ, refresh interval, microbatch count m; <b>false-positive rate on stable runs gets its own figure</b> — a detector that cries wolf is useless.</li>
+      <li class="crit"><span class="owner">P5</span>Restart-baseline compute accounting finalized → <b>headline: "SNR-Surgeon saves X% compute vs checkpoint-restart at equal final loss."</b></li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 13<span>Oct 7–13</span></div><ul>
+      <li>Buffer — something will have slipped; this absorbs it. If miraculously on schedule: one 410M long-horizon run showing no final-loss degradation from interventions, or a bonus 760M run.</li>
+    </ul></div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-tag p4">PHASE 4 · WKS 14–16</span><h3>Full paper</h3></div>
+    <div class="week"><div class="wk-label">Week 14<span>Oct 14–20</span></div><ul>
+      <li>Full draft (9-page NeurIPS/ICML or TMLR format): P1 intro/method · P4 experiments · P5 related work + baselines · P2/P3 LLM section · mentor theory section.</li>
+      <li>Every claim mapped to a figure or table; kill any claim without evidence.</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 15<span>Oct 21–27</span></div><ul>
+      <li>Adversarial internal review — each member reviews someone else's section; mentor full pass.</li>
+      <li>Reproducibility package: clean code, README, configs, seeds. Plan to open-source (reviewers reward it).</li>
+    </ul></div>
+    <div class="week"><div class="wk-label">Week 16<span>Oct 28–Nov 3</span></div><ul>
+      <li class="crit"><b>Submit to TMLR</b> (rolling, correctness-focused — best-odds venue) and/or freeze for ICML 2027 (late Jan) / NeurIPS 2027 (May) per mentor's read on the 410M results.</li>
+      <li>arXiv v2 with full results. Workshop camera-ready (acceptances land ~Oct) + poster for the Dec 2026 NeurIPS workshop.</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<!-- PUBLICATION -->
+<section id="pub"><div class="wrap">
+  <div class="sec-kicker">07 · Publication strategy</div>
+  <h2>Venues &amp; honest odds</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Artifact</th><th>When</th><th>Venue</th><th>Odds</th></tr>
+    <tr><td>Preprint v1 (CNN + theory)</td><td>Week 7 · late Aug</td><td>arXiv</td><td class="pct hi">100%</td></tr>
+    <tr><td>Workshop paper</td><td>Submit Wks 6–7 · present Dec</td><td>NeurIPS 2026 workshop (OPT / M3L / HiLD)</td><td class="pct hi">~80%</td></tr>
+    <tr><td>Full paper</td><td>Week 16</td><td>TMLR</td><td class="pct mid">~50–60%</td></tr>
+    <tr><td>Full paper (alt)</td><td>Jan 2027</td><td>ICML 2027 main</td><td class="pct lo">~25–30%</td></tr>
+    <tr><td>Full paper (alt)</td><td>May 2027</td><td>NeurIPS 2027 main</td><td class="pct lo">~25–35%</td></tr>
+  </table></div>
+  <div class="grid c3" style="margin-top:20px">
+    <div class="card"><span class="num">INTENSITY</span><h4>9 / 10</h4><p>Multi-scale pretraining + formal proof + causal controls + four baselines. The intensity isn't the risk — compute and clean execution are.</p></div>
+    <div class="card"><span class="num">ORIGINALITY</span><h4>7 / 10</h4><p>Each piece has neighbors; the synthesis — directional-SNR detector + moment surgery + causal identification — is the fresh combination. Not a paradigm paper — own that.</p></div>
+    <div class="card"><span class="num">STRATEGY</span><h4>One claim, ruthlessly</h4><p>Center everything on "predict-and-repair without restart, X% compute saved." Demote everything else to supporting evidence.</p></div>
+  </div>
+  <p style="margin-top:16px"><b>Week-1 logistics to settle:</b> author order · mentor's institutional affiliation for submission · OpenReview accounts · arXiv endorsement (mentor can endorse).</p>
+</div></section>
+
+<!-- RISKS -->
+<section id="risks"><div class="wrap">
+  <div class="sec-kicker">08 · Risk register</div>
+  <h2>What can kill this, and the mitigation</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
+    <tr><td>410M compute doesn't materialize</td><td class="pct lo">Med-High</td><td>124M-heavy + small-scale-proxies framing is the pre-approved fallback; 4+ credit applications in Week 1</td></tr>
+    <tr><td>Surgical ≈ global clipping</td><td class="pct mid">Medium</td><td>Week-4 go/no-go; fallback = "prediction + repair" with clipping as the intervention</td></tr>
+    <tr><td>Scooped by a 2025–26 paper</td><td class="pct mid">Medium</td><td>Week-1 sweep; causal ID + moment surgery is the differentiator even if a directional detector exists</td></tr>
+    <tr><td>Theory harder than expected</td><td class="pct mid">Medium</td><td>Scope to SGD+momentum with frozen-preconditioner Adam approximation; state assumptions honestly — TMLR rewards it</td></tr>
+    <tr><td>Eigenvector overhead too high at 410M</td><td class="pct hi">Low-Med</td><td>Reduce k, refresh every 200 steps, subspace warm-start; report overhead transparently</td></tr>
+    <tr><td>Team bandwidth once school starts (~mid-Aug)</td><td class="pct lo">High</td><td>Front-load hard experiments into summer Wks 1–6; Wks 8+ are campaign-babysitting + analysis, which parallelizes around school</td></tr>
+    <tr><td>Detector false positives on stable runs</td><td class="pct mid">Medium</td><td>Dedicated FP experiments Wk 11; hysteresis + consecutive-trigger requirement in detector</td></tr>
+  </table></div>
+
+  <h3>Week-1 immediate actions</h3>
+  <ul class="tick">
+    <li><span class="owner">P1</span>Repo + wandb team + Zotero + shared doc — today</li>
+    <li><span class="owner">P3 P5</span>Apply: TPU Research Cloud, Lambda, Modal, Hack Club compute ask</li>
+    <li><span class="owner">P5</span>Fresh arXiv sweep ("loss spike", "training instability", "directional SNR", "Adam moment", 2025–26) + confirm exact workshop deadlines</li>
+    <li><span class="owner">M</span>Mentor meeting: lock Theorem 1 + authorship + endorsement</li>
+    <li><span class="owner">P2</span>nanoGPT 124M stable baseline launched · <span class="owner">P4</span>CIFAR EoS reproduction launched</li>
+    <li>Everyone: Tier-1 papers + Karpathy GPT-2 video by Sunday</li>
+  </ul>
+</div></section>
+
+<footer><div class="wrap">
+  <p class="mono">SNR-SURGEON · Predict-and-Repair Optimization · plan v1 · Jul 15 – Nov 3, 2026</p>
+  <p style="margin-top:6px">"We show training failure is predictable, preventable, and repairable — without ever restarting."</p>
+  <p style="margin-top:12px"><a class="toplink" href="#top">↑ back to top</a></p>
+</div></footer>
+
+</body>
+</html>
