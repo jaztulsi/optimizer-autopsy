@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="SNR-SURGEON: a 16-week research and publication plan — predict-and-repair optimization for LLM training divergence via directional gradient SNR collapse.">
-<title>SNR-SURGEON — 16-Week Research Plan</title>
+<meta name="description" content="OPTIMIZER AUTOPSY: a 16-week research and publication plan — training counterfactuals that causally localize the poison in Adam's state after a loss spike, and repair it without resetting.">
+<title>OPTIMIZER AUTOPSY — 16-Week Research Plan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -14,13 +14,13 @@
   --ink:#0F1522;
   --ink-2:#4A5568;
   --line:#E3E7EE;
-  --signal:#0E9F6E;      /* rescued / go */
+  --signal:#0E9F6E;      /* repaired / go */
   --signal-soft:#E3F5EE;
-  --alarm:#E5484D;       /* divergence / kill */
+  --alarm:#E5484D;       /* poison / kill */
   --alarm-soft:#FDECEC;
-  --warn:#B45309;        /* caution */
+  --warn:#B45309;        /* reset / caution */
   --warn-soft:#FDF3E3;
-  --trace:#2F5FE0;       /* detector / instrumentation blue */
+  --trace:#2F5FE0;       /* instrument blue */
   --trace-soft:#E9EFFD;
   --mono:'IBM Plex Mono',ui-monospace,monospace;
   --disp:'Space Grotesk',sans-serif;
@@ -41,15 +41,15 @@ nav{position:sticky;top:0;z-index:50;background:rgba(246,247,249,.92);backdrop-f
 .nav-in{display:flex;align-items:center;gap:8px;height:56px;overflow-x:auto;scrollbar-width:none}
 .nav-in::-webkit-scrollbar{display:none}
 .nav-brand{font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.02em;white-space:nowrap;margin-right:12px;color:var(--ink)}
-.nav-brand .dot{color:var(--signal)}
+.nav-brand .dot{color:var(--alarm)}
 nav a.tab{font-size:13.5px;font-weight:500;color:var(--ink-2);padding:6px 10px;border-radius:6px;white-space:nowrap}
 nav a.tab:hover{background:var(--surface);color:var(--ink);text-decoration:none}
 
 /* ---- hero ---- */
 header{padding:56px 0 40px;border-bottom:1px solid var(--line)}
 .eyebrow{font-family:var(--mono);font-size:12.5px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--trace);margin-bottom:14px}
-h1{font-family:var(--disp);font-size:clamp(30px,5vw,46px);line-height:1.08;font-weight:700;letter-spacing:-.015em;max-width:22ch}
-.sub{margin-top:16px;font-size:17px;color:var(--ink-2);max-width:62ch}
+h1{font-family:var(--disp);font-size:clamp(30px,5vw,46px);line-height:1.08;font-weight:700;letter-spacing:-.015em;max-width:24ch}
+.sub{margin-top:16px;font-size:17px;color:var(--ink-2);max-width:64ch}
 .sub strong{color:var(--ink)}
 .hero-meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
 .chip{font-family:var(--mono);font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2)}
@@ -122,6 +122,12 @@ td .mono{font-size:13px;color:var(--trace)}
 
 .owner{font-family:var(--mono);font-size:11.5px;font-weight:600;background:var(--trace-soft);color:var(--trace);border-radius:5px;padding:1px 6px;margin-right:4px;white-space:nowrap}
 
+/* red-team verdicts */
+.verdict{border-left:4px solid var(--warn);background:var(--warn-soft);border-radius:12px;padding:18px 20px;margin:14px 0}
+.verdict h4{font-family:var(--disp);font-size:15.5px;font-weight:600;color:var(--warn);margin-bottom:6px}
+.verdict p{font-size:14.5px;color:var(--ink-2)}
+.verdict p b{color:var(--ink)}
+
 footer{padding:44px 0 64px;color:var(--ink-2);font-size:13.5px}
 footer .mono{font-size:12.5px}
 .toplink{font-family:var(--mono);font-size:12.5px}
@@ -130,7 +136,7 @@ footer .mono{font-size:12.5px}
 <body id="top">
 
 <nav><div class="wrap nav-in">
-  <span class="nav-brand">SNR-SURGEON<span class="dot">●</span></span>
+  <span class="nav-brand">OPTIMIZER-AUTOPSY<span class="dot">●</span></span>
   <a class="tab" href="#overview">Overview</a>
   <a class="tab" href="#learn">Learn</a>
   <a class="tab" href="#papers">Papers</a>
@@ -139,71 +145,70 @@ footer .mono{font-size:12.5px}
   <a class="tab" href="#team">Team</a>
   <a class="tab" href="#timeline">Timeline</a>
   <a class="tab" href="#pub">Publication</a>
-  <a class="tab" href="#risks">Risks</a>
+  <a class="tab" href="#redteam">Red Team</a>
 </div></nav>
 
 <header><div class="wrap">
-  <div class="eyebrow">16-Week Research &amp; Publication Plan · Jul 15 – Nov 3, 2026</div>
-  <h1>Training failure is predictable, preventable, and repairable — without ever restarting.</h1>
-  <p class="sub"><strong>SNR-SURGEON</strong> detects gradient signal-to-noise collapse along the sharpest loss directions steps before divergence, surgically damps only the unstable directions, and repairs Adam's poisoned moment buffers — rescuing the run with no checkpoint restart.</p>
+  <div class="eyebrow">16-Week Research &amp; Publication Plan · Jul 15 – Nov 3, 2026 · plan v2 — supersedes SNR-SURGEON</div>
+  <h1>Fork training at the moment of failure. Find where the poison lives. Repair it — don't reset it.</h1>
+  <p class="sub"><strong>OPTIMIZER AUTOPSY</strong> forks training at a detected pre-spike step and intervenes directly on Adam's state, showing <strong>where</strong> in (w, m, v) the damage lives, <strong>when</strong> it can be surgically repaired to recover the pre-spike trajectory, and <strong>when it provably cannot</strong> — turning a folklore mitigation into a predictable, measurable operation.</p>
   <div class="hero-meta">
     <span class="chip">Team <b>5 people + mentor</b></span>
-    <span class="chip">Scale <b>CIFAR → GPT-2 124M → 410M</b></span>
-    <span class="chip">Workshop <b>NeurIPS 2026</b></span>
-    <span class="chip">Full paper <b>TMLR / ICML 2027</b></span>
+    <span class="chip">Scale <b>124M + 410M — 1B cut</b></span>
+    <span class="chip">Workshop <b>arXiv Aug · NeurIPS 2026 WS</b></span>
+    <span class="chip">Full paper <b>NeurIPS main / D&amp;B / TMLR</b></span>
   </div>
 
   <figure class="spikefig">
-    <svg viewBox="0 0 900 300" role="img" aria-label="Diagram: a training loss curve where the detector fires before a spike; the damped and repaired run recovers (green) while the counterfactual diverges (red dashed). Below, the directional SNR trace collapses ahead of the crossing.">
+    <svg viewBox="0 0 900 320" role="img" aria-label="Diagram: a training loss curve is forked at a detected pre-spike step into matched branches — no-op diverges (red dashed), repair of v recovers to the clean counterfactual (green), global reset recovers slower (amber), a random-subspace control fails (grey). The gap of each branch to the clean counterfactual is the causal measurement.">
       <!-- axes -->
-      <line x1="50" y1="20" x2="50" y2="196" stroke="#E3E7EE" stroke-width="1.5"/>
-      <line x1="50" y1="196" x2="880" y2="196" stroke="#E3E7EE" stroke-width="1.5"/>
-      <text x="18" y="110" font-family="IBM Plex Mono" font-size="11" fill="#4A5568" transform="rotate(-90 18 110)">loss</text>
-      <!-- pre-spike loss -->
-      <path d="M50,60 C150,110 260,140 380,152 C440,158 480,160 520,162" fill="none" stroke="#0F1522" stroke-width="2.5"/>
-      <!-- divergent counterfactual -->
-      <path d="M520,162 C560,150 585,90 605,40 C618,12 630,6 645,4" fill="none" stroke="#E5484D" stroke-width="2.5" stroke-dasharray="6 5"/>
-      <text x="612" y="26" font-family="IBM Plex Mono" font-size="11.5" fill="#E5484D">no intervention → divergence</text>
-      <!-- rescued curve -->
-      <path d="M520,162 C555,158 570,150 595,153 C650,160 760,172 880,178" fill="none" stroke="#0E9F6E" stroke-width="2.5"/>
-      <text x="700" y="160" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">rescued — no restart</text>
-      <!-- detection marker -->
-      <line x1="460" y1="30" x2="460" y2="196" stroke="#2F5FE0" stroke-width="1.5" stroke-dasharray="3 4"/>
-      <circle cx="460" cy="158" r="4.5" fill="#2F5FE0"/>
-      <text x="330" y="42" font-family="IBM Plex Mono" font-size="11.5" fill="#2F5FE0">1 · detect (SNR collapse)</text>
-      <!-- damp marker -->
-      <line x1="520" y1="60" x2="520" y2="196" stroke="#B45309" stroke-width="1.5" stroke-dasharray="3 4"/>
-      <text x="470" y="72" font-family="IBM Plex Mono" font-size="11.5" fill="#B45309">2 · damp</text>
-      <!-- repair marker -->
-      <line x1="595" y1="120" x2="595" y2="196" stroke="#0E9F6E" stroke-width="1.5" stroke-dasharray="3 4"/>
-      <text x="560" y="134" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">3 · repair m,v</text>
-      <!-- lead time bracket -->
-      <path d="M460,210 L460,218 L520,218 L520,210" fill="none" stroke="#4A5568" stroke-width="1.2"/>
-      <text x="452" y="234" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">lead time (theory-bounded)</text>
-      <!-- SNR trace -->
-      <text x="18" y="278" font-family="IBM Plex Mono" font-size="11" fill="#2F5FE0" transform="rotate(-90 18 278)">SNR</text>
-      <line x1="50" y1="292" x2="880" y2="292" stroke="#E3E7EE" stroke-width="1.5"/>
-      <path d="M50,258 C150,256 260,260 340,262 C400,264 430,270 460,282 C475,288 490,291 520,291 C560,291 575,278 600,268 C650,260 760,258 880,258" fill="none" stroke="#2F5FE0" stroke-width="2"/>
-      <line x1="50" y1="284" x2="880" y2="284" stroke="#2F5FE0" stroke-width="1" stroke-dasharray="2 5" opacity=".5"/>
-      <text x="790" y="280" font-family="IBM Plex Mono" font-size="10.5" fill="#2F5FE0" opacity=".7">threshold τ</text>
+      <line x1="50" y1="20" x2="50" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
+      <line x1="50" y1="270" x2="880" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
+      <text x="18" y="150" font-family="IBM Plex Mono" font-size="11" fill="#4A5568" transform="rotate(-90 18 150)">loss</text>
+      <text x="820" y="290" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">steps</text>
+      <!-- trunk: shared pre-fork trajectory -->
+      <path d="M50,80 C130,130 230,160 330,172 C370,176 395,178 420,180" fill="none" stroke="#0F1522" stroke-width="2.5"/>
+      <text x="90" y="105" font-family="IBM Plex Mono" font-size="11.5" fill="#0F1522">shared trunk — same seed, same data order</text>
+      <!-- fork point -->
+      <line x1="420" y1="30" x2="420" y2="270" stroke="#2F5FE0" stroke-width="1.5" stroke-dasharray="3 4"/>
+      <circle cx="420" cy="180" r="5" fill="#2F5FE0"/>
+      <text x="290" y="44" font-family="IBM Plex Mono" font-size="11.5" fill="#2F5FE0">fork t₀ · snapshot (w, m, v)</text>
+      <!-- clean counterfactual -->
+      <path d="M420,180 C520,186 680,192 880,196" fill="none" stroke="#4A5568" stroke-width="2" stroke-dasharray="7 5"/>
+      <text x="700" y="188" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">B* clean counterfactual</text>
+      <!-- no-op: diverges -->
+      <path d="M420,180 C455,168 480,110 500,60 C512,32 525,22 545,16" fill="none" stroke="#E5484D" stroke-width="2.5" stroke-dasharray="6 5"/>
+      <text x="512" y="36" font-family="IBM Plex Mono" font-size="11.5" fill="#E5484D">B₀ no-op → spike</text>
+      <!-- random control: fails slowly -->
+      <path d="M420,180 C490,176 560,150 640,128 C720,108 800,96 880,90" fill="none" stroke="#9AA6B8" stroke-width="2" stroke-dasharray="2 5"/>
+      <text x="672" y="112" font-family="IBM Plex Mono" font-size="11" fill="#9AA6B8">B_r random-subspace control</text>
+      <!-- global reset: survives, slower -->
+      <path d="M420,180 C460,192 490,226 540,232 C630,240 760,222 880,214" fill="none" stroke="#B45309" stroke-width="2.5"/>
+      <text x="556" y="252" font-family="IBM Plex Mono" font-size="11.5" fill="#B45309">B_g global reset (SPAM)</text>
+      <!-- repair v: recovers to clean -->
+      <path d="M420,180 C465,182 505,190 560,194 C670,199 780,198 880,198" fill="none" stroke="#0E9F6E" stroke-width="2.5"/>
+      <text x="620" y="215" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">B_v repair v — rejoins clean path</text>
+      <!-- delta bracket -->
+      <path d="M886,196 L894,196 L894,214 L886,214" fill="none" stroke="#4A5568" stroke-width="1.2"/>
+      <text x="726" y="308" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">Δᵢ = L_final(Bᵢ) − L_final(B*)</text>
     </svg>
-    <figcaption>The paper in one figure: directional SNR (bottom, blue) collapses below τ before the spike. Detect → damp unstable eigendirections → repair Adam's moment buffers. Green = our run. Red dashed = the counterfactual everyone currently pays for with a checkpoint restart.</figcaption>
+    <figcaption>The paper in one figure: fork at t₀, run matched branches under different surgeries plus controls, measure each branch's final-loss gap Δ to the clean counterfactual. The gap pattern <b>is</b> the causal map of where the poison lives.</figcaption>
   </figure>
 </div></header>
 
 <!-- OVERVIEW -->
 <section id="overview"><div class="wrap">
   <div class="sec-kicker">00 · The paper in one page</div>
-  <h2>One central claim. Five components. Three kill criteria.</h2>
-  <p class="lede">Headline: <strong style="color:var(--ink)">predict-and-repair without restart, saving X% of compute vs. checkpoint-restart</strong> on spike-prone LLM pretraining. Everything else in the paper exists to support that sentence.</p>
+  <h2>Three contributions in priority order. The methodology leads.</h2>
+  <p class="lede">Identity: <strong style="color:var(--ink)">causal localization + repair</strong> — not predict-and-repair. The abstract's one-liner: <em>"We fork training at the moment of failure and intervene directly, showing where in the optimizer the damage lives, when it can be surgically repaired to recover the pre-spike trajectory, and when it provably cannot."</em> Everything else supports that sentence. (SNR-SURGEON survives as the localizer inside C2, demoted from oracle to instrument.)</p>
 
   <div class="grid c3">
-    <div class="card"><span class="num">C1 · DETECTOR</span><h4>Directional gradient SNR</h4><p>Tracked along the sharpest preconditioned-Hessian directions, estimated Hessian-free from microbatch disagreement. Collapses K steps before divergence.</p></div>
-    <div class="card"><span class="num">C2 · THEORY</span><h4>Guaranteed warning window</h4><p>In the Adam-preconditioned quadratic regime, directional SNR provably decays polynomially before the stability threshold is crossed.</p></div>
-    <div class="card"><span class="num">C3 · INTERVENTION</span><h4>Surgical damping</h4><p>Damp only the unstable eigendirections — explicit projected GD onto the stable subspace, preserving bulk descent.</p></div>
-    <div class="card"><span class="num">C4 · REPAIR</span><h4>Adam moment surgery</h4><p>Fix the poisoned components of m and v directly instead of restoring a checkpoint and skipping batches.</p></div>
-    <div class="card"><span class="num">C5 · CAUSAL VALIDATION</span><h4>Random-direction control</h4><p>Damping k random orthogonal directions at matched strength proves the identified directions — not damping per se — cause the rescue.</p></div>
-    <div class="card kill"><h4>⚠ Kill criteria (test early)</h4><p><b>Wk 4:</b> surgical ≯ matched-strength global clipping → paper collapses.<br><b>Wk 5:</b> lead time &lt; 20–30 steps over λ_max tracking → "predict" claim is weak.<br>Moment surgery ≈ zeroing v → demote to ablation, not headline.</p></div>
+    <div class="card"><span class="num">C1 · METHODOLOGY — the originality engine</span><h4>Training counterfactuals</h4><p>A fork-and-intervene protocol: snapshot (w, m, v) at a detected pre-spike step, run matched branches under different surgical interventions plus controls — same data order, same seed — and measure divergence in final converged loss. Nobody does controlled interventional training-run science at scale; the closest work stitches checkpoints observationally (LLM360 K2). A reusable scientific instrument.</p></div>
+    <div class="card"><span class="num">C2 · SCIENCE</span><h4>Where does the poison live?</h4><p>Use C1 to causally attribute divergence across w, m, v, and test whether the damage is low-rank / subspace-structured or delocalized. Directly resolves the puzzle SPAM's moment-reset ablation raised. Directional SNR from microbatch disagreement is repurposed as the localizer/trigger — "which subspace is poisoned" — not a future-predicting oracle.</p></div>
+    <div class="card"><span class="num">C3 · METHOD</span><h4>Repair beats reset — and when it doesn't</h4><p>Curvature/SNR-guided repair that rescales the identified poisoned subspace of v toward its pre-spike EMA while preserving descent information in the complement. Benchmarked against SPAM, ZClip, AdaGC, global reset, and the honest cheap baseline (spike-skip + clip) on <b>recovery of final loss</b> — not merely "survived divergence."</p></div>
+    <div class="card"><span class="num">THEORY</span><h4>A recovery theorem, not another onset theorem</h4><p>Spike onset is taken (arXiv 2506.04805). We prove a <b>localizability criterion</b> for recovery: when rank-k repair provably matches global reset, when bulk poison mass makes reset provably necessary, and the computable crossover between them. Theory that predicts its own failure regime.</p></div>
+    <div class="card"><span class="num">HONESTY MOVES</span><h4>Built-in credibility</h4><p>"Interventional attribution" in the sandbox; "causal" reserved for where it's earned. Natural spikes included (data-corruption class + LLM360 K2's released spike checkpoints), not just induced ones. Commutator correction measured, not assumed away. 3 seeds at 410M stated plainly.</p></div>
+    <div class="card kill"><h4>⚠ Kill criteria (decided now, not in rebuttal)</h4><p><b>If selective repair never beats global reset</b> → pivot to "the poison is delocalized: a causal explanation of why global reset wins" — still a real result.<br><b>If final-loss recovery ≈ cheap spike-skip</b> → the method is dead; ship C1+C2 as a science/benchmark paper to NeurIPS D&amp;B.<br>Knowing the fallback is what makes this fundable.</p></div>
   </div>
 </div></section>
 
@@ -214,14 +219,14 @@ footer .mono{font-size:12.5px}
 
   <h3>Concepts checklist</h3>
   <ul class="tick">
-    <li>Hessian of the loss, eigenvalues/eigenvectors; curvature λ and the GD stability threshold η·λ &lt; 2</li>
-    <li>Edge of Stability (EoS): λ_max hovers at 2/η during training</li>
-    <li>Adam's update rule, bias correction, the preconditioner v_t, and the preconditioned stability threshold (~38/η in the adaptive-EoS analysis)</li>
-    <li>Gradient noise scale &amp; SNR (McCandlish et al.)</li>
-    <li>Hessian-vector products via double backprop / Pearlmutter's trick; power iteration &amp; Lanczos for top-k eigenpairs</li>
-    <li>Loss spikes in LLM pretraining: causes (LR warmup, low precision, ε, data) and current fixes (skip batches, restart, clip)</li>
-    <li>Small-scale-proxies methodology (Wortsman et al.) — how to induce instability deliberately</li>
-    <li>Projected gradient descent and subspace methods</li>
+    <li>Adam's update rule, bias correction, first/second moments m and v, the preconditioner D = diag(√v + ε), and why v "lags" the instantaneous squared gradients (the decoupling mechanism of arXiv 2506.04805)</li>
+    <li>Hessian of the loss, eigenvalues/eigenvectors; GD stability threshold η·λ &lt; 2; Edge of Stability (λ_max hovers at 2/η); adaptive EoS (preconditioned sharpness ≈ 38/η)</li>
+    <li>Stochastic linear recursions: AR(2) companion matrix, spectral radius, contraction rate, stationary variance — the entire theory workstream lives here</li>
+    <li>Gradient noise scale &amp; SNR (McCandlish et al.); microbatch-disagreement variance estimation</li>
+    <li>Hessian-vector products via Pearlmutter's trick / double backprop; power iteration &amp; Lanczos for top-k eigenpairs</li>
+    <li>Loss spikes: causes (LR schedule, low precision, Adam ε, data quality, hardware faults / silent data corruption) and current fixes (skip-and-reinject, checkpoint restart, clipping, moment reset)</li>
+    <li>Deterministic training replay: seeded data loaders, RNG state capture, bitwise-reproducible forks — the harness is only as good as its determinism</li>
+    <li>Small-scale-proxies methodology (Wortsman et al.) — how to induce instability deliberately and defend its validity</li>
   </ul>
 
   <h3>Videos — watch in this order</h3>
@@ -229,17 +234,17 @@ footer .mono{font-size:12.5px}
     <tr><th>#</th><th>Resource</th><th>Why</th></tr>
     <tr><td>1</td><td>3Blue1Brown — <i>Essence of Linear Algebra</i> (eigenvector chapters, esp. Ch. 14)</td><td>Eigen-intuition everything else builds on</td></tr>
     <tr><td>2</td><td>3Blue1Brown — <i>Neural Networks</i> series (backprop chapters)</td><td>Gradient mechanics</td></tr>
-    <tr><td>3</td><td>Karpathy — <i>Zero to Hero</i>: "Let's build GPT" + <b>"Let's reproduce GPT-2 (124M)"</b></td><td>The 124M video <b>is</b> your Week-3 infra tutorial. Watch twice.</td></tr>
-    <tr><td>4</td><td>Jeremy Cohen — Edge of Stability talks (YouTube: "Cohen Edge of Stability" — Simons Institute / ML theory seminars)</td><td>The regime your theory lives in</td></tr>
-    <tr><td>5</td><td>YouTube: "loss spikes LLM training", "Hessian eigenvalue deep learning Lanczos"</td><td>Supplementary talks</td></tr>
+    <tr><td>3</td><td>Karpathy — <i>Zero to Hero</i>: "Let's build GPT" + <b>"Let's reproduce GPT-2 (124M)"</b></td><td>The 124M video <b>is</b> your Week-2 infra tutorial. Watch twice.</td></tr>
+    <tr><td>4</td><td>Jeremy Cohen — Edge of Stability talks (YouTube: "Cohen Edge of Stability" — Simons Institute / ML theory seminars)</td><td>The stability regime the theory borrows</td></tr>
+    <tr><td>5</td><td>Any good "Adam optimizer explained / bias correction derivation" lecture + YouTube: "loss spikes LLM training"</td><td>You will be operating on m and v with a scalpel — know them cold</td></tr>
   </table></div>
 
   <h3>Courses, notes &amp; tools</h3>
   <ul class="tick">
     <li><b>Roger Grosse — CSC2541 <i>Neural Net Training Dynamics</i> notes (Toronto)</b> — the single best resource for this project's theory side</li>
-    <li>Stanford CS231n optimization notes (<a href="https://cs231n.github.io">cs231n.github.io</a>) · Stanford CS25 (Transformers United) lectures on YouTube</li>
-    <li>Boyd &amp; Vandenberghe, <i>Convex Optimization</i>, Ch. 9 — unconstrained minimization, condition-number intuition</li>
-    <li>Tools: PyTorch <code>autograd.grad(create_graph=True)</code> for HVPs · <a href="https://github.com/amirgholami/PyHessian">PyHessian</a> (top eigenvalues, spectral density) · <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (LLM pretraining base) · Weights &amp; Biases — every run logged, non-negotiable</li>
+    <li>Stanford CS231n optimization notes (<a href="https://cs231n.github.io">cs231n.github.io</a>) · Boyd &amp; Vandenberghe, <i>Convex Optimization</i>, Ch. 9 · any linear-systems treatment of AR(2) recursions</li>
+    <li>Tools: PyTorch <code>autograd.grad(create_graph=True)</code> for HVPs · <a href="https://github.com/amirgholami/PyHessian">PyHessian</a> · <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (fork base) · <a href="https://github.com/bluorion-com/ZClip">ZClip official repo</a> (baseline) · SPAM official implementation (linked from arXiv 2501.06842) · Weights &amp; Biases — every run logged, non-negotiable</li>
+    <li><b>Natural-spike goldmine:</b> LLM360 released paired spike/normal checkpoints from K2's real 65B training spikes (<a href="https://huggingface.co/LLM360/K2-Spike-1">K2-Spike-1</a>, <a href="https://huggingface.co/LLM360/K2-Spike-2">K2-Spike-2</a> on HuggingFace) — study them in Week 1; they are free evidence of what real poison looks like</li>
   </ul>
 </div></section>
 
@@ -247,37 +252,39 @@ footer .mono{font-size:12.5px}
 <section id="papers"><div class="wrap">
   <div class="sec-kicker">02 · Annotated reading list</div>
   <h2>Papers, in reading order</h2>
-  <p class="lede">One shared Zotero library. Every paper gets a 5-line note: claim / method / what we borrow / how we differ / cite-where. P5 owns it. <b>Week 1:</b> fresh arXiv sweep for 2025–26 spike papers — a scooped detector changes framing, not the project, but you must know.</p>
+  <p class="lede">One shared Zotero library. Every paper gets a 5-line note: claim / method / what we borrow / how we differ / cite-where. <b>Week 1:</b> fresh arXiv sweep for 2025–26 spike papers. The onset-theory paper (2506.04805) must be cited prominently and the recovery claim staked sharply against it — same regime, different question.</p>
 
-  <h3>Tier 1 — read fully, Weeks 1–2 · these define the problem</h3>
+  <h3>Tier 1 — read fully, Week 1 · these define the battlefield</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Paper</th><th>arXiv</th><th>Why it matters</th></tr>
-    <tr><td>Cohen et al. — <i>GD on Neural Networks Typically Occurs at the Edge of Stability</i> (ICLR 2021)</td><td class="mono">2103.00065</td><td>Defines EoS; your theory lives here</td></tr>
-    <tr><td>Cohen et al. — <i>Adaptive Gradient Methods at the Edge of Stability</i></td><td class="mono">2207.14484</td><td>Adam-preconditioned sharpness — your working eigenbasis</td></tr>
-    <tr><td>Wortsman et al. — <i>Small-scale Proxies for Large-scale Transformer Training Instabilities</i></td><td class="mono">2309.14322</td><td>Your entire spike-induction methodology; cite to inherit legitimacy</td></tr>
-    <tr><td>Molybog et al. — <i>A Theory on Adam Instability in Large-Scale ML</i></td><td class="mono">2304.09871</td><td>The "poisoned moment buffer" story — foundation of the repair</td></tr>
-    <tr><td>McCandlish et al. — <i>An Empirical Model of Large-Batch Training</i></td><td class="mono">1812.06162</td><td>Gradient noise scale / SNR formalism your detector generalizes directionally</td></tr>
+    <tr><td><i>Adaptive Preconditioners Trigger Loss Spikes in Adam</i> (2025)</td><td class="mono">2506.04805</td><td>The onset theory — v decouples from squared gradients, preconditioned sharpness crosses threshold, five-stage spike anatomy. <b>Our theory starts where this stops: recovery, not onset.</b> Cite prominently.</td></tr>
+    <tr><td>Huang et al. — <i>SPAM: Spike-Aware Adam with Momentum Reset</i></td><td class="mono">2501.06842</td><td>The named puzzle C2 resolves: their ablation shows moment reset matters but not <i>where</i> or <i>why</i>. Primary baseline + primary foil.</td></tr>
+    <tr><td>Kumar et al. — <i>ZClip: Adaptive Spike Mitigation for LLM Pre-Training</i></td><td class="mono">2504.02507</td><td>Baseline — z-score EMA anomaly detection on gradient norms; reimplement from their repo</td></tr>
+    <tr><td><i>AdaGC: Enhancing LLM Pretraining Stability via Adaptive Gradient Clipping</i></td><td class="mono">2502.11034</td><td>Baseline — per-parameter adaptive clipping; also the catalog of natural spike causes (data, hardware, precision, hyperparameters) our spike-sourcing section must answer</td></tr>
+    <tr><td>Molybog et al. — <i>A Theory on Adam Instability in Large-Scale ML</i></td><td class="mono">2304.09871</td><td>The original "poisoned moment buffer" story — foundation of the repair framing</td></tr>
+    <tr><td>Wortsman et al. — <i>Small-scale Proxies for Large-scale Transformer Training Instabilities</i></td><td class="mono">2309.14322</td><td>Spike-induction methodology; we inherit its legitimacy but must additionally validate mechanism transfer across our own two scales</td></tr>
   </table></div>
 
-  <h3>Tier 2 — read fully, Weeks 2–3 · baselines &amp; theory neighbors</h3>
+  <h3>Tier 2 — read fully, Weeks 1–2 · evidence, controls, neighbors</h3>
   <div class="tbl-scroll"><table>
     <tr><th>Paper</th><th>Where</th><th>Why</th></tr>
-    <tr><td><i>ZClip: Adaptive Spike Mitigation</i> (2025)</td><td class="mono">arXiv: "ZClip"</td><td>Baseline 1 — reimplement</td></tr>
-    <tr><td><i>AdaGC</i> adaptive gradient clipping (2025)</td><td class="mono">arXiv: "AdaGC"</td><td>Baseline 2 — reimplement</td></tr>
-    <tr><td>Damian, Nichani, Lee — <i>Self-Stabilization: The Implicit Bias of GD at EoS</i></td><td class="mono">2209.15594</td><td>EoS implicitly does projected GD — your corollary makes it explicit</td></tr>
+    <tr><td>LLM360 — <i>K2: Building a 65B 360-Open LLM</i> (spike sections + released spike checkpoints)</td><td class="mono">2501.07124</td><td>The observational version of what we do interventionally; their public spike checkpoints are our natural-spike test set</td></tr>
+    <tr><td>Ma et al. — <i>Understanding Silent Data Corruption in LLM Training</i></td><td class="mono">2502.12340</td><td>The SDC case: a spike near the end of fine-tuning → zero test accuracy. Proof that "reaction is enough" fails somewhere — the regime C1 must find</td></tr>
+    <tr><td>Cohen et al. — <i>Adaptive Gradient Methods at the Edge of Stability</i></td><td class="mono">2207.14484</td><td>Preconditioned sharpness ≈ 38/η — the working eigenbasis for the localizer</td></tr>
+    <tr><td>Cohen et al. — <i>GD Typically Occurs at the Edge of Stability</i></td><td class="mono">2103.00065</td><td>EoS foundations</td></tr>
+    <tr><td>McCandlish et al. — <i>An Empirical Model of Large-Batch Training</i></td><td class="mono">1812.06162</td><td>Gradient noise scale / SNR formalism the localizer generalizes directionally</td></tr>
+    <tr><td>Damian, Nichani, Lee — <i>Self-Stabilization: The Implicit Bias of GD at EoS</i></td><td class="mono">2209.15594</td><td>Implicit projected-GD machinery reused in the repair analysis</td></tr>
     <tr><td>Arora, Li, Panigrahi — <i>Understanding GD on the Edge of Stability</i></td><td class="mono">2205.09745</td><td>Quadratic-regime proof techniques</td></tr>
-    <tr><td>Chowdhery et al. — <i>PaLM</i> (loss-spike sections)</td><td class="mono">2204.02311</td><td>The restart-and-skip recipe you replace — quantify against this</td></tr>
-    <tr><td>Zeng et al. — <i>GLM-130B</i> (training-stability sections)</td><td class="mono">2210.02414</td><td>Real-world spike mitigation tricks (embedding grad shrink, etc.)</td></tr>
-    <tr><td>Ghorbani, Krishnan, Xiao — <i>Hessian Eigenvalue Density</i></td><td class="mono">1901.10159</td><td>Lanczos spectral methods at scale</td></tr>
-    <tr><td>Yao et al. — <i>PyHessian</i></td><td class="mono">1912.07145</td><td>Your Hessian tooling</td></tr>
+    <tr><td>Chowdhery et al. — <i>PaLM</i> (loss-spike sections)</td><td class="mono">2204.02311</td><td>The restart-and-skip folklore recipe we turn into a measured operation</td></tr>
   </table></div>
 
-  <h3>Tier 3 — skim for related work, Weeks 3–4</h3>
+  <h3>Tier 3 — skim for related work, Weeks 2–4</h3>
   <ul class="tick">
-    <li>Zhang et al. — <i>Why Gradient Clipping Accelerates Training</i> (arXiv 1905.11881)</li>
-    <li>SAM — Sharpness-Aware Minimization (arXiv 2010.01412) — contrast: they prevent sharpness, you detect + repair</li>
-    <li>Takase et al. — <i>Spike No More</i> (embedding-related spike prevention) · Gilmer et al. — instability &amp; LR-warmup studies</li>
-    <li>Anything 2025–26 matching: "loss spike", "training instability LLM", "gradient SNR", "Adam second moment spike"</li>
+    <li>Zeng et al. — <i>GLM-130B</i> (arXiv 2210.02414) — real-world spike tricks (embedding-gradient shrink) · Takase et al. — <i>Spike No More</i> (2312.16903) — prevention-side neighbor</li>
+    <li>Ghorbani, Krishnan, Xiao — <i>Hessian Eigenvalue Density via Lanczos</i> (1901.10159) · Yao et al. — <i>PyHessian</i> (1912.07145) — spectral tooling</li>
+    <li>SDC follow-ups: <i>Exploring SDC as a Reliability Challenge in LLM Training</i> (2604.00726), <i>LLM-PRISM</i> (2604.10390) — natural-spike taxonomy</li>
+    <li>SAM (2010.01412) — contrast: prevention vs. autopsy · Zhang et al. — <i>Why Gradient Clipping Accelerates Training</i> (1905.11881)</li>
+    <li>Anything 2025–26 matching: "loss spike", "training instability", "optimizer state corruption", "Adam second moment", "counterfactual training"</li>
   </ul>
 </div></section>
 
@@ -288,206 +295,213 @@ footer .mono{font-size:12.5px}
 
   <div class="flabel">Setup</div>
   <div class="formula">L(θ), Hessian H = ∇²L(θ), eigenpairs (λᵢ, uᵢ), λ₁ ≥ λ₂ ≥ …
+Adam state: m_t (first moment), v_t (second moment), D_t = diag(√v_t + ε)
+preconditioned Hessian  H̃ = D^(−1/2) H D^(−1/2)  — top-k via Lanczos with preconditioned HVPs
 minibatch gradient  g = ∇L(θ) + ξ,   Cov(ξ) = Σ/|B|</div>
 
-  <div class="flabel">Directional gradient SNR — the core quantity</div>
-  <div class="formula">SNR_u(t) = |E[gᵀu]| / √(Var(gᵀu)) = |∇L(θ)ᵀu| / √(uᵀΣu / |B|)
+  <div class="flabel">C1 · The fork-and-intervene protocol — the instrument</div>
+  <div class="formula"><span class="c"># at localizer trigger step t₀ (pre-spike):</span>
+snapshot  S = (w_{t₀}, m_{t₀}, v_{t₀}, RNG state, data cursor)
 
-<span class="c"># microbatch-disagreement estimator (near-zero overhead):</span>
-<span class="c"># microbatch grads g₁…g_m already exist under gradient accumulation</span>
-mean:  ḡᵀu
-var:   (1/(m−1)) Σⱼ (gⱼᵀu − ḡᵀu)²
-SNR̂_u = |ḡᵀu| / √(var̂/m)      <span class="c"># cost: m dot-products per tracked direction per step — free</span></div>
+branches, ALL with identical seed + data order:
+  B₀   no-op            <span class="c"># let the spike happen — the damage measurement</span>
+  B_w  repair w only    B_m  repair m only    B_v  repair v only
+  B_g  global reset of (m, v)                 <span class="c"># SPAM-style — the folklore arm</span>
+  B_r  random-subspace repair, matched rank &amp; strength   <span class="c"># the causal control</span>
+  B_s  spike-skip + clip                       <span class="c"># the honest ≈0-cost baseline</span>
+  B*   clean counterfactual                    <span class="c"># spike batch replaced, run continues</span>
 
-  <div class="flabel">Directions to track — Adam's preconditioned eigenbasis</div>
-  <div class="formula">H̃ = D^(−1/2) H D^(−1/2),   D = diag(√v_t + ε)
+measurement:  Δᵢ = L_final(Bᵢ) − L_final(B*)
+attribution:  effect(component c) = Δ_noop − Δ_repair-c   <span class="c"># minus B_r control</span>
 
-<span class="c"># top-k of H̃ via power iteration / Lanczos with preconditioned HVPs</span>
-<span class="c"># refresh every T_eig ∈ [50, 200] steps, warm-started from previous eigenvectors</span>
-<span class="c"># HVP cost ≈ 2 extra backprops per refresh — profile and report it</span></div>
+<span class="c"># cost control (mandatory): establish ONCE, on a small set, the lead time between</span>
+<span class="c"># immediate-recovery divergence and final-loss divergence; then use short forks</span>
+<span class="c"># (500–2000 post-fork steps) as the proxy for the big sweep, full-length forks</span>
+<span class="c"># only on the decision set. Without this the compute plan is fantasy.</span></div>
 
-  <div class="flabel">Stability thresholds</div>
-  <div class="formula">GD:            η·λᵢ > 2       → divergence along uᵢ
-GD + momentum: η·λᵢ > 2(1+β)
-Adam (adaptive EoS): preconditioned sharpness λ̃ hovers ≈ 38/η
-                     (β₁=0.9, β₂=0.999 — derive cleanly in the appendix,
-                      don't just quote the constant)</div>
+  <div class="flabel">C2 · The localizer — directional SNR, demoted from oracle to instrument</div>
+  <div class="formula">SNR_u = |ḡᵀu| / √(var̂(gᵀu)/m)     <span class="c"># microbatch-disagreement estimator, m microbatch grads</span>
+<span class="c"># grads g₁…g_m already exist under gradient accumulation — m dot-products per direction, free</span>
 
-  <div class="flabel">Theorem 1 — the statement to prove</div>
-  <div class="formula"><span class="c"># quadratic loss L(θ)=½θᵀHθ, per-direction coordinate x_t = uᵢᵀθ_t,</span>
-<span class="c"># SGD+momentum, then extend to frozen-preconditioner Adam approximation</span>
-x_{t+1} = x_t − η(λᵢx_t + ε_t) + β(x_t − x_{t−1}),  ε_t ~ noise, Var = σᵢ²
-<span class="c"># a stochastic linear recursion — AR(2)</span>
+poison score along uᵢ:   pᵢ = |uᵢᵀ(v_t − v̄_pre)| / uᵢᵀv̄_pre     <span class="c"># v̄_pre = pre-spike EMA of v</span>
+poisoned set:            P = { i : pᵢ &gt; τ_p  and  SNR_uᵢ &lt; τ_s }
+spectral-mass concentration:  ψ_k = ‖Π_k δ_v‖ / ‖δ_v‖,   δ_v = v_t − v̄_pre,  Π_k = top-k projector
 
-Let ρ(λᵢ,η,β) = spectral radius of the companion matrix.
-As λᵢ(t) sharpens toward λ* at rate α, i.e. λᵢ(t) ≈ λ* − α(T−t):
-  • mean signal contracts like ρᵗ|x₀|,  ρ → 1
-  • stationary noise variance amplifies like σᵢ²/(1−ρ²) ~ σᵢ²/(c·(λ*−λᵢ))
-  ⇒ SNR_uᵢ(t) = O(√(λ*−λᵢ(t)))  — decays POLYNOMIALLY before the crossing
-  ⇒ lead time  T_lead ≥ f(α, σᵢ, detection threshold τ)   <span class="c"># computable warning-window bound</span>
+<span class="c"># VALIDATED CLAIM, not a footnote: measure noise–curvature alignment directly at both</span>
+<span class="c"># scales, in bf16, and report where it degrades. Fallback localizer: a few power-iteration</span>
+<span class="c"># steps on top-k curvature directions — cheap, robust rather than faith-based.</span></div>
 
-<span class="c"># Corollary (Theorem 2): surgical damping = projected GD onto</span>
-<span class="c"># span{uᵢ : ηλᵢ &lt; 2} — Damian et al.'s implicit self-stabilization,</span>
-<span class="c"># made explicit, earlier, controllable.</span>
-<span class="c"># Proof tools: AR(2) stationary variance, companion-matrix eigenvalues,</span>
-<span class="c"># standard perturbation bounds. 2–3 weeks with mentor help.</span></div>
+  <div class="flabel">Theory · Recovery, not onset — the localizability criterion</div>
+  <div class="formula"><span class="c"># A spike injects perturbation δ = (δ_w, δ_m, δ_v) into the state. Model recovery as the</span>
+<span class="c"># Adam-quadratic stochastic linear recursion acting on δ (frozen-preconditioner leading order):</span>
+x_{t+1} = x_t − η D^(−1/2)(H x_t + ε_t)D^(−1/2)-terms + β-momentum coupling
+<span class="c"># per-direction: AR(2) with contraction rate ρᵢ(λ̃ᵢ, η, β) = spectral radius of companion matrix</span>
 
-  <div class="flabel">The intervention — surgical damping</div>
-  <div class="formula">U = { i : SNR̂_uᵢ &lt; τ  and  λ̃ᵢ > γ·λ* }
-g_damped = g − Σ_{i∈U} (1−cᵢ)(gᵀuᵢ)uᵢ,   cᵢ ∈ [0,1]
-<span class="c"># cᵢ=0 is full projection; schedule cᵢ → 1 over R recovery steps</span></div>
+THEOREM 1 (selective repair suffices).  If ψ_k ≥ ψ*(gap):
+  rank-k repair on exactly the top-k curvature subspace restores ρ &lt; 1 in every direction
+  and the trajectory re-converges to the clean path up to O(η)
+  ⇒ selective repair is provably as good as global reset, while preserving
+    the complement's descent information.
 
-  <div class="flabel">The repair — Adam moment surgery</div>
-  <div class="formula">m_t ← m_t − (m_tᵀuᵢ)uᵢ                     <span class="c"># remove poisoned first-moment component</span>
-v_t ← along uᵢ: pre-spike EMA or robust median of recent uᵢᵀ(g⊙g)
+THEOREM 2 (reset necessity).  If bulk mass 1 − ψ_k exceeds threshold:
+  ANY rank-k repair leaves a residual amplification factor &gt; 1
+  ⇒ global reset is provably necessary.
+  <span class="c"># This explains SPAM's empirical result: magnitude-based selection picks the wrong</span>
+  <span class="c"># subspace, or the poison is genuinely delocalized in their regime.</span>
 
-<span class="c"># required ablations: (a) full v reset  (b) global vs directional surgery  (c) no surgery</span>
-<span class="c"># HEADLINE: wall-clock/FLOPs saved vs checkpoint-restart-and-skip (the PaLM recipe)</span></div>
+CROSSOVER: ψ* is a computable threshold in the poison's spectral-mass concentration
+relative to the top-k / bulk curvature gap  (λ̃_k − λ̃_bulk).
 
-  <div class="flabel">Metrics</div>
+<span class="c"># HONESTY CLAUSE — the non-commutativity hole is load-bearing: decoupling per-direction</span>
+<span class="c"># assumes D^(−1/2) commutes with H's eigenbasis; it doesn't. Frame everything as the</span>
+<span class="c"># leading-order characterization and MEASURE the commutator's effect on ψ* at 124M.</span>
+<span class="c"># Claim a leading-order theory with a measured correction — never a guarantee.</span>
+
+<span class="c"># FALSIFIABLE PER-INSTANCE PREDICTION (top-venue signature): measured ψ_k predicts,</span>
+<span class="c"># per-spike, whether selective repair beats global reset. Then test it.</span></div>
+
+  <div class="flabel">C3 · The repair operator</div>
+  <div class="formula"><span class="c"># rescale the identified poisoned subspace of v toward its pre-spike EMA,</span>
+<span class="c"># preserve descent information in the complement:</span>
+v_t ← v_t − Σ_{i∈P} c_i · uᵢuᵢᵀ (v_t − v̄_pre) applied in the diagonal approximation
+m_t ← m_t − Σ_{i∈P} (m_tᵀuᵢ) uᵢ              <span class="c"># remove poisoned first-moment components</span>
+c_i ∈ [0,1] scheduled → full repair over R recovery steps
+
+<span class="c"># required ablations: (a) repair v vs m vs w vs all  (b) subspace vs global</span>
+<span class="c"># (c) magnitude-selected (SPAM-style) vs curvature/SNR-selected subspace  (d) no-op</span></div>
+
+  <div class="flabel">Metric hierarchy — in this order, always</div>
   <ul class="tick" style="margin-top:10px">
-    <li><b>Lead time</b> — steps between detector trigger and divergence event (loss &gt; μ + kσ of trailing window), vs. baselines: gradient-norm threshold, λ_max tracking, ZClip's z-score</li>
-    <li><b>Rescue rate</b> — % of induced spikes where the run recovers to within δ of control loss within W steps</li>
-    <li><b>Compute saved</b> — FLOPs(restart from checkpoint + reskip data) − FLOPs(surgery), as % of run</li>
-    <li><b>Detector precision/recall</b> — ≥5 seeds per config, report CIs; false-positive rate on stable runs gets its own figure</li>
-    <li><b>Overhead</b> — wall-clock % added by eigenvector refresh + SNR tracking</li>
+    <li><b>1 · Final converged loss vs clean counterfactual</b> — the headline. Reactive methods report "prevented divergence / lower perplexity"; almost none prove they recover the counterfactual clean trajectory. We do, because C1 gives us the counterfactual.</li>
+    <li><b>2 · Compute to recover</b> — steps × FLOPs to re-enter δ-band around the clean path, vs checkpoint-restart-and-skip accounting</li>
+    <li><b>3 · Spike survival rate</b> — the field's usual metric, reported last on purpose</li>
+    <li><b>Attribution map</b> — effect(w), effect(m), effect(v) with CIs across ≥5 seeds; random-subspace control subtracted</li>
+    <li><b>Localizability</b> — ψ_k distribution per spike class (induced-LR, induced-ε, induced-precision, data-corruption, K2-natural); theory-predicts-practice scatter: ψ_k vs (selective − global) outcome</li>
+    <li><b>Overhead</b> — wall-clock % of localizer (eigenvector refresh + SNR tracking) and snapshot I/O</li>
   </ul>
 </div></section>
 
 <!-- INFRA -->
 <section id="infra"><div class="wrap">
   <div class="sec-kicker">04 · Infrastructure &amp; compute</div>
-  <h2>Codebase, data, GPUs</h2>
+  <h2>Harness, data, GPUs — and the fork-cost arithmetic</h2>
 
   <div class="grid c2">
-    <div class="card"><h4>Repo layout</h4><p class="mono" style="font-size:13px;color:var(--ink)">snr-surgeon/<br>&nbsp;&nbsp;detector/ · intervention/ · theory/<br>&nbsp;&nbsp;experiments/cnn/ · experiments/llm/ (nanoGPT fork)<br>&nbsp;&nbsp;baselines/ · analysis/</p><p style="margin-top:10px">Config-driven (YAML + hydra or plain argparse), every run seeded + wandb-logged. CI: a 5-minute CIFAR smoke test running the detector end-to-end. Reproducibility = reviewer trust.</p></div>
-    <div class="card"><h4>Datasets</h4><p><b>CNN track:</b> CIFAR-10/100 (torchvision).<br><b>LLM track:</b> OpenWebText (nanoGPT default) and/or FineWeb 10BT sample (HuggingFace <span class="mono" style="color:var(--trace)">HuggingFaceFW/fineweb</span>).</p><p style="margin-top:10px"><b>Key trick:</b> you don't need convergence — you need the spike window. Budget 2–5B tokens per 124M run, not 300B.</p></div>
+    <div class="card"><h4>Repo layout</h4><p class="mono" style="font-size:13px;color:var(--ink)">optimizer-autopsy/<br>&nbsp;&nbsp;harness/&nbsp;&nbsp;<span style="color:var(--ink-2)"># fork/snapshot/replay — the product</span><br>&nbsp;&nbsp;localizer/ · repair/ · theory/<br>&nbsp;&nbsp;experiments/llm/ (nanoGPT fork) · experiments/proxy/<br>&nbsp;&nbsp;baselines/ (SPAM · ZClip · AdaGC · clip · skip)<br>&nbsp;&nbsp;analysis/ · spikes/ (recipes + K2 checkpoints)</p><p style="margin-top:10px">Deterministic replay is a first-class requirement: seeded loaders, RNG state in every snapshot, bitwise-identical trunk verification in CI. A 10-minute smoke test forks a tiny run and asserts branch divergence is zero under no-op-with-no-spike. Reproducibility isn't a virtue here — it's the instrument's calibration.</p></div>
+    <div class="card"><h4>Datasets &amp; spike sourcing</h4><p><b>LLM track:</b> OpenWebText or FineWeb 10BT sample (<span class="mono" style="color:var(--trace)">HuggingFaceFW/fineweb</span>) on GPT-2 124M and Pythia-style 410M. You need spike windows, not convergence: 2–5B tokens per 124M run.</p><p style="margin-top:10px"><b>Induced spikes:</b> high LR, tiny Adam ε (1e-12), bf16→fp16 on sensitive ops, weakened QK-layernorm.<br><b>Natural spikes (mandatory):</b> data-injected corrupted-batch spikes — the cheapest natural class (AdaGC's catalog: data quality, hardware faults, precision, hyperparameters) — plus LLM360's released K2 spike/normal checkpoint pairs as a real-world validation set. A repair that only handles ε-perturbation spikes at 124M is a toy.</p></div>
   </div>
 
-  <h3>Compute plan — the biggest risk, handle it in Week 1</h3>
+  <h3>The fork-cost arithmetic — face it in Week 1, not Week 9</h3>
   <div class="tbl-scroll"><table>
-    <tr><th>Tier</th><th>What</th><th>Needs</th></tr>
-    <tr><td>CNN causal</td><td>ResNet-18/WRN on CIFAR, hundreds of short runs</td><td>1–2 consumer GPUs / Colab Pro / Kaggle — cheap</td></tr>
-    <tr><td>GPT-2 124M</td><td>~2–4 days on 8×A100, or 1–2 weeks on 1–2 A100s at reduced token budget</td><td>Cloud credits</td></tr>
-    <tr><td>GPT-2 410M (Pythia-style config)</td><td>4–8× the above; fewer seeds (3 acceptable — say so honestly)</td><td>Cloud credits — <b>the gating resource</b></td></tr>
-    <tr><td style="color:var(--alarm)">~1B</td><td colspan="2"><b>Cut.</b> 124M + 410M + small-scale-proxies citation is the plan of record. 1B only if a sponsor lands.</td></tr>
+    <tr><th>Quantity</th><th>Value</th><th>Note</th></tr>
+    <tr><td>Combinatorics</td><td class="mono">(4–6 spike sites) × (7 branches) × (5–8 seeds) × (2 scales)</td><td>≈ 300–650 forks — the costliest possible design, chosen on purpose: it's the originality source</td></tr>
+    <tr><td>Proxy trick (mandatory)</td><td>Short forks: 500–2000 post-fork steps</td><td>Calibrate once: lead time between immediate-recovery divergence and final-loss divergence on ~20 full-length forks; then the sweep runs on the cheap proxy</td></tr>
+    <tr><td>Full-length forks</td><td class="mono">~30–40 total</td><td>Decision set only: headline table, theory-predicts-practice test</td></tr>
+    <tr><td>124M budget</td><td>~2–4 days on 8×A100 for trunk + sweep at reduced token budget</td><td>Cloud credits</td></tr>
+    <tr><td>410M budget</td><td>4–8× 124M; <b>3 seeds, stated honestly</b></td><td>The gating resource</td></tr>
+    <tr><td style="color:var(--alarm)">1B</td><td colspan="2"><b>Cut entirely.</b> "If compute allows" reads as vaporware and reviewers smell it. Validate mechanism transfer 124M→410M instead of citing the proxies framing alone.</td></tr>
   </table></div>
-  <p style="margin-top:14px"><b>Credit sources to hit in Week 1:</b> Google TPU Research Cloud (free TPU quota; nanoGPT JAX ports / levanter) · Lambda / Together / Modal research credits · Hack Club compute ask (HCB fiscal sponsorship experience) · mentor's university cluster · Vast.ai spot A100s.</p>
-
-  <h3>Spike-induction recipes (Wortsman + Molybog)</h3>
-  <ul class="tick">
-    <li>LR 2–5× above stable · short/no warmup · large batch + high LR combos</li>
-    <li>Remove/weaken QK-layernorm · low-precision (bf16 → fp16) on sensitive ops</li>
-    <li>Small Adam ε (1e-12) and ε perturbations · late-warmup LR bumps mid-run</li>
-    <li>Sweep at 124M to find 3–4 <i>reliable</i> spike recipes; reuse at 410M</li>
-  </ul>
+  <p style="margin-top:14px"><b>Credit sources to hit in Week 1:</b> Google TPU Research Cloud · Lambda / Together / Modal research credits · Hack Club compute ask (HCB fiscal sponsorship experience) · mentor's university cluster · Vast.ai spot A100s. Snapshot I/O plan: (w, m, v) at 124M ≈ 1.5GB per snapshot in fp32 — budget disk and upload paths now.</p>
 </div></section>
 
 <!-- TEAM -->
 <section id="team"><div class="wrap">
-  <div class="sec-kicker">05 · Team of 5 + mentor</div>
-  <h2>Roles &amp; cadence</h2>
+  <div class="sec-kicker">05 · Team of 5 + mentor · three workstreams</div>
+  <h2>Workstreams &amp; cadence</h2>
   <div class="tbl-scroll"><table>
-    <tr><th>Person</th><th>Role</th><th>Owns</th></tr>
-    <tr><td><span class="owner">P1</span> Lead</td><td>Detector + integration</td><td>Directional SNR estimator, eigenvector tracking, moment surgery, integration, paper writing lead</td></tr>
-    <tr><td><span class="owner">P2</span></td><td>LLM runs A</td><td>nanoGPT fork, 124M runs, spike-induction sweeps</td></tr>
-    <tr><td><span class="owner">P3</span></td><td>LLM runs B</td><td>410M runs, logging infra, wandb dashboards, compute procurement ops</td></tr>
-    <tr><td><span class="owner">P4</span></td><td>Causal / CNN track</td><td>CNN experiments, random-direction control arm, damping &amp; surgery ablations</td></tr>
-    <tr><td><span class="owner">P5</span></td><td>Baselines + lit</td><td>ZClip / AdaGC / global-clip / LR-drop-restart reimplementations, lead-time benchmark harness, Zotero, related work</td></tr>
-    <tr><td><span class="owner">M</span> Mentor</td><td>Theory</td><td>Theorems 1 &amp; 2 formalization, proof checking, venue strategy, arXiv endorsement</td></tr>
+    <tr><th>Workstream</th><th>People</th><th>Owns</th></tr>
+    <tr><td><b>A — Counterfactual infrastructure + causal attribution</b> (the originality engine)</td><td><span class="owner">P1</span><span class="owner">P2</span></td><td>Fork-and-intervene harness with deterministic data replay; snapshot/restore of (w, m, v, RNG); the attribution battery at 124M and 410M; the causal map + localizability measurement. P1 is project lead and paper-writing lead.</td></tr>
+    <tr><td><b>B — Repair method + baselines</b></td><td><span class="owner">P3</span><span class="owner">P4</span></td><td>SNR/curvature-guided subspace repair; SPAM, ZClip, AdaGC, global-norm clip, LR-drop-restart, and the honest cheap baseline (spike-skip + clip, ≈0 cost); the metric-hierarchy benchmark; spike-induction recipes + data-corruption spikes; compute procurement ops.</td></tr>
+    <tr><td><b>C — Theory</b></td><td><span class="owner">P5</span><span class="owner">M</span></td><td>Recovery theorem + localizability criterion; commutator correction measurement; the per-spike falsifiable prediction test (ψ_k → selective vs global). P5 also owns Zotero + related work. Mentor: proof checking, venue strategy, arXiv endorsement.</td></tr>
   </table></div>
-  <p style="margin-top:14px">Cadence: Monday 30-min standup · Friday results review · shared Notion/doc for decisions · every experiment has an owner and a wandb tag.</p>
+  <p style="margin-top:14px">Cadence: Monday 30-min standup · Friday results review · shared doc for decisions · every experiment has an owner and a wandb tag. Cross-checks: A's harness is reviewed by B before the sweep (garbage forks = garbage causality); C's per-instance predictions are registered in the doc <i>before</i> B runs the deciding benchmark.</p>
 </div></section>
 
 <!-- TIMELINE -->
 <section id="timeline"><div class="wrap">
   <div class="sec-kicker">06 · Week by week</div>
   <h2>The 16-week timeline</h2>
-  <p class="lede">Fixed dates to confirm in Week 1: NeurIPS 2026 workshop list goes live ~Jul–Aug; deadlines cluster <b>late Aug – mid Sep</b>. Targets: OPT, M3L (Mathematics of Modern ML), HiLD (High-dimensional Learning Dynamics), ATTRIB / efficiency-themed. TMLR is rolling; ICML 2027 ≈ late Jan; NeurIPS 2027 abstracts ≈ May.</p>
+  <p class="lede">Sequencing: <b>workshop artifact (arXiv, late Aug)</b> = C1 harness + C2 attribution at 124M + theory sketch. <b>Full version</b> (NeurIPS 2027 main / D&amp;B / TMLR) adds 410M, the repair-vs-reset benchmark, and the theory-predicts-practice test. Confirm exact NeurIPS 2026 workshop deadlines in Week 1 (list live ~Jul–Aug; deadlines cluster late Aug–mid Sep; targets: OPT, M3L, HiLD, efficiency-themed).</p>
 
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p1">PHASE 1 · WKS 1–3</span><h3>Foundations &amp; MVP detector</h3></div>
+    <div class="phase-head"><span class="phase-tag p1">PHASE 1 · WKS 1–3</span><h3>Determinism, spikes on demand, first forks</h3></div>
     <div class="week"><div class="wk-label">Week 1<span>Jul 15–21</span></div><ul>
-      <li>All: Tier-1 papers + Karpathy GPT-2 video. Repo, wandb, Zotero live.</li>
-      <li><span class="owner">P1</span>Microbatch SNR estimator + HVP power iteration on toy quadratic + small MLP; verify vs analytic values.</li>
-      <li class="crit"><span class="owner">P2 P3</span><b>Compute-credit applications go out (TRC, Lambda, Modal, Hack Club). Cannot slip.</b> Stable 124M baseline launched.</li>
-      <li><span class="owner">P4</span>CIFAR ResNet harness; reproduce EoS (λ_max → 2/η) as sanity check.</li>
-      <li><span class="owner">P5</span>Fresh 2025–26 arXiv sweep; ZClip reimplementation started; post exact workshop deadlines in the team doc.</li>
-      <li><span class="owner">M</span>Mentor meeting #1: lock Theorem 1 statement + authorship + endorsement.</li>
+      <li>All: Tier-1 papers (2506.04805 and SPAM first) + Karpathy GPT-2 video. Repo, wandb, Zotero live.</li>
+      <li class="crit"><span class="owner">P1 P2</span><b>Deterministic replay proven</b>: tiny nanoGPT run forks bitwise-identically; snapshot/restore of (w, m, v, RNG) round-trips. Everything downstream stands on this.</li>
+      <li class="crit"><span class="owner">P3 P4</span><b>Compute-credit applications out (TRC, Lambda, Modal, Hack Club). Cannot slip.</b> Stable 124M trunk launched.</li>
+      <li><span class="owner">P5</span>Fresh 2025–26 arXiv sweep ("counterfactual training", "optimizer state corruption", "loss spike"); download K2-Spike-1/2 checkpoints and diff their (m, v) against normals — free first look at real poison.</li>
+      <li><span class="owner">M</span>Mentor meeting #1: lock Theorem 1/2 statements + authorship + endorsement.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 2<span>Jul 22–28</span></div><ul>
-      <li><span class="owner">P1</span>Directional SNR tracking live on CIFAR runs; log SNR_u₁…u₅ through training.</li>
-      <li class="crit"><span class="owner">P4</span>First induced divergences (high LR); overlay SNR vs λ_max vs grad-norm. <b>First evidence plot: does SNR collapse lead the crossing?</b></li>
-      <li><span class="owner">P2</span>124M spike-induction sweep begins (recipes from §04).</li>
-      <li><span class="owner">P5</span>ZClip done; AdaGC started; lead-time benchmark harness spec.</li>
-      <li><span class="owner">M</span>AR(2) recursion written, stationary variance derived, numerical verification notebook.</li>
+      <li><span class="owner">P3</span>Spike recipes at 124M: high-LR, ε-perturbation, precision; target 3 reliable induced classes + corrupted-batch data spikes.</li>
+      <li><span class="owner">P1</span>Localizer live: directional SNR + poison score pᵢ + ψ_k logged through spikes on a small proxy model.</li>
+      <li class="crit"><span class="owner">P2</span><b>First fork battery on the proxy model</b>: all 7 branches run end-to-end, Δᵢ measured. The instrument exists.</li>
+      <li><span class="owner">P5 M</span>AR(2) perturbation recursion written; numerical notebook verifies contraction rates against toy runs.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 3<span>Jul 29–Aug 4</span></div><ul>
-      <li class="crit"><b>GO/NO-GO #1:</b> does directional SNR give a median lead over λ_max tracking across 5 seeds? Yes → proceed. Marginal → tune (τ, k, refresh rate) one week max. No → pivot to repair-only paper (still publishable).</li>
-      <li><span class="owner">P1 P4</span>Surgical damping implemented; first rescue attempts on CIFAR.</li>
-      <li><span class="owner">P2</span>3 reliable 124M spike recipes identified.</li>
-      <li><span class="owner">M</span>Theorem 1 draft proof (SGD+momentum case).</li>
+      <li class="crit"><b>GO/NO-GO #1 — the attribution sanity check:</b> on 124M induced spikes, does repair-v differ measurably from no-op and from random-subspace control? Yes → the causal map is real, proceed. No → interrogate localizer + fork protocol one week max, then pivot per kill criteria.</li>
+      <li><span class="owner">P1 P2</span>Proxy calibration: ~20 full-length forks establish immediate-recovery ↔ final-loss lead time. Locks the cheap-sweep design.</li>
+      <li><span class="owner">P3 P4</span>SPAM + ZClip reimplementations validated against reported numbers.</li>
     </ul></div>
   </div>
 
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p2">PHASE 2 · WKS 4–7</span><h3>Causal results + workshop paper</h3></div>
+    <div class="phase-head"><span class="phase-tag p2">PHASE 2 · WKS 4–7</span><h3>The attribution battery + workshop paper</h3></div>
     <div class="week"><div class="wk-label">Week 4<span>Aug 5–11</span></div><ul>
-      <li class="crit"><span class="owner">P4</span><b>THE critical ablation:</b> surgical damping vs matched-strength global clipping vs LR-drop, 5 seeds each. If surgical ≉ better, the framing changes NOW, cheaply.</li>
-      <li><span class="owner">P4</span>Random-direction control arm (damp k random orthogonal directions at matched strength) — the causal identification.</li>
-      <li><span class="owner">P1</span>Adam moment surgery v1 on CIFAR; rescue-rate + recovery-speed metrics.</li>
-      <li><span class="owner">P2</span>Detector running live inside 124M runs.</li>
+      <li class="crit"><span class="owner">P1 P2</span><b>Full attribution battery at 124M</b>: (4–6 sites) × 7 branches × 5–8 seeds on the short-fork proxy; full-length on the decision subset. Output: the causal map of where the poison lives, per spike class.</li>
+      <li class="crit"><span class="owner">P3 P4</span><b>THE honesty ablation:</b> spike-skip + clip vs everything. If cheap reaction recovers final loss everywhere, the method contribution is dead — find out now for $50, not in Week 12.</li>
+      <li><span class="owner">P5</span>ψ_k measured per spike class → first localizability histogram.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 5<span>Aug 12–18</span></div><ul>
-      <li>Freeze CNN-scale results: lead-time table, rescue rates, causal control, ablations — all plots publication-quality with error bars.</li>
-      <li><span class="owner">M</span>Theorem 1 finalized (SGD+momentum); Adam frozen-preconditioner extension sketched; Corollary 2 (projected GD) written.</li>
-      <li><span class="owner">P5</span>Benchmark harness produces the headline lead-time comparison figure.</li>
+      <li>Freeze 124M attribution results: causal map, localizability, controls — publication-quality with CIs.</li>
+      <li><span class="owner">P5 M</span>Theorem 1 (selective repair suffices) drafted; ψ* crossover derived; commutator magnitude measured at 124M and reported as the correction term.</li>
+      <li><span class="owner">P3 P4</span>Curvature/SNR-guided repair v1 beats/ties global reset on the high-ψ_k spike classes? First method signal.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 6<span>Aug 19–25</span></div><ul>
-      <li class="crit"><b>Write workshop paper</b> (4–8 pp by venue): CNN causal results + theory + preliminary 124M traces. P1 leads, everyone owns a section, mentor reviews.</li>
-      <li><span class="owner">P2 P3</span>First end-to-end 124M rescue: detect → damp → repair → continue.</li>
+      <li class="crit"><b>Write the workshop paper</b> (4–8 pp): C1 protocol + C2 attribution map at 124M + theory sketch. P1 leads; every claim maps to a figure.</li>
+      <li><span class="owner">P2</span>410M config validated with a short stable trunk; snapshot I/O path tested at 410M size.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 7<span>Aug 26–Sep 1</span></div><ul>
-      <li>Polish + internal red-team review ("what would Reviewer 2 say"); mentor sign-off.</li>
-      <li class="crit"><b>SUBMIT: arXiv preprint v1 + NeurIPS 2026 workshop.</b> If the deadline runs later into Sep, spend the extra week adding 124M results.</li>
+      <li>Internal red-team pass ("what would Reviewer 2 say") + mentor sign-off.</li>
+      <li class="crit"><b>SUBMIT: arXiv preprint v1 + NeurIPS 2026 workshop.</b> If deadlines run later into Sep, spend the week adding the K2 natural-spike validation.</li>
     </ul></div>
   </div>
 
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p3">PHASE 3 · WKS 8–13</span><h3>LLM scale</h3></div>
+    <div class="phase-head"><span class="phase-tag p3">PHASE 3 · WKS 8–13</span><h3>410M, the benchmark, theory-predicts-practice</h3></div>
     <div class="week"><div class="wk-label">Week 8<span>Sep 2–8</span></div><ul>
-      <li class="crit"><span class="owner">P2</span>Systematic 124M campaign: N≥10 induced-spike runs × {SNR-Surgeon, ZClip, AdaGC, global clip, restart-and-skip}. <b>This is the paper's main table.</b></li>
-      <li><span class="owner">P3</span>410M config validated with a short stable run; compute confirmed at 124M-heavy + 410M-light.</li>
-      <li><span class="owner">P1</span>Overhead profiling (eigenvector refresh cost, wall-clock %) + optimizations (lower refresh rate, k=3 vs 10).</li>
+      <li class="crit"><span class="owner">P1 P2</span>410M attribution battery (3 seeds, stated honestly): does the causal map transfer across scale? <b>This is the mechanism-transfer validation that replaces the 1B run.</b></li>
+      <li><span class="owner">P3 P4</span>Repair-vs-reset benchmark harness final: SPAM, ZClip, AdaGC, global reset, skip+clip, ours — metric hierarchy locked.</li>
+      <li><span class="owner">P5</span>Per-spike predictions (ψ_k → selective vs global) registered in the doc before the benchmark runs.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Weeks 9–10<span>Sep 9–22</span></div><ul>
-      <li>124M campaign completes → lead times, rescue rates, final-loss deltas, compute-saved headline number.</li>
-      <li>410M spike-induction + rescue runs (3 seeds acceptable at this scale — state it honestly in the paper).</li>
-      <li><span class="owner">M</span>Full Adam-regime extension or clearly-scoped assumptions; theory–experiment agreement plot (reviewer catnip).</li>
+      <li class="crit">The main benchmark: N≥10 spikes per class × all methods at 124M, decision subset at 410M. <b>Headline: final-loss recovery vs clean counterfactual, then compute-to-recover, then survival.</b></li>
+      <li><span class="owner">P5 M</span>Theorem 2 (reset necessity) finalized; theory-predicts-practice scatter assembled — the falsifiable-prediction figure.</li>
+      <li><span class="owner">P1</span>Localizer robustness: noise–curvature alignment measured at 410M in bf16; power-iteration fallback wired in if degraded.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Weeks 11–12<span>Sep 23–Oct 6</span></div><ul>
-      <li>410M campaign completes.</li>
-      <li class="crit"><span class="owner">P4</span>Robustness ablations: sensitivity to k, τ, refresh interval, microbatch count m; <b>false-positive rate on stable runs gets its own figure</b> — a detector that cries wolf is useless.</li>
-      <li class="crit"><span class="owner">P5</span>Restart-baseline compute accounting finalized → <b>headline: "SNR-Surgeon saves X% compute vs checkpoint-restart at equal final loss."</b></li>
+      <li>Natural-spike validation: corrupted-batch spikes + K2 checkpoint pairs run through the full pipeline — attribution + repair, transfer from the induced-spike sandbox reported as inference, not causation.</li>
+      <li class="crit"><span class="owner">P3 P4</span>Ablations: magnitude-selected (SPAM-style) vs curvature/SNR-selected subspace; rank k sweep; false-trigger rate on stable runs gets its own figure.</li>
+      <li class="crit"><span class="owner">P5</span>Compute accounting finalized → <b>headline number: repair recovers clean-path final loss at Y% of restart-and-skip cost, in the regimes ψ_k &gt; ψ*.</b></li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 13<span>Oct 7–13</span></div><ul>
-      <li>Buffer — something will have slipped; this absorbs it. If miraculously on schedule: one 410M long-horizon run showing no final-loss degradation from interventions, or a bonus 760M run.</li>
+      <li>Buffer — something will have slipped; this absorbs it. If miraculously on schedule: one 410M long-horizon fork showing no late-training degradation from repair, or a deeper K2 natural-spike autopsy.</li>
     </ul></div>
   </div>
 
   <div class="phase">
     <div class="phase-head"><span class="phase-tag p4">PHASE 4 · WKS 14–16</span><h3>Full paper</h3></div>
     <div class="week"><div class="wk-label">Week 14<span>Oct 14–20</span></div><ul>
-      <li>Full draft (9-page NeurIPS/ICML or TMLR format): P1 intro/method · P4 experiments · P5 related work + baselines · P2/P3 LLM section · mentor theory section.</li>
-      <li>Every claim mapped to a figure or table; kill any claim without evidence.</li>
+      <li>Full draft, written in contribution order: C1 methodology → C2 attribution science → C3 method → theory. P1 intro/protocol · P2 attribution · P3/P4 benchmark · P5+M theory · everyone their own figures.</li>
+      <li>Every claim mapped to a figure or table; "causal" appears only where a control earned it; kill any claim without evidence.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 15<span>Oct 21–27</span></div><ul>
-      <li>Adversarial internal review — each member reviews someone else's section; mentor full pass.</li>
-      <li>Reproducibility package: clean code, README, configs, seeds. Plan to open-source (reviewers reward it).</li>
+      <li>Adversarial internal review — each member attacks someone else's section; mentor full pass.</li>
+      <li>Reproducibility package: the fork harness released as a standalone tool (it's C1 — the instrument IS the artifact), configs, seeds, spike recipes, K2 pipeline.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Week 16<span>Oct 28–Nov 3</span></div><ul>
-      <li class="crit"><b>Submit to TMLR</b> (rolling, correctness-focused — best-odds venue) and/or freeze for ICML 2027 (late Jan) / NeurIPS 2027 (May) per mentor's read on the 410M results.</li>
-      <li>arXiv v2 with full results. Workshop camera-ready (acceptances land ~Oct) + poster for the Dec 2026 NeurIPS workshop.</li>
+      <li class="crit"><b>Submit:</b> TMLR (rolling, correctness-loving — best odds) and/or freeze for NeurIPS 2027 main or D&amp;B per mentor's read. If the method died in Week 4, this is the C1+C2 science/benchmark paper to D&amp;B — decided long ago, no scramble.</li>
+      <li>arXiv v2 with full results · workshop camera-ready + poster (acceptances land ~Oct, workshop Dec 2026).</li>
     </ul></div>
   </div>
 </div></section>
@@ -498,49 +512,52 @@ v_t ← along uᵢ: pre-spike EMA or robust median of recent uᵢᵀ(g⊙g)
   <h2>Venues &amp; honest odds</h2>
   <div class="tbl-scroll"><table>
     <tr><th>Artifact</th><th>When</th><th>Venue</th><th>Odds</th></tr>
-    <tr><td>Preprint v1 (CNN + theory)</td><td>Week 7 · late Aug</td><td>arXiv</td><td class="pct hi">100%</td></tr>
+    <tr><td>Preprint v1 (C1 + C2 @124M + theory sketch)</td><td>Week 7 · late Aug</td><td>arXiv</td><td class="pct hi">100%</td></tr>
     <tr><td>Workshop paper</td><td>Submit Wks 6–7 · present Dec</td><td>NeurIPS 2026 workshop (OPT / M3L / HiLD)</td><td class="pct hi">~80%</td></tr>
-    <tr><td>Full paper</td><td>Week 16</td><td>TMLR</td><td class="pct mid">~50–60%</td></tr>
-    <tr><td>Full paper (alt)</td><td>Jan 2027</td><td>ICML 2027 main</td><td class="pct lo">~25–30%</td></tr>
-    <tr><td>Full paper (alt)</td><td>May 2027</td><td>NeurIPS 2027 main</td><td class="pct lo">~25–35%</td></tr>
+    <tr><td>Full paper</td><td>Week 16</td><td>TMLR</td><td class="pct mid">~55–65%</td></tr>
+    <tr><td>Full paper (alt)</td><td>May 2027</td><td>NeurIPS 2027 main</td><td class="pct lo">~30%</td></tr>
+    <tr><td>Fallback (if method dies)</td><td>Week 16</td><td>NeurIPS D&amp;B — the harness + causal benchmark</td><td class="pct mid">~40–50%</td></tr>
   </table></div>
   <div class="grid c3" style="margin-top:20px">
-    <div class="card"><span class="num">INTENSITY</span><h4>9 / 10</h4><p>Multi-scale pretraining + formal proof + causal controls + four baselines. The intensity isn't the risk — compute and clean execution are.</p></div>
-    <div class="card"><span class="num">ORIGINALITY</span><h4>7 / 10</h4><p>Each piece has neighbors; the synthesis — directional-SNR detector + moment surgery + causal identification — is the fresh combination. Not a paradigm paper — own that.</p></div>
-    <div class="card"><span class="num">STRATEGY</span><h4>One claim, ruthlessly</h4><p>Center everything on "predict-and-repair without restart, X% compute saved." Demote everything else to supporting evidence.</p></div>
+    <div class="card"><span class="num">INTENSITY</span><h4>9 / 10 — a threat, not a badge</h4><p>Fork-and-intervene is combinatorially the costliest design possible — chosen deliberately because it's the originality source. The proxy-fork calibration is what keeps it from drowning five juniors on constrained compute.</p></div>
+    <div class="card"><span class="num">ORIGINALITY</span><h4>Concentrated in C1 + C2</h4><p>Training counterfactuals as an instrument: no direct prior work found. C2 resolves a named, published puzzle (SPAM's ablation). C3 is "beat SPAM" — incremental, never the lead. Write the paper in exactly this order.</p></div>
+    <div class="card"><span class="num">STRATEGY</span><h4>One identity, ruthlessly</h4><p>Causal localization + repair. The theory predicts its own failure regime and is tested per-instance. "Interventional attribution" in the sandbox; "causal" only where a control earned it.</p></div>
   </div>
-  <p style="margin-top:16px"><b>Week-1 logistics to settle:</b> author order · mentor's institutional affiliation for submission · OpenReview accounts · arXiv endorsement (mentor can endorse).</p>
+  <p style="margin-top:16px"><b>Week-1 logistics to settle:</b> author order · mentor's institutional affiliation · OpenReview accounts · arXiv endorsement (mentor endorses) · decide now what the D&amp;B fallback paper's title is, so the pivot is a rename, not a rewrite.</p>
 </div></section>
 
-<!-- RISKS -->
-<section id="risks"><div class="wrap">
-  <div class="sec-kicker">08 · Risk register</div>
-  <h2>What can kill this, and the mitigation</h2>
-  <div class="tbl-scroll"><table>
-    <tr><th>Risk</th><th>Likelihood</th><th>Mitigation</th></tr>
-    <tr><td>410M compute doesn't materialize</td><td class="pct lo">Med-High</td><td>124M-heavy + small-scale-proxies framing is the pre-approved fallback; 4+ credit applications in Week 1</td></tr>
-    <tr><td>Surgical ≈ global clipping</td><td class="pct mid">Medium</td><td>Week-4 go/no-go; fallback = "prediction + repair" with clipping as the intervention</td></tr>
-    <tr><td>Scooped by a 2025–26 paper</td><td class="pct mid">Medium</td><td>Week-1 sweep; causal ID + moment surgery is the differentiator even if a directional detector exists</td></tr>
-    <tr><td>Theory harder than expected</td><td class="pct mid">Medium</td><td>Scope to SGD+momentum with frozen-preconditioner Adam approximation; state assumptions honestly — TMLR rewards it</td></tr>
-    <tr><td>Eigenvector overhead too high at 410M</td><td class="pct hi">Low-Med</td><td>Reduce k, refresh every 200 steps, subspace warm-start; report overhead transparently</td></tr>
-    <tr><td>Team bandwidth once school starts (~mid-Aug)</td><td class="pct lo">High</td><td>Front-load hard experiments into summer Wks 1–6; Wks 8+ are campaign-babysitting + analysis, which parallelizes around school</td></tr>
-    <tr><td>Detector false positives on stable runs</td><td class="pct mid">Medium</td><td>Dedicated FP experiments Wk 11; hysteresis + consecutive-trigger requirement in detector</td></tr>
-  </table></div>
+<!-- RED TEAM -->
+<section id="redteam"><div class="wrap">
+  <div class="sec-kicker">08 · The brutal review, kept in the plan on purpose</div>
+  <h2>What can kill this — pre-attacked</h2>
+  <p class="lede">Every item below was raised adversarially against this plan before Week 1. They stay on this page so nobody discovers them in a rebuttal.</p>
+
+  <div class="verdict"><h4>Risk #1 — C1 might show that reaction is enough</h4><p>If attribution reveals that one-step-late spike-skip recovers final loss as well as any surgery, the method contribution collapses — a live possibility, since the field skips-and-reinjects routinely. <b>Mitigation is baked in:</b> C1 is designed to find the regime where reaction fails (malignant/wide spikes, late-training spikes, the SDC case where an end-of-fine-tuning spike yields zero test accuracy — arXiv 2502.12340). If that regime exists → method paper. If not → C1 still stands as science. That's why methodology is contribution #1: it de-risks everything. Be clear-eyed: the method's value is contingent on an experiment not yet run — which is why the skip+clip arm runs in <b>Week 4</b>.</p></div>
+
+  <div class="verdict"><h4>Risk #2 — Intensity 9/10 can drown the team</h4><p>(sites) × (7 branches) × (5–8 seeds) × (2 scales), each fork long enough to measure <i>final</i> loss, is the costliest possible design. <b>Hard mitigation, non-negotiable:</b> never measure final loss on every fork. Calibrate once (~20 full-length forks) the lead time between immediate-recovery divergence and final-loss divergence, run the sweep on short-fork proxies, full-length only on the decision set. Skipping this makes the compute plan a fantasy.</p></div>
+
+  <div class="verdict"><h4>Risk #3 — The theory's non-commutativity hole is load-bearing</h4><p>Per-direction decoupling assumes the preconditioner commutes with the Hessian eigenbasis; it doesn't, and the onset paper (2506.04805) already lives in this regime. <b>Mitigation:</b> frame the decoupled result as the leading-order characterization, measure the commutator's effect on ψ* empirically at 124M, and claim a leading-order theory with a measured correction. A measured correction is more credible than a clean-but-false bound.</p></div>
+
+  <div class="verdict"><h4>Risk #4 — Directional SNR still rests on noise–curvature alignment</h4><p>Demoting it from oracle to localizer reduces but does not remove the dependency. <b>Mitigation:</b> alignment becomes an explicit validated claim — measured directly at both scales, in bf16, with the degradation reported. If it degrades at 410M, the localizer falls back to a few power-iteration steps on top-k curvature directions: cheap, robust rather than faith-based.</p></div>
+
+  <div class="verdict"><h4>Risk #5 — "Causal" is still slightly overclaimed</h4><p>Fork-and-intervene with matched seeds and a random-subspace control is genuinely interventional — far stronger than observational checkpoint stitching — but it's causal <i>within the induced-spike sandbox</i>; transfer to natural spikes is inference. <b>Mitigation:</b> say "interventional attribution," reserve "causal" for the sandbox, and let the K2 + corrupted-batch results carry the transfer argument. Precision buys credibility.</p></div>
+
+  <div class="verdict"><h4>Novelty audit — honest verdict</h4><p>C1 (training counterfactuals as an instrument): freshest thing here, no direct prior work found. C2: resolves a named, published puzzle — reviewers value that above generic gaps. C3: "beat SPAM," incremental, never the lead. Theory: differentiated (recovery vs onset) but shares a regime with 2506.04805 — cite it prominently, stake the recovery claim sharply. <b>Net: a defensible novelty profile whose strength is the methodology and the puzzle-resolution, not the optimizer tweak. The paper must be written in that order.</b></p></div>
 
   <h3>Week-1 immediate actions</h3>
   <ul class="tick">
-    <li><span class="owner">P1</span>Repo + wandb team + Zotero + shared doc — today</li>
-    <li><span class="owner">P3 P5</span>Apply: TPU Research Cloud, Lambda, Modal, Hack Club compute ask</li>
-    <li><span class="owner">P5</span>Fresh arXiv sweep ("loss spike", "training instability", "directional SNR", "Adam moment", 2025–26) + confirm exact workshop deadlines</li>
-    <li><span class="owner">M</span>Mentor meeting: lock Theorem 1 + authorship + endorsement</li>
-    <li><span class="owner">P2</span>nanoGPT 124M stable baseline launched · <span class="owner">P4</span>CIFAR EoS reproduction launched</li>
-    <li>Everyone: Tier-1 papers + Karpathy GPT-2 video by Sunday</li>
+    <li><span class="owner">P1</span>Repo + wandb team + Zotero + shared doc — today. Deterministic-replay spike-test on tiny model by Friday.</li>
+    <li><span class="owner">P3 P4</span>Apply: TPU Research Cloud, Lambda, Modal, Hack Club compute ask</li>
+    <li><span class="owner">P5</span>Fresh arXiv sweep ("counterfactual training", "optimizer state corruption", "loss spike", "Adam second moment", 2025–26) + exact workshop deadlines + download K2-Spike-1/2 and diff (m, v) vs normal checkpoints</li>
+    <li><span class="owner">M</span>Mentor meeting: lock Theorem 1/2 statements + authorship + endorsement</li>
+    <li><span class="owner">P2</span>nanoGPT 124M stable trunk launched with snapshot hooks</li>
+    <li>Everyone: 2506.04805 + SPAM + Karpathy GPT-2 video by Sunday</li>
   </ul>
 </div></section>
 
 <footer><div class="wrap">
-  <p class="mono">SNR-SURGEON · Predict-and-Repair Optimization · plan v1 · Jul 15 – Nov 3, 2026</p>
-  <p style="margin-top:6px">"We show training failure is predictable, preventable, and repairable — without ever restarting."</p>
+  <p class="mono">OPTIMIZER AUTOPSY · Causal Localization + Repair · plan v2 (supersedes SNR-SURGEON) · Jul 15 – Nov 3, 2026</p>
+  <p style="margin-top:6px">"We fork training at the moment of failure and intervene directly — showing where the damage lives, when it can be repaired, and when it provably cannot."</p>
   <p style="margin-top:12px"><a class="toplink" href="#top">↑ back to top</a></p>
 </div></footer>
 
