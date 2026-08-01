@@ -1,0 +1,12 @@
+# Pinned to match Kaggle's GPU image (verify with research.harness.preflight before a real run).
+# TODO: confirm exact pins against the current Kaggle image; these are the expected baselines.
+torch==2.4.0
+numpy==1.26.4
+scipy==1.14.0
+safetensors==0.4.3
+huggingface_hub==0.24.0
+datasets==2.20.0
+tiktoken==0.7.0
+wandb==0.17.5
+pyyaml==6.0.1
+tqdm==4.66.4
