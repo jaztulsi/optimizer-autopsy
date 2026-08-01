@@ -4,8 +4,15 @@ Trunk -> induce a spike -> snapshot -> localize -> repair -> fork -> eval, on th
 Runs in minutes on a free T4. This is the keep/kill signal (BUILD_PLAN §2 Phase 2).
 """
 
-# TODO: main() -> load proxy config, run the full trunk->fork->eval loop on one induced spike,
-#       assert the localizer beats the naive reset baseline (else fail loudly).
+from research.harness.preflight import check_env
+
+
+def main():
+    check_env()  # every entrypoint verifies the env + determinism before touching CUDA.
+    # TODO: load proxy config, run the full trunk->fork->eval loop on one induced spike,
+    #       assert the localizer beats the naive reset baseline (else fail loudly).
+    raise SystemExit("TODO: implement proxy smoke test")
+
 
 if __name__ == "__main__":
-    raise SystemExit("TODO: implement proxy smoke test")
+    main()

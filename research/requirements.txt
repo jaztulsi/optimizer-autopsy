@@ -1,5 +1,6 @@
-# Pinned to match Kaggle's GPU image (verify with research.harness.preflight before a real run).
-# TODO: confirm exact pins against the current Kaggle image; these are the expected baselines.
+# Pinned to Kaggle's default GPU image. Single source of truth: research.harness.preflight.check_env()
+# parses this file and asserts installed == pinned. To reconcile with a new Kaggle image, run
+# check_env() there and paste the versions it reports as mismatched.
 torch==2.4.0
 numpy==1.26.4
 scipy==1.14.0
