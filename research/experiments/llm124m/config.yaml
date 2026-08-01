@@ -1,0 +1,29 @@
+# 124M nanoGPT experiment: the robustness section (NOT the contribution). BUILD_PLAN §0.
+# Spike windows + short forks (500-2000 steps) are free-budgeted on Kaggle P100/T4 (~1-3h each);
+# snapshots ~0.75GB bf16 -> HF Hub. Full-convergence forks are credits-gated.
+# TODO: fill in real values.
+
+seed: 1337
+model:        # GPT-2 124M shape
+  n_layer: 12
+  n_head: 12
+  n_embd: 768
+  block_size: 1024
+  vocab_size: 50304
+  dropout: 0.0
+  bias: false
+optim:
+  lr: 6.0e-4
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  grad_clip: 1.0
+train:
+  batch_size: 12
+  grad_accum: 40
+  max_steps: null
+  snapshot_steps: []
+data:
+  dir: null            # HF Hub tokenized shards
+snapshot:
+  dtype: bf16
+  hub_repo: null       # HF Hub repo for (w, m, v) snapshots

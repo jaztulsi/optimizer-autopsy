@@ -1,0 +1,26 @@
+# Proxy experiment: tiny nanoGPT (1-3M params). Fast enough for the full attribution battery
+# on a free T4 in minutes-1h. This is the primary iteration + keep/kill signal (BUILD_PLAN §2 Phase 2).
+# TODO: fill in real values.
+
+seed: 1337
+model:        # GPTConfig
+  n_layer: 4
+  n_head: 4
+  n_embd: 128
+  block_size: 256
+  vocab_size: null   # set from tokenizer
+  dropout: 0.0
+  bias: false
+optim:
+  lr: 3.0e-4
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  grad_clip: 1.0
+train:
+  batch_size: 64
+  max_steps: 5000
+  snapshot_steps: []   # steps at which to capture (w, m, v)
+data:
+  dir: null            # tokenized shard dir / HF Hub repo
+snapshot:
+  dtype: fp32
