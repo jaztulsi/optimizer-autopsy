@@ -12,16 +12,14 @@ list below will just say *"Nothing left for you to do!"*
 
 ## Open items
 
-### 1. Create the private HF artifacts repo
-- **Why:** snapshots, checkpoints, and tokenized shards all live here (not on your laptop).
-- **How/where:** <https://huggingface.co/new-dataset> → name `optimizer-autopsy-artifacts` →
-  **Private** → Create. (Must be a **Dataset** repo, not a Model repo.)
-- **Done when:** `jaztulsi/optimizer-autopsy-artifacts` exists and is private.
+**Nothing left for you to do!** 🎉 — I'll add items here the moment I need an account, key, or a
+GPU run from you.
 
 ---
 
 ## Done ✅
 
+- **HF artifacts repo** — `jaztulsi/optimizer-autopsy-artifacts` created (private, Dataset).
 - **Accounts** — Kaggle, Hugging Face, W&B, Google/Colab created.
 - **Secrets** — `HF_TOKEN` + `WANDB_API_KEY` stored in Kaggle Secrets **and** Colab Secrets
   (Notebook access ON in both).
