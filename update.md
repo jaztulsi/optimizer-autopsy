@@ -11,21 +11,27 @@ Running status report. I update this after every unit of work. Companion: `todo.
 
 | Metric | Value |
 |---|---|
-| **Overall progress** | **~12%** (3 of 26 build tasks landed) |
-| **Phases complete** | 0 of 7 (Phase 0 is 2/3) |
+| **Overall progress** | **~15%** (4 of 26 build tasks landed) |
+| **Phases complete** | **1 of 7** (Phase 0 complete) |
 | **Current status** | 🟢 **PASS** — everything built so far passes its DoD (verified on Kaggle T4) |
-| **Blocked on you** | Create the private HF artifacts repo (`todo.md` item 1) |
-| **Next up** | Task 3 (secrets) → Task 4 (deterministic replay, the load-bearing gate) |
+| **Blocked on you** | Nothing — `todo.md` is clear. |
+| **Next up** | Task 4 (deterministic replay + smoke test — the load-bearing gate) |
 
 **Pass/fail of what exists:**
 - Scaffold imports cleanly — ✅ PASS
 - `get_batch` bitwise-identical across two processes — ✅ PASS (verified with 2 separate processes)
 - `check_env()` — ✅ PASS on Kaggle Tesla T4 (`check_env OK`); pins now match the real image.
+- secrets: load-from-env, missing-required-raises, and no-token-in-git — ✅ PASS (3/3).
 
 ---
 
 ## What I've been implementing (newest first)
 
+- **Task 3 — secrets hygiene.** `research/harness/secrets.py::get_secret()` resolves in order
+  env → Kaggle Secrets → Colab userdata → `.env`; never prints values; raises with the fix when a
+  required secret is missing. `hf_token()`/`wandb_key()` wrappers. `research/tests/test_secrets.py`
+  greps the git-tracked tree for `hf_...` / `KEY="..."` literals (detector verified non-vacuous),
+  plus env-load and missing-raises tests.
 - **Task 1 — env pin + preflight.** `research/harness/preflight.py::check_env()`: parses
   `requirements.txt` (single source of truth) and asserts installed versions of torch/numpy/scipy/
   datasets/safetensors/huggingface_hub/tiktoken/wandb; asserts `CUBLAS_WORKSPACE_CONFIG` ∈
@@ -46,11 +52,11 @@ Running status report. I update this after every unit of work. Companion: `todo.
 
 Legend: ✅ done · 🟡 partial/stubbed · ⬜ not started · ⛔ credits-gated
 
-### Phase 0 · Foundation — 2/3
+### Phase 0 · Foundation — 3/3 ✅
 - ✅ **Task 0** — scaffold repo (DoD: imports clean — PASS)
 - ✅ **Task 1** — env pin + `check_env()` (DoD: clear-message-on-mismatch PASS; passes-on-Kaggle **PASS** — `GPU: Tesla T4 / check_env OK`)
 - ✅ **Task 2** — fixed tokenized shard + `get_batch` (DoD: cross-process bitwise-identical PASS; <5 min prep by design, not yet timed on Kaggle)
-- ⬜ **Task 3** — secrets hygiene + no-token-in-git test
+- ✅ **Task 3** — secrets hygiene + no-token-in-git test (DoD: env-load PASS; no-secrets-in-git PASS)
 
 ### Phase 1 · The instrument — 0/4
 - ⬜ **Task 4** — deterministic replay + smoke test *(LOAD-BEARING — the determinism gate)*
@@ -86,14 +92,13 @@ Legend: ✅ done · 🟡 partial/stubbed · ⬜ not started · ⛔ credits-gated
 - ⬜ **Task 24** — workshop paper + repro package
 - ⛔ **Task 25** — 410M mechanism transfer *(credits-gated)*
 
-**Totals:** ✅ 3 · 🟡 1 · ⬜ 21 · ⛔ 1  →  **3 fully done / 26.**
+**Totals:** ✅ 4 · 🟡 1 · ⬜ 20 · ⛔ 1  →  **4 fully done / 26.**
 
 ---
 
 ## What's left (the short version)
 
-1. **Finish Phase 0:** Task 3 (secrets + no-secrets-in-git test).
-2. **Build the instrument (Phase 1):** determinism gate → model+trunk → snapshot → fork Δ==0 gate.
+1. **Build the instrument (Phase 1):** determinism gate → model+trunk → snapshot → fork Δ==0 gate.
    This is the tall pole; nothing causal is allowed until Task 7 reads Δ==0 on the proxy.
 3. **Week-one kill-test (Phase 2):** find out if the repair method is even needed before building it.
 4. Then localizer → repair → attribution/theory → 124M/figures/paper.
