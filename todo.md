@@ -12,8 +12,20 @@ list below will just say *"Nothing left for you to do!"*
 
 ## Open items
 
-**Nothing left for you to do!** 🎉 — I'll add items here the moment I need an account, key, or a
-GPU run from you.
+### 1. Run the "perfect replay" test on a Kaggle GPU
+- **Why:** it already passes on your laptop (CPU), but GPUs do math slightly differently. The plan
+  requires it to pass on a real GPU too before we trust anything built on top of it.
+- **How/where:** open a Kaggle notebook with **GPU T4 + Internet on**, first cell, run:
+  ```python
+  import os; os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+  %cd /kaggle/working
+  !rm -rf optimizer-autopsy
+  !git clone https://github.com/jaztulsi/optimizer-autopsy.git
+  %cd optimizer-autopsy
+  !python -m research.tests.test_determinism
+  ```
+- **Done when:** you paste me the output. Good result looks like:
+  `bitwise replay OK on cuda: 50 steps, max|Δ|=0 at every step`.
 
 ---
 
