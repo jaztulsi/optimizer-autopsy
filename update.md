@@ -13,15 +13,14 @@ Running status report. I update this after every unit of work. Companion: `todo.
 |---|---|
 | **Overall progress** | **~12%** (3 of 26 build tasks landed) |
 | **Phases complete** | 0 of 7 (Phase 0 is 2/3) |
-| **Current status** | 🟢 **PASS** — everything built so far passes its DoD locally |
-| **Blocked on you** | Pins need a Kaggle run to confirm (`todo.md` item 4); cloud accounts (items 1–3) |
+| **Current status** | 🟢 **PASS** — everything built so far passes its DoD (verified on Kaggle T4) |
+| **Blocked on you** | Create the private HF artifacts repo (`todo.md` item 1) |
 | **Next up** | Task 3 (secrets) → Task 4 (deterministic replay, the load-bearing gate) |
 
 **Pass/fail of what exists:**
 - Scaffold imports cleanly — ✅ PASS
 - `get_batch` bitwise-identical across two processes — ✅ PASS (verified with 2 separate processes)
-- `check_env()` raises clear per-package messages + passes happy path — ✅ PASS locally; ⚠️ *not yet
-  confirmed on Kaggle* (that's `todo.md` item 4)
+- `check_env()` — ✅ PASS on Kaggle Tesla T4 (`check_env OK`); pins now match the real image.
 
 ---
 
@@ -49,7 +48,7 @@ Legend: ✅ done · 🟡 partial/stubbed · ⬜ not started · ⛔ credits-gated
 
 ### Phase 0 · Foundation — 2/3
 - ✅ **Task 0** — scaffold repo (DoD: imports clean — PASS)
-- ✅ **Task 1** — env pin + `check_env()` (DoD: clear-message-on-mismatch PASS; passes-on-Kaggle PENDING your run)
+- ✅ **Task 1** — env pin + `check_env()` (DoD: clear-message-on-mismatch PASS; passes-on-Kaggle **PASS** — `GPU: Tesla T4 / check_env OK`)
 - ✅ **Task 2** — fixed tokenized shard + `get_batch` (DoD: cross-process bitwise-identical PASS; <5 min prep by design, not yet timed on Kaggle)
 - ⬜ **Task 3** — secrets hygiene + no-token-in-git test
 
@@ -100,7 +99,9 @@ Legend: ✅ done · 🟡 partial/stubbed · ⬜ not started · ⛔ credits-gated
 4. Then localizer → repair → attribution/theory → 124M/figures/paper.
 
 ## Known caveats / risks
-- **Pins unverified on Kaggle** — `requirements.txt` versions are best-guess until `todo.md` item 4.
+- **Pins verified on Kaggle** ✅ — matched to the real image (torch 2.10.0, numpy 2.0.2, scipy
+  1.16.3, datasets 5.0.0, safetensors 0.7.0, huggingface_hub 1.11.0, tiktoken 0.12.0, wandb 0.26.1).
+  Note this is a *newer* image than the plan assumed — watch for numpy-2 / datasets-5 API drift.
 - **Dataset revisions unpinned** — `prepare.py` presets use `"main"` (TODO: real commit shas) so a
   shard is only reproducible once those are pinned.
 - **`<5 min` proxy prep** is a design target (streaming + token cap), not yet measured on real hardware.
