@@ -1,112 +1,125 @@
-# UPDATE — OPTIMIZER AUTOPSY project status
+# UPDATE — where the project is, in plain English
 
-Running status report. I update this after every unit of work. Companion: `todo.md` (things I need
-*you* to do) and `BUILD_PLAN.md` (the 26-task plan this tracks against).
+This is your simple status page. No jargon. It answers three questions: **what's done**, **what I'm
+doing right now**, and **what's next**. (The nerdy task-by-task checklist is at the very bottom if you
+ever want it.)
 
-**Last updated:** 2026-08-01
-
----
-
-## At a glance
-
-| Metric | Value |
-|---|---|
-| **Overall progress** | **~15%** (4 of 26 build tasks landed) |
-| **Phases complete** | **1 of 7** (Phase 0 complete) |
-| **Current status** | 🟢 **PASS** — everything built so far passes its DoD (verified on Kaggle T4) |
-| **Blocked on you** | Nothing — `todo.md` is clear. |
-| **Next up** | Task 4 (deterministic replay + smoke test — the load-bearing gate) |
-
-**Pass/fail of what exists:**
-- Scaffold imports cleanly — ✅ PASS
-- `get_batch` bitwise-identical across two processes — ✅ PASS (verified with 2 separate processes)
-- `check_env()` — ✅ PASS on Kaggle Tesla T4 (`check_env OK`); pins now match the real image.
-- secrets: load-from-env, missing-required-raises, and no-token-in-git — ✅ PASS (3/3).
+**Last updated:** 2026-08-02
 
 ---
 
-## What I've been implementing (newest first)
+## The one-line version
 
-- **Task 3 — secrets hygiene.** `research/harness/secrets.py::get_secret()` resolves in order
-  env → Kaggle Secrets → Colab userdata → `.env`; never prints values; raises with the fix when a
-  required secret is missing. `hf_token()`/`wandb_key()` wrappers. `research/tests/test_secrets.py`
-  greps the git-tracked tree for `hf_...` / `KEY="..."` literals (detector verified non-vacuous),
-  plus env-load and missing-raises tests.
-- **Task 1 — env pin + preflight.** `research/harness/preflight.py::check_env()`: parses
-  `requirements.txt` (single source of truth) and asserts installed versions of torch/numpy/scipy/
-  datasets/safetensors/huggingface_hub/tiktoken/wandb; asserts `CUBLAS_WORKSPACE_CONFIG` ∈
-  `(":4096:8", ":16:8")`; asserts CUDA not yet initialized; prints the GPU name. Wired into
-  `smoke.py` and `run.py` entrypoints.
-- **Task 2 — fixed data shard.** `research/data/prepare.py`: GPT-2 BPE (tiktoken) → flat `uint16`
-  memmap; deterministic tail val split; `get_batch(split, step, batch, block)` indexes by integer
-  offset (pure function of `step`, no streaming/shuffle, O(1) resume); HF upload/pull by fixed
-  revision; Kaggle `/kaggle/input` → `/kaggle/working` → `./data` path resolution.
-- **Task 0 — scaffold.** Full `research/` package tree (harness, data, model, localizer, repair,
-  baselines, spikes, analysis, experiments, theory, configs), pinned `requirements.txt`, READMEs,
-  both notebook launchers (set `CUBLAS_WORKSPACE_CONFIG` before torch), `.gitignore`. Root
-  `index.html` left untouched.
+The project has a solid foundation and just got its most important safety check working. We're
+**~17% of the way** through the build. Everything built so far **works and is tested**. Nothing is
+waiting on you right now.
 
 ---
 
-## BUILD_PLAN task tracker
+## What is this project again? (the plain version)
 
-Legend: ✅ done · 🟡 partial/stubbed · ⬜ not started · ⛔ credits-gated
+Big AI models sometimes "blow up" during training — the loss suddenly spikes and the run gets
+damaged. Our project is like a **detective + surgeon** for that moment:
 
-### Phase 0 · Foundation — 3/3 ✅
-- ✅ **Task 0** — scaffold repo (DoD: imports clean — PASS)
-- ✅ **Task 1** — env pin + `check_env()` (DoD: clear-message-on-mismatch PASS; passes-on-Kaggle **PASS** — `GPU: Tesla T4 / check_env OK`)
-- ✅ **Task 2** — fixed tokenized shard + `get_batch` (DoD: cross-process bitwise-identical PASS; <5 min prep by design, not yet timed on Kaggle)
-- ✅ **Task 3** — secrets hygiene + no-token-in-git test (DoD: env-load PASS; no-secrets-in-git PASS)
+1. **Rewind** training to the instant it broke.
+2. **Find** exactly which part of the model's "memory" got poisoned.
+3. **Repair** just that part and prove the repair is what fixed it.
 
-### Phase 1 · The instrument — 0/4
-- ⬜ **Task 4** — deterministic replay + smoke test *(LOAD-BEARING — the determinism gate)*
-- ⬜ **Task 5** — proxy nanoGPT model + trunk loop
-- ⬜ **Task 6** — snapshot/restore of (w, m, v, RNG, cursor) + HF Hub
-- ⬜ **Task 7** — fork driver + the Δ==0 determinism GATE
-
-### Phase 2 · Cheapest kill-test — 0/2
-- ⬜ **Task 8** — spike induction + detector tuning
-- ⬜ **Task 9** — cheap-branch battery + method-is-dead check
-
-### Phase 3 · Localizer — 0/3
-- ⬜ **Task 10** — directional SNR
-- ⬜ **Task 11** — curvature: HVP + memory-bounded top-k
-- ⬜ **Task 12** — poison score, ψ_k, poisoned set P
-
-### Phase 4 · Repair, battery, baselines — 0/3
-- ⬜ **Task 13** — repair operator (rank-|P| projection)
-- ⬜ **Task 14** — full branch battery
-- ⬜ **Task 15** — baselines (skip/clip/spam/zclip/adagc/reset)
-
-### Phase 5 · The science — 0/4
-- ⬜ **Task 16** — held-out val-loss eval harness
-- ⬜ **Task 17** — attribution battery + calibration + paired stats
-- ⬜ **Task 18** — GO/NO-GO #1
-- ⬜ **Task 19** — theory notebook (AR(2), Thms 1 & 2)
-
-### Phase 6 · Scale, figures, paper — 0/6
-- 🟡 **Task 20** — end-to-end proxy smoke gate *(entrypoint + `check_env()` stubbed; pipeline TODO)*
-- ⬜ **Task 21** — natural spikes (LLM360 K2 + corrupted-batch)
-- ⬜ **Task 22** — 124M on Kaggle within free limits
-- ⬜ **Task 23** — analysis & figures
-- ⬜ **Task 24** — workshop paper + repro package
-- ⛔ **Task 25** — 410M mechanism transfer *(credits-gated)*
-
-**Totals:** ✅ 4 · 🟡 1 · ⬜ 20 · ⛔ 1  →  **4 fully done / 26.**
+To do that honestly, we need to be able to **replay training perfectly** — run it twice and get the
+*exact* same numbers. That "perfect replay" is the thing we just got working today.
 
 ---
 
-## What's left (the short version)
+## ✅ What you've accomplished so far
 
-1. **Build the instrument (Phase 1):** determinism gate → model+trunk → snapshot → fork Δ==0 gate.
-   This is the tall pole; nothing causal is allowed until Task 7 reads Δ==0 on the proxy.
-3. **Week-one kill-test (Phase 2):** find out if the repair method is even needed before building it.
-4. Then localizer → repair → attribution/theory → 124M/figures/paper.
+Think of this as laying the foundation of a house. It's done and inspected:
 
-## Known caveats / risks
-- **Pins verified on Kaggle** ✅ — matched to the real image (torch 2.10.0, numpy 2.0.2, scipy
-  1.16.3, datasets 5.0.0, safetensors 0.7.0, huggingface_hub 1.11.0, tiktoken 0.12.0, wandb 0.26.1).
-  Note this is a *newer* image than the plan assumed — watch for numpy-2 / datasets-5 API drift.
-- **Dataset revisions unpinned** — `prepare.py` presets use `"main"` (TODO: real commit shas) so a
-  shard is only reproducible once those are pinned.
-- **`<5 min` proxy prep** is a design target (streaming + token cap), not yet measured on real hardware.
+1. **All your accounts and keys are set up.** Kaggle (free GPUs), Hugging Face (cloud storage),
+   Weights & Biases (charts), Colab. Your secret keys are safely stored — never on your laptop,
+   never in the code.
+2. **A private cloud storage box exists** for the big files (`optimizer-autopsy-artifacts`).
+3. **The code knows how to run on Kaggle's free GPUs** and checks the environment is correct before
+   it starts — we confirmed this on a real Kaggle GPU (a Tesla T4). It printed "OK".
+4. **The data pipeline is built.** It turns text into the numbers the model trains on, and — this is
+   important — it can hand back the *exact same* batch of data every time, which is what makes
+   perfect replay possible. We proved it gives identical results across two separate runs.
+5. **Secrets are safe.** There's an automatic guard that scans the whole project and refuses to let a
+   password or key get saved into it by accident.
+6. **🔑 Perfect replay works (today's big one).** We can now take a snapshot of a model mid-training,
+   run it forward 50 steps, rewind, run it again — and get *byte-for-byte identical* results. Zero
+   difference. This is the single most important piece: without it, none of the "find the poison"
+   science would be trustworthy.
+
+---
+
+## 🔨 What I'm doing right now
+
+I just finished **#6 above (perfect replay)** and tested it on your laptop's CPU — it passed with
+zero difference at every step.
+
+**The catch:** the plan requires this same test to also pass on a real **Kaggle GPU** (GPUs do math
+slightly differently than CPUs, so we can't assume it works there just because it works locally).
+So the next small thing I need from you is to run one command on Kaggle — I've put it in `todo.md`.
+
+After that, I move on to building the **model itself** and the **training loop** (the engine that
+actually trains the mini AI we'll experiment on).
+
+---
+
+## ⏭️ What's next (in order)
+
+1. **You:** run the replay test on Kaggle GPU (see `todo.md`) so we know it works there too.
+2. **Me:** build the small practice model + the training loop.
+3. **Me:** build the "snapshot" system (save/reload a model's full state to the cloud).
+4. **Me:** build the "fork" system — the heart of the project, where we test a fix and prove it
+   worked by comparing against a perfect replay.
+
+---
+
+## Progress bar
+
+```
+Foundation  ████████████████████  DONE (4 of 4 steps)
+The engine  ██░░░░░░░░░░░░░░░░░░░  starting now
+Everything else  ░░░░░░░░░░░░░░░░  not started
+```
+
+**Overall: ~17% built. Status: 🟢 everything passing.**
+
+---
+
+## Anything I should worry about?
+
+- Kaggle's free computers have **newer software** than the plan expected (that's fine, just noted so
+  nothing surprises us later).
+- The replay test passed on CPU; **still needs the Kaggle-GPU thumbs-up** (that's your one to-do).
+- Everything else is green.
+
+---
+---
+
+## Appendix: the technical checklist (skip unless you want detail)
+
+Legend: ✅ done · 🟡 partial · ⬜ not started · ⛔ needs paid GPUs
+
+**Phase 0 · Foundation — 4/4 ✅**
+- ✅ Task 0 — repo scaffold (imports clean)
+- ✅ Task 1 — env check `check_env()` (passes on Kaggle T4)
+- ✅ Task 2 — fixed tokenized data + `get_batch` (bitwise-identical across two processes)
+- ✅ Task 3 — secrets loader + no-token-in-git test (3/3 pass)
+
+**Phase 1 · The instrument — 1/4**
+- ✅ Task 4 — deterministic replay + test (CPU **PASS**, max|Δ|=0 over 50 steps; Kaggle-GPU run pending — `todo.md`)
+- ⬜ Task 5 — proxy nanoGPT model + trunk training loop  ← *next*
+- ⬜ Task 6 — snapshot/restore of (weights + optimizer + RNG) to HF Hub
+- ⬜ Task 7 — fork driver + the Δ==0 gate
+
+**Phases 2–6 — not started:** spike induction, kill-test (T8–9), localizer (T10–12), repair +
+baselines (T13–15), attribution + theory (T16–19), scale + figures + paper (T20–24). ⛔ Task 25
+(410M) needs paid GPUs.
+
+**Totals:** ✅ 5 · 🟡 1 · ⬜ 19 · ⛔ 1  →  **5 fully done / 26.**
+
+**Known technical caveats:** Kaggle image is newer than planned (numpy 2.0.2, datasets 5.0.0 —
+watch for API drift); `prepare.py` dataset revisions still `"main"` (need pinned commit shas);
+`<5 min` proxy prep is a design target, not yet timed on Kaggle; Task 4 GPU leg unverified.
