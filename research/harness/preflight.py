@@ -50,7 +50,9 @@ def check_env() -> None:
         except md.PackageNotFoundError:
             mismatches.append(f"{pkg}: NOT INSTALLED (pinned {want})")
             continue
-        if have != want:
+        # Strip the local build tag (e.g. torch "2.10.0+cu128") so a CPU box and a CUDA box both
+        # pass against the same pin; the public version is what governs numerics.
+        if have.split("+", 1)[0] != want:
             mismatches.append(f"{pkg}: installed {have} != pinned {want}")
     if mismatches:
         raise RuntimeError(
