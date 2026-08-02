@@ -10,9 +10,9 @@ ever want it.)
 
 ## The one-line version
 
-The project has a solid foundation and just got its most important safety check working. We're
-**~17% of the way** through the build. Everything built so far **works and is tested**. Nothing is
-waiting on you right now.
+The project has a solid foundation and its most important safety check is now **confirmed working on
+a real GPU**. We're **~19% of the way** through the build. Everything built so far **works and is
+tested**. Nothing is waiting on you right now.
 
 ---
 
@@ -45,34 +45,34 @@ Think of this as laying the foundation of a house. It's done and inspected:
    perfect replay possible. We proved it gives identical results across two separate runs.
 5. **Secrets are safe.** There's an automatic guard that scans the whole project and refuses to let a
    password or key get saved into it by accident.
-6. **🔑 Perfect replay works (today's big one).** We can now take a snapshot of a model mid-training,
-   run it forward 50 steps, rewind, run it again — and get *byte-for-byte identical* results. Zero
-   difference. This is the single most important piece: without it, none of the "find the poison"
-   science would be trustworthy.
+6. **🔑 Perfect replay works — confirmed on a real GPU.** We can take a snapshot of a model
+   mid-training, run it forward 50 steps, rewind, run it again — and get *byte-for-byte identical*
+   results. Zero difference, on both your laptop and a real Kaggle GPU. This is the single most
+   important piece: without it, none of the "find the poison" science would be trustworthy. It's now
+   locked in.
 
 ---
 
 ## 🔨 What I'm doing right now
 
-I just finished **#6 above (perfect replay)** and tested it on your laptop's CPU — it passed with
-zero difference at every step.
+Perfect replay is **done and GPU-verified** — you ran it on Kaggle and it came back
+`max|Δ|=0` (zero difference). That closes out the entire "safety foundation" part of the project.
 
-**The catch:** the plan requires this same test to also pass on a real **Kaggle GPU** (GPUs do math
-slightly differently than CPUs, so we can't assume it works there just because it works locally).
-So the next small thing I need from you is to run one command on Kaggle — I've put it in `todo.md`.
-
-After that, I move on to building the **model itself** and the **training loop** (the engine that
-actually trains the mini AI we'll experiment on).
+I'm now starting the **engine**: the small practice AI model we'll experiment on, plus the
+**training loop** that teaches it. Think of it as building the little car we're going to
+deliberately crash and then repair.
 
 ---
 
 ## ⏭️ What's next (in order)
 
-1. **You:** run the replay test on Kaggle GPU (see `todo.md`) so we know it works there too.
-2. **Me:** build the small practice model + the training loop.
-3. **Me:** build the "snapshot" system (save/reload a model's full state to the cloud).
-4. **Me:** build the "fork" system — the heart of the project, where we test a fix and prove it
+1. **Me (now):** build the small practice model + the training loop (the engine).
+2. **Me:** build the "snapshot" system (save/reload a model's full state to the cloud).
+3. **Me:** build the "fork" system — the heart of the project, where we test a fix and prove it
    worked by comparing against a perfect replay.
+
+(You'll get one more Kaggle to-do when the snapshot system is ready — saving/reloading needs a
+real-GPU check too.)
 
 ---
 
@@ -80,11 +80,12 @@ actually trains the mini AI we'll experiment on).
 
 ```
 Foundation  ████████████████████  DONE (4 of 4 steps)
-The engine  ██░░░░░░░░░░░░░░░░░░░  starting now
+Safety gate ████████████████████  DONE (perfect replay, GPU-verified)
+The engine  ██░░░░░░░░░░░░░░░░░░░  building now
 Everything else  ░░░░░░░░░░░░░░░░  not started
 ```
 
-**Overall: ~17% built. Status: 🟢 everything passing.**
+**Overall: ~19% built. Status: 🟢 everything passing.**
 
 ---
 
@@ -92,7 +93,7 @@ Everything else  ░░░░░░░░░░░░░░░░  not started
 
 - Kaggle's free computers have **newer software** than the plan expected (that's fine, just noted so
   nothing surprises us later).
-- The replay test passed on CPU; **still needs the Kaggle-GPU thumbs-up** (that's your one to-do).
+- The replay test now passes on **both CPU and Kaggle GPU** — the big risk is retired.
 - Everything else is green.
 
 ---
@@ -109,8 +110,8 @@ Legend: ✅ done · 🟡 partial · ⬜ not started · ⛔ needs paid GPUs
 - ✅ Task 3 — secrets loader + no-token-in-git test (3/3 pass)
 
 **Phase 1 · The instrument — 1/4**
-- ✅ Task 4 — deterministic replay + test (CPU **PASS**, max|Δ|=0 over 50 steps; Kaggle-GPU run pending — `todo.md`)
-- ⬜ Task 5 — proxy nanoGPT model + trunk training loop  ← *next*
+- ✅ Task 4 — deterministic replay + test (**PASS on CPU and Kaggle GPU**, max|Δ|=0 over 50 steps)
+- 🟡 Task 5 — proxy nanoGPT model + trunk training loop  ← *building now*
 - ⬜ Task 6 — snapshot/restore of (weights + optimizer + RNG) to HF Hub
 - ⬜ Task 7 — fork driver + the Δ==0 gate
 
@@ -122,4 +123,4 @@ baselines (T13–15), attribution + theory (T16–19), scale + figures + paper (
 
 **Known technical caveats:** Kaggle image is newer than planned (numpy 2.0.2, datasets 5.0.0 —
 watch for API drift); `prepare.py` dataset revisions still `"main"` (need pinned commit shas);
-`<5 min` proxy prep is a design target, not yet timed on Kaggle; Task 4 GPU leg unverified.
+`<5 min` proxy prep is a design target, not yet timed on Kaggle.
