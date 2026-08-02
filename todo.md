@@ -18,28 +18,6 @@ list below will just say *"Nothing left for you to do!"*
   **Private** → Create. (Must be a **Dataset** repo, not a Model repo.)
 - **Done when:** `jaztulsi/optimizer-autopsy-artifacts` exists and is private.
 
-### 2. Phone-verify Kaggle + enable Internet/GPU
-- **Why:** Kaggle blocks Internet (`kernelSessions.enableInternet` denied) until your account is
-  phone-verified — and without Internet you can't clone the repo or pull from HF.
-- **How/where:** <https://www.kaggle.com/settings> → **Phone Verification**. Then in a notebook's
-  right sidebar → **Session options** → turn **Internet ON** and **Accelerator → GPU (T4/P100)**.
-- **Done when:** a notebook cell running `!pip --version` with Internet on doesn't error.
-
-### 3. Finalize the version pins against Kaggle's real image  ← *unblocks Task 1's DoD*
-- **Why:** `requirements.txt` currently holds my best-guess pins. `check_env()` asserts installed ==
-  pinned, so the numbers must match Kaggle's actual GPU image or every real run refuses to start.
-- **Needs:** items 1 and 2 done first (Internet on).
-- **How/where:** open a Kaggle notebook **with GPU + Internet on**, first cell, run:
-  ```python
-  import os; os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-  !git clone https://github.com/jaztulsi/optimizer-autopsy.git
-  %cd optimizer-autopsy
-  !python -m research.harness.preflight
-  ```
-  It will either print `check_env OK` (perfect — nothing to do) or list lines like
-  `torch: installed 2.5.1 != pinned 2.4.0`.
-- **Done when:** you paste that output into the chat. I'll update `requirements.txt` to match.
-
 ---
 
 ## Done ✅
@@ -47,6 +25,9 @@ list below will just say *"Nothing left for you to do!"*
 - **Accounts** — Kaggle, Hugging Face, W&B, Google/Colab created.
 - **Secrets** — `HF_TOKEN` + `WANDB_API_KEY` stored in Kaggle Secrets **and** Colab Secrets
   (Notebook access ON in both).
+- **Kaggle GPU + Internet** — phone-verified; `GPU T4 ×2` + Internet confirmed working (repo clones).
+- **Version pins** — `check_env()` prints `GPU: Tesla T4` / `check_env OK` on Kaggle;
+  `requirements.txt` now matches the real image (torch 2.10.0, numpy 2.0.2, …). *Task 1 DoD met.*
 
 ---
 
