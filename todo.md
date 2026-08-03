@@ -12,8 +12,14 @@ list below will just say *"Nothing left for you to do!"*
 
 ## Open items
 
-**Nothing left for you to do!** 🎉 — I'll add items here the moment I need an account, key, or a
-GPU run from you. (Next one coming: Task 6 will need a Kaggle-GPU snapshot save/reload run.)
+1. **Task 5 DoD — run the trunk on a Kaggle GPU** (not your Mac).
+   - **What:** in a Kaggle notebook with the repo cloned, run:
+     `python -m research.harness.trunk --config research/experiments/proxy/config.yaml --steps 200`
+   - **Why:** confirms the training loop actually trains on the real proxy shard (loss goes down)
+     — the last thing left to close out Task 5. We keep compute off your Mac.
+   - **How:** paste that command in a Kaggle cell (GPU T4 on). It prints
+     `trunk done: 200 steps, loss X -> Y`.
+   - **Where:** paste the `loss X -> Y` line back here and type `done 1`.
 
 ---
 
