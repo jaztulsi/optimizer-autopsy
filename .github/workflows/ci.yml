@@ -34,7 +34,7 @@ jobs:
         with:
           fetch-depth: 0  # test_no_secrets_in_git greps the whole tracked tree via `git ls-files`
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
