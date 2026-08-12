@@ -1,0 +1,7 @@
+# Lint config for the research package. Run in CI (`ruff check research/`).
+target-version = "py311"
+line-length = 120
+
+[lint]
+# pyflakes (real bugs: unused/undefined), pycodestyle errors+warnings, isort.
+select = ["E", "F", "W", "I"]

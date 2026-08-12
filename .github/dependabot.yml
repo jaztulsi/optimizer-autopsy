@@ -1,0 +1,13 @@
+# Free automated dependency PRs. GitHub runs this — no local action needed.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /research
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
