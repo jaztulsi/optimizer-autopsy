@@ -12,19 +12,19 @@ list below will just say *"Nothing left for you to do!"*
 
 ## Open items
 
-1. **Task 5 DoD — run the trunk on a Kaggle GPU** (not your Mac).
-   - **What:** in a Kaggle notebook with the repo cloned, run:
-     `python -m research.harness.trunk --config research/experiments/proxy/config.yaml --steps 200`
-   - **Why:** confirms the training loop actually trains on the real proxy shard (loss goes down)
-     — the last thing left to close out Task 5. We keep compute off your Mac.
-   - **How:** paste that command in a Kaggle cell (GPU T4 on). It prints
-     `trunk done: 200 steps, loss X -> Y`.
-   - **Where:** paste the `loss X -> Y` line back here and type `done 1`.
+**Nothing left for you to do!** 🎉
+
+(I can now drive Kaggle myself, headless — the Kaggle CLI is wired up on your Mac, so I push code
+and run it on a free GPU and pull results back without you clicking anything. Compute never touches
+your machine.)
 
 ---
 
 ## Done ✅
 
+- **Task 5 DoD — trunk trains on a Kaggle GPU** — I ran it headless on a Tesla T4:
+  `trunk done: 200 steps, loss 10.851 -> 4.730`. Loss more than halved → the training loop learns.
+  Task 5 met.
 - **Perfect-replay GPU check** — `bitwise replay OK on cuda: 50 steps, max|Δ|=0`. Task 4 DoD met.
 - **HF artifacts repo** — `jaztulsi/optimizer-autopsy-artifacts` created (private, Dataset).
 - **Accounts** — Kaggle, Hugging Face, W&B, Google/Colab created.

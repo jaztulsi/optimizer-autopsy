@@ -4,15 +4,15 @@ This is your simple status page. No jargon. It answers three questions: **what's
 doing right now**, and **what's next**. (The nerdy task-by-task checklist is at the very bottom if you
 ever want it.)
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-11
 
 ---
 
 ## The one-line version
 
-The project has a solid foundation and its most important safety check is now **confirmed working on
-a real GPU**. We're **~19% of the way** through the build. Everything built so far **works and is
-tested**. Nothing is waiting on you right now.
+The foundation is done, and the **practice AI now actually trains on a real GPU** — we watched its
+error drop by more than half in 200 steps. We're **~23% of the way** through the build. Everything
+built so far **works and is tested**. Nothing is waiting on you right now.
 
 ---
 
@@ -55,18 +55,21 @@ Think of this as laying the foundation of a house. It's done and inspected:
 
 ## 🔨 What I'm doing right now
 
-Perfect replay is **done and GPU-verified** — you ran it on Kaggle and it came back
-`max|Δ|=0` (zero difference). That closes out the entire "safety foundation" part of the project.
+The **engine is built and proven**: the small practice AI model plus the training loop that teaches
+it. We ran it on a real Kaggle GPU (Tesla T4) for 200 steps and its error fell from **10.85 → 4.73**
+— it's genuinely learning. That's Task 5 done.
 
-I'm now starting the **engine**: the small practice AI model we'll experiment on, plus the
-**training loop** that teaches it. Think of it as building the little car we're going to
-deliberately crash and then repair.
+New this session: I can now **drive Kaggle myself, headless** — push the code, run it on a free GPU,
+and pull the results back without you clicking anything. No compute ever runs on your Mac.
+
+Next I build the **snapshot** system (save/reload a model's full state to the cloud), then the
+**fork** system — the heart of the project.
 
 ---
 
 ## ⏭️ What's next (in order)
 
-1. **Me (now):** build the small practice model + the training loop (the engine).
+1. ~~Build the small practice model + training loop (the engine).~~ ✅ done, GPU-verified.
 2. **Me:** build the "snapshot" system (save/reload a model's full state to the cloud).
 3. **Me:** build the "fork" system — the heart of the project, where we test a fix and prove it
    worked by comparing against a perfect replay.
@@ -81,11 +84,11 @@ real-GPU check too.)
 ```
 Foundation  ████████████████████  DONE (4 of 4 steps)
 Safety gate ████████████████████  DONE (perfect replay, GPU-verified)
-The engine  ██░░░░░░░░░░░░░░░░░░░  building now
+The engine  ████████████░░░░░░░░  training loop DONE + GPU-verified; snapshot/fork next
 Everything else  ░░░░░░░░░░░░░░░░  not started
 ```
 
-**Overall: ~19% built. Status: 🟢 everything passing.**
+**Overall: ~23% built. Status: 🟢 everything passing.**
 
 ---
 
@@ -111,7 +114,7 @@ Legend: ✅ done · 🟡 partial · ⬜ not started · ⛔ needs paid GPUs
 
 **Phase 1 · The instrument — 1/4**
 - ✅ Task 4 — deterministic replay + test (**PASS on CPU and Kaggle GPU**, max|Δ|=0 over 50 steps)
-- 🟡 Task 5 — proxy nanoGPT model + trunk training loop  ← *building now*
+- ✅ Task 5 — proxy nanoGPT model + trunk training loop (**PASS on Kaggle T4**, loss 10.85 → 4.73 / 200 steps)
 - ⬜ Task 6 — snapshot/restore of (weights + optimizer + RNG) to HF Hub
 - ⬜ Task 7 — fork driver + the Δ==0 gate
 
@@ -124,3 +127,8 @@ baselines (T13–15), attribution + theory (T16–19), scale + figures + paper (
 **Known technical caveats:** Kaggle image is newer than planned (numpy 2.0.2, datasets 5.0.0 —
 watch for API drift); `prepare.py` dataset revisions still `"main"` (need pinned commit shas);
 `<5 min` proxy prep is a design target, not yet timed on Kaggle.
+- **Proxy config OOMs a free T4 at `batch_size: 64`** (50304-vocab logits ≈ 3.3 GB × forward+backward).
+  Task 5 was validated at batch 16; for real experiments drop to `batch_size: 16` + `grad_accum: 4`
+  (same effective batch). Not yet changed in the committed config — an experiment-design call.
+- **Kaggle P100 vs T4:** pinned torch is sm_70+, so it **crashes on Kaggle's P100** (sm_60). Kernels
+  must force `machine_shape: NvidiaTeslaT4`. Wired into the headless run.
