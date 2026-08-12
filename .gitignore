@@ -3,5 +3,6 @@ __pycache__/
 *.pt
 *.safetensors
 wandb/
-data/
+/data/
+*.bin
 .env
