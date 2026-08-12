@@ -1,0 +1,3 @@
+# The repo-root site is a GitHub Pages page, not project source.
+# Exclude it from language stats so the bar reflects the real code (Python + notebooks).
+index.html linguist-documentation

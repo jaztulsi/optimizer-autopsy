@@ -5,4 +5,15 @@ __pycache__/
 wandb/
 /data/
 *.bin
+# secrets / API keys — never commit
 .env
+.env.*
+*.env
+kaggle.json
+*.pem
+*.key
+credentials.json
+client_secret*.json
+service-account*.json
+*_token*.txt
+.claude-flow/
