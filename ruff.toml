@@ -1,6 +1,8 @@
-# Lint config for the research package. Run in CI (`ruff check research/`).
+# Lint config for the research package. Run in CI (`ruff check`).
 target-version = "py311"
 line-length = 120
+# Launcher notebooks intentionally set env vars before imports (E402) — not library code.
+extend-exclude = ["notebooks"]
 
 [lint]
 # pyflakes (real bugs: unused/undefined), pycodestyle errors+warnings, isort.
