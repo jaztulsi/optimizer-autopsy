@@ -2,6 +2,7 @@
 
 **Rewind a neural-net training run to the instant its loss blew up, find exactly which slice of optimizer state got poisoned, repair only that slice — and prove the repair is what fixed it.**
 
+[![CI](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml/badge.svg)](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml)
 [![site](https://img.shields.io/badge/site-github.io-2b7bb9)](https://jaztulsi.github.io/optimizer-autopsy/)
 [![compute](https://img.shields.io/badge/compute-Kaggle%20T4%20(free)-20beff)](#free-stack)
 [![status](https://img.shields.io/badge/status-%7E23%25%20built%20%C2%B7%20all%20green-brightgreen)](update.md)
