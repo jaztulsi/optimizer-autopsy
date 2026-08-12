@@ -67,4 +67,47 @@ Tell me when you want them and I'll set them up.
 
 ---
 
+## 🧰 Make this the best it can be — free tools/skills/plugins to wire in
+
+Grouped by payoff. Everything here is **free**. ✅ wired · ⚡ high value · 🔹 polish.
+
+### Compute & artifacts (persist results, run bigger)
+- ⚡ **Hugging Face login** — checkpoints/snapshots survive after a Kaggle session dies. *You:* `hf auth login`.
+- ⚡ **Weights & Biases** — live loss curves I can read remotely. *You:* paste `WANDB_API_KEY`.
+- 🔹 **Kaggle Datasets as cache** — pre-tokenized shards + spike sets as a private dataset, so runs
+  skip re-prep and start in seconds.
+- 🔹 **Colab as a 2nd free GPU** — parallel proxy iteration while Kaggle runs the big job.
+
+### CI / quality gates (catch breakage before a GPU run wastes an hour)
+- ⚡ **GitHub Actions** (free for public repos) — on every push: `pytest`, import check, and the
+  `test_no_secrets_in_git` guard. Red X before you ever push to Kaggle.
+- ⚡ **ruff** — one fast linter+formatter for all of `research/`. Add `ruff.toml`, run in CI.
+- 🔹 **pre-commit** — run ruff + secret-scan locally before each commit.
+- 🔹 **Codecov (free OSS tier)** — coverage badge on the harness/localizer tests.
+
+### Security / secret hygiene (you asked for this)
+- ⚡ **gitleaks** or **GitHub secret scanning** (free, public repos) — blocks a token from ever landing.
+- 🔹 **Semgrep** (free tier / plugin) — cheap bug + security scan each change.
+- 🔹 **Dependabot** — free auto-PRs when a pinned dep has a fix.
+
+### Claude Code skills / plugins (make ME faster here)
+- ⚡ **kaggle-skill** (github.com/shepsci/kaggle-skill) — cleaner wrapper over the Kaggle CLI.
+- ⚡ **Context7 MCP** — version-correct docs for our pinned stack (torch 2.10 / numpy 2.0.2).
+- 🔹 **graphify** (`/graphify`) — turn the research code + BUILD_PLAN into a queryable knowledge graph.
+- 🔹 **/code-review** & **/security-review** — run before each push.
+- 🔹 **/schedule** — a nightly cloud agent that re-runs the smoke test + posts status.
+
+### Repo polish (makes it look "the best")
+- ⚡ **README badges live** — CI status, license, last-run loss (already scaffolded in `README.md`).
+- 🔹 **LICENSE file** (MIT/Apache-2.0) — pick one, I'll add it.
+- 🔹 **CITATION.cff** — so the eventual paper/repo is citable.
+- 🔹 **GitHub repo topics + description** — `pytorch`, `optimizer`, `interpretability`, `training-dynamics`.
+- 🔹 **Issue/PR templates** — if you ever open it to collaborators.
+
+**My pick for biggest payoff, in order:** HF login + W&B (results persist & are readable) →
+GitHub Actions CI (never push broken code to a GPU) → gitleaks (secret safety) → a LICENSE file.
+Say the word on any and I'll set it up.
+
+---
+
 *When you finish any item, type `done <number>` in the chat.*
