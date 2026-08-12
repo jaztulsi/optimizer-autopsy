@@ -1,7 +1,7 @@
 # OPTIMIZER AUTOPSY — research code
 
 Fork training at the moment of failure, find where the poison lives, repair it.
-Plan: [BUILD_PLAN.md](../BUILD_PLAN.md) · site: <https://jaztulsi.github.io/optimizer-autopsy/>
+Plan: [BUILD_PLAN.md](../BUILD_PLAN.md) · site: <https://jaztulsi.github.io/optimizer-autopsy/> · reuse map: [EXTERNAL_TOOLS.md](EXTERNAL_TOOLS.md)
 
 All code lives under `research/`. The repo-root `index.html` is the GitHub Pages site — leave it alone.
 
