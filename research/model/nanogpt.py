@@ -60,9 +60,7 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
-        y = F.scaled_dot_product_attention(
-            q, k, v, dropout_p=self.dropout if self.training else 0.0, is_causal=True
-        )
+        y = F.scaled_dot_product_attention(q, k, v, dropout_p=self.dropout if self.training else 0.0, is_causal=True)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.c_proj(y)
 
@@ -139,9 +137,7 @@ class GPT(nn.Module):
         logits = self.lm_head(x)
         loss = None
         if targets is not None:
-            loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)), targets.reshape(-1), ignore_index=-1
-            )
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1), ignore_index=-1)
         return logits, loss
 
     def configure_optimizers(self, weight_decay, lr, betas, eps=1e-8):

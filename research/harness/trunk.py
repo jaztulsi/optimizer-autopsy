@@ -101,8 +101,7 @@ def run_trunk(
         if run is not None:
             run.log({"loss": step_loss, "grad_norm": grad_norm, "lr": lr}, step=step)
         if on_step is not None:
-            on_step(step, {"loss": step_loss, "grad_norm": grad_norm, "lr": lr,
-                           "model": model, "opt": opt})
+            on_step(step, {"loss": step_loss, "grad_norm": grad_norm, "lr": lr, "model": model, "opt": opt})
 
     if run is not None:
         run.finish()
@@ -132,8 +131,15 @@ def _selfcheck() -> None:
         pattern[:2000].tofile(f"{d}/val.bin")
         cfg = {
             "seed": 0,
-            "model": {"n_layer": 2, "n_head": 2, "n_embd": 64, "block_size": 32,
-                      "vocab_size": vocab, "dropout": 0.0, "bias": False},
+            "model": {
+                "n_layer": 2,
+                "n_head": 2,
+                "n_embd": 64,
+                "block_size": 32,
+                "vocab_size": vocab,
+                "dropout": 0.0,
+                "bias": False,
+            },
             "optim": {"lr": 3e-3, "weight_decay": 0.1, "betas": [0.9, 0.95], "grad_clip": 1.0},
             "train": {"batch_size": 16, "grad_accum": 2, "max_steps": 200},
         }

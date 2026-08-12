@@ -30,14 +30,14 @@ EOT = 50256
 class DataConfig:
     """Everything that fixes a shard. Change any field -> a different (pinned) shard."""
 
-    name: str                 # shard name -> out_dir basename
-    hf_dataset: str           # HF dataset id, e.g. "roneneldan/TinyStories"
-    hf_revision: str          # pinned dataset commit sha (NOT a mutable branch)
-    hf_split: str = "train"   # source split to draw documents from
-    text_key: str = "text"    # column holding the document text
+    name: str  # shard name -> out_dir basename
+    hf_dataset: str  # HF dataset id, e.g. "roneneldan/TinyStories"
+    hf_revision: str  # pinned dataset commit sha (NOT a mutable branch)
+    hf_split: str = "train"  # source split to draw documents from
+    text_key: str = "text"  # column holding the document text
     target_tokens: int = 100_000_000  # total tokens to keep (train + val)
-    val_fraction: float = 0.005       # tail fraction held out for val
-    encode_batch: int = 1024          # docs per tiktoken batch call
+    val_fraction: float = 0.005  # tail fraction held out for val
+    encode_batch: int = 1024  # docs per tiktoken batch call
 
 
 # Presets. proxy = ~100M tokens TinyStories (prepares in <5 min via streaming). 124M = a larger
@@ -63,6 +63,7 @@ PRESETS = {
 # Prepare (writes shards)
 # --------------------------------------------------------------------------------------
 
+
 def prepare(cfg: DataConfig, out_root: str = "data") -> str:
     """Tokenize `cfg`'s corpus and write {out_root}/{name}/{train,val}.bin + meta.json.
 
@@ -76,9 +77,7 @@ def prepare(cfg: DataConfig, out_root: str = "data") -> str:
     out_dir = os.path.join(out_root, cfg.name)
     os.makedirs(out_dir, exist_ok=True)
 
-    ds = load_dataset(
-        cfg.hf_dataset, split=cfg.hf_split, revision=cfg.hf_revision, streaming=True
-    )
+    ds = load_dataset(cfg.hf_dataset, split=cfg.hf_split, revision=cfg.hf_revision, streaming=True)
 
     chunks: list[np.ndarray] = []
     total = 0
@@ -162,6 +161,7 @@ def get_batch(split, step, batch, block, data_dir, device="cpu"):
 # HF artifacts repo (upload / pull by fixed revision) + Kaggle path resolution
 # --------------------------------------------------------------------------------------
 
+
 def upload_shards(out_dir: str, repo_id: str, revision: str | None = None) -> None:
     """Push a prepared shard dir to the HF artifacts repo (dataset repo)."""
     from huggingface_hub import HfApi
@@ -204,6 +204,7 @@ def resolve_data_dir(name: str) -> str:
 # --------------------------------------------------------------------------------------
 # CLI + self-check
 # --------------------------------------------------------------------------------------
+
 
 def _selfcheck() -> None:
     """get_batch is deterministic and correctly offset. No RNG in the read path => two processes

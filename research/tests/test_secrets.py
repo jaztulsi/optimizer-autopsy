@@ -16,16 +16,12 @@ from research.harness import secrets
 #  - HF tokens are `hf_` + a long alnum blob.
 #  - a KEY/TOKEN/SECRET assigned a >=20-char high-entropy string literal.
 _HF = re.compile(r"hf_[A-Za-z0-9]{30,}")
-_ASSIGN = re.compile(
-    r"(?i)(token|api[_-]?key|secret|password)\s*[=:]\s*['\"][A-Za-z0-9_\-]{20,}['\"]"
-)
+_ASSIGN = re.compile(r"(?i)(token|api[_-]?key|secret|password)\s*[=:]\s*['\"][A-Za-z0-9_\-]{20,}['\"]")
 
 
 def _tracked_files() -> list[Path]:
     root = Path(__file__).resolve().parents[2]
-    out = subprocess.run(
-        ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=True
-    )
+    out = subprocess.run(["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=True)
     return [root / p for p in out.stdout.splitlines() if p]
 
 

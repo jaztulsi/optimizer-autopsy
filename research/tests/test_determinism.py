@@ -26,11 +26,7 @@ def _tiny_model(device):
     import torch
 
     # No dropout (deterministic-path convention). fp32, same device for both runs.
-    return (
-        torch.nn.Sequential(torch.nn.Linear(16, 32), torch.nn.ReLU(), torch.nn.Linear(32, 16))
-        .to(device)
-        .float()
-    )
+    return torch.nn.Sequential(torch.nn.Linear(16, 32), torch.nn.ReLU(), torch.nn.Linear(32, 16)).to(device).float()
 
 
 def _run_steps(model, opt, x, y, steps):
