@@ -1,0 +1,19 @@
+# Optional local hooks — CI is the source of truth; enable with `pre-commit install` if you want
+# these to run on each commit. ruff-format deliberately skips the load-bearing determinism/preflight
+# code so a cosmetic reformat can never perturb the bitwise-replay guarantees.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.2
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+        exclude: ^research/harness/(determinism|preflight)\.py$
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-merge-conflict

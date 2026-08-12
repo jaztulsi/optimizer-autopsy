@@ -1,0 +1,45 @@
+{
+  "summary": {
+    "total_issues": 3,
+    "score": {
+      "noise": 0,
+      "quality": 23,
+      "style": 8,
+      "structure": 0,
+      "total": 31
+    },
+    "verdict": "SLOPPY"
+  },
+  "issues": [
+    {
+      "pattern_id": "hallucinated_attribute",
+      "severity": "high",
+      "axis": "quality",
+      "file": "research/model/nanogpt.py",
+      "line": 140,
+      "column": 51,
+      "message": "Use len(obj) not obj.size - JavaScript pattern (unless pandas/set)",
+      "code": "loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.reshape(-1), ignore_index=-1)"
+    },
+    {
+      "pattern_id": "deep_nesting",
+      "severity": "medium",
+      "axis": "style",
+      "file": "research/harness/trunk.py",
+      "line": 89,
+      "column": 20,
+      "message": "Code nested 5 levels deep - consider refactoring",
+      "code": null
+    },
+    {
+      "pattern_id": "notimplemented_placeholder",
+      "severity": "medium",
+      "axis": "quality",
+      "file": "research/harness/trunk.py",
+      "line": 111,
+      "column": 0,
+      "message": "Function raises NotImplementedError - implementation needed",
+      "code": "def resume_trunk(...): raise NotImplementedError"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Dev/analysis tools only — NOT read by preflight.check_env(), NOT part of the numerics-critical
+# pinned subset. Install separately from research/requirements.txt.
+#   pip install -r requirements-dev.txt        # (add --break-system-packages if your env needs it)
+# Note: curvlinops/pyhessian/hessian-eigenthings pull in torch — they belong in CI/Kaggle, not on
+# the local driver machine (which stays git/read/edit/lint only per CLAUDE.md).
+ruff==0.16.2
+sloppylint[rich]==0.5.1
+statsmodels==0.14.6
+curvlinops-for-pytorch==3.0.1
+hessian-eigenthings==1.0.0a5
+pyhessian==0.1
+kaggle==2.2.4
