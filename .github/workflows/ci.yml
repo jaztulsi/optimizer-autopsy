@@ -1,8 +1,9 @@
 name: CI
 
-# Cheap CPU gate before any code reaches a Kaggle GPU: the secret-hygiene guard
-# and the bitwise-determinism test. Deliberately does NOT run harness.preflight
-# (check_env asserts installed == the GPU-image pins, which won't hold on CPU).
+# Cheap CPU gates before any code reaches a Kaggle GPU:
+#   lint (ruff) · secret scan (gitleaks) · secret-hygiene + bitwise-determinism tests.
+# Deliberately does NOT run harness.preflight (check_env asserts installed == the GPU-image
+# pins, which won't hold on a CPU runner).
 on:
   push:
     branches: [main]
@@ -10,6 +11,22 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: check research/
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # scan full history, not just the tip
+      - uses: gitleaks/gitleaks-action@v2
+
   test:
     runs-on: ubuntu-latest
     steps:
@@ -27,8 +44,8 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install pytest numpy
+          pip install pytest pytest-cov numpy
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests
-        run: pytest research/tests/ -v
+        run: pytest research/tests/ -v --cov=research --cov-report=term-missing

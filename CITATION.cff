@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+title: "Optimizer Autopsy: causal localization and repair of optimizer state after loss spikes"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - name: jaztulsi
+repository-code: "https://github.com/jaztulsi/optimizer-autopsy"
+url: "https://jaztulsi.github.io/optimizer-autopsy/"
+license: MIT
+keywords:
+  - pytorch
+  - optimizer
+  - training-dynamics
+  - loss-spikes
+  - interpretability
+  - reproducibility
