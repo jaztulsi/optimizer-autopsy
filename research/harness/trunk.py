@@ -52,12 +52,18 @@ def train_forward(
     device: str,
     on_step=None,
     grad_hook=None,
+    pre_step=None,
     run=None,
 ) -> list[float]:
     """Run `steps` optimizer steps from `start_step` on an ALREADY-BUILT model+opt; return per-step
     losses. The single loop the trunk, resume, and forks all share -- one implementation so a fork's
     numerics are identical to the trunk's. With dropout=0 (the deterministic fork path) it consumes
     no RNG, which is what lets two noop forks replay bitwise. See the module docstring for the hooks.
+
+    `pre_step(step, ctx)` (spike-induction injection point, Task 8) fires at the TOP of each step with
+    a mutable ctx = {model, opt, cfg, batch, autocast_dtype}; a recipe may mutate `opt` (LR/eps),
+    override the batch (ctx["batch"]=(x,y)), or force reduced precision (ctx["autocast_dtype"]="float16").
+    Default None is a pure no-op -- the trunk/resume/fork paths are byte-for-byte unchanged.
     """
     block = model.cfg.block_size
     t = cfg["train"]
@@ -67,17 +73,30 @@ def train_forward(
 
     losses: list[float] = []
     for step in range(start_step, start_step + steps):
+        ctx = None
+        if pre_step is not None:
+            ctx = {"model": model, "opt": opt, "cfg": cfg, "batch": None, "autocast_dtype": None}
+            pre_step(step, ctx)  # may mutate opt, set ctx["batch"] / ctx["autocast_dtype"]
         opt.zero_grad(set_to_none=True)
         total_loss = 0.0
         acc = None  # manual grad accumulator, only when grad_accum > 1
         for micro in range(grad_accum):
             # Each microbatch is a distinct, reproducible data slot (pure function of gstep).
             gstep = step * grad_accum + micro
-            x, y = get_batch("train", gstep, batch, block, data_dir, device)
+            if ctx is not None and ctx["batch"] is not None:
+                x, y = ctx["batch"]  # perturbation override (e.g. corrupt-batch spike recipe)
+            else:
+                x, y = get_batch("train", gstep, batch, block, data_dir, device)
             if grad_accum > 1:
                 for p in model.parameters():
                     p.grad = None  # so p.grad holds THIS microbatch's grad, clean, for the hook
-            _, loss = model(x, y)
+            adtype = ctx["autocast_dtype"] if ctx is not None else None
+            if adtype is not None:
+                dev = "cuda" if str(device).startswith("cuda") else "cpu"
+                with torch.autocast(device_type=dev, dtype=getattr(torch, adtype)):
+                    _, loss = model(x, y)
+            else:
+                _, loss = model(x, y)
             loss.backward()
             if grad_hook is not None:
                 grad_hook(step, micro, model)  # p.grad = this microbatch only, no extra backprop
