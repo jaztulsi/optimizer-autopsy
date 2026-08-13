@@ -1,0 +1,209 @@
+{
+  "claim": "bitwise replay max|Delta|=0 over N steps (Task 4 primitive)",
+  "device": "cuda",
+  "steps": 50,
+  "max_over_run": 0.0,
+  "per_step": [
+    {
+      "step": 0,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 1,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 2,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 3,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 4,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 5,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 6,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 7,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 8,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 9,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 10,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 11,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 12,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 13,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 14,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 15,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 16,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 17,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 18,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 19,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 20,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 21,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 22,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 23,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 24,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 25,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 26,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 27,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 28,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 29,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 30,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 31,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 32,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 33,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 34,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 35,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 36,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 37,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 38,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 39,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 40,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 41,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 42,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 43,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 44,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 45,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 46,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 47,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 48,
+      "max_abs_delta": 0.0
+    },
+    {
+      "step": 49,
+      "max_abs_delta": 0.0
+    }
+  ],
+  "generated_utc": "2026-08-13T01:05:19.411109+00:00"
+}

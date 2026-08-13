@@ -1,0 +1,24 @@
+Cloning into 'optimizer-autopsy'...
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 57.6/57.6 kB 2.1 MB/s eta 0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 725.0/725.0 kB 14.9 MB/s eta 0:00:00
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 78.3/78.3 kB 5.2 MB/s eta 0:00:00
+ERROR: pip's dependency resolver does not currently take into account all the packages that are installed. This behaviour is the source of the following dependency conflicts.
+google-adk 1.29.0 requires google-cloud-bigquery-storage>=2.0.0, which is not installed.
+ydata-profiling 4.18.4 requires PyYAML<6.1,>=6.0.3, but you have pyyaml 6.0.1 which is incompatible.
+dopamine-rl 4.1.2 requires gym<=0.25.2, but you have gym 0.26.2 which is incompatible.
+moviepy 1.0.3 requires decorator<5.0,>=4.0.2, but you have decorator 5.3.1 which is incompatible.
+tobler 0.14.0 requires tqdm>=4.67, but you have tqdm 4.66.4 which is incompatible.
+dataproc-spark-connect 1.1.0 requires tqdm>=4.67, but you have tqdm 4.66.4 which is incompatible.
+google-adk 1.29.0 requires PyYAML<7.0.0,>=6.0.2, but you have pyyaml 6.0.1 which is incompatible.
+no HF_TOKEN secret: Connection error trying to communicate with service.
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+bitwise replay OK on cuda: 50 steps, max|Δ|=0 at every step
+wrote /kaggle/working/results/task4_determinism.json: {"claim": "bitwise replay max|Delta|=0 over N steps (Task 4 primitive)", "device": "cuda", "steps": 50, "max_over_run": 0.0, "generated_utc": "2026-08-13T01:05:19.411109+00:00"}
+wrote /kaggle/working/results/task5_trunk.json: {"claim": "trunk loss decreases on real GPU (Task 5)", "device": "cuda", "steps": 200, "batch_size": 16, "loss_first": 10.850969314575195, "loss_last": 4.730247497558594, "generated_utc": "2026-08-13T01:06:56.661364+00:00"}
+EVIDENCE DONE on cuda: task4 max|Delta|=0.0, task5 loss 10.851 -> 4.730
+/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\|'
+  cells[i][c] = re.sub('\\\\\|', '|', cell)
+/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\_'
+  text = re.sub(r'_', '\_', text) # Escape underscores in display text
+[NbConvertApp] Converting notebook __script__.ipynb to html
+[NbConvertApp] Writing 276598 bytes to __results__.html
