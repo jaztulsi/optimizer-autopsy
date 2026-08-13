@@ -1,9 +1,16 @@
 """Task 8 real proxy run: induce each of the 4 spike recipes on the REAL proxy trunk (TinyStories),
 score the online detector against MEASURED ground truth, and report the DoD on held-out spikes.
 
-Two seeds per recipe: seed 0 tunes the detector thresholds, seed 1 is held out for the DoD check
-(context §15.2: median lead >= L at FP <= f for >= 3/4 recipes). Short runs (a handful of steps past
-injection) -- this answers "does the recipe spike + does the detector catch it", not convergence.
+Calibrated after a first run came in 0/4 (spikes injected during the steep initial descent were
+masked by a prefix-median baseline). Fixes here:
+  * inject in the PLATEAU (step 160, proxy loss ~4.7 flat) for lr_bump / precision / corrupt_batch,
+    so a bump stands clear of a flat local level;
+  * inject tiny_eps EARLY (step 20) -- a late tiny eps against an accumulated v is inert by
+    construction, so give the v-underflow pathway a fair shot while v is still small/volatile;
+  * strengthen lr_bump to x50 (a modest bump self-corrects within AdamW's next steps);
+  * the measurement itself now uses a LOCAL pre-injection baseline (see tune_detector.spike_occurred).
+DoD thresholds are unchanged (L=2, f=0.05): these fixes make real spikes visible, they do not lower
+the bar. Two seeds per recipe: seed 0 tunes the detector thresholds, seed 1 is held out for the DoD.
 
 Run on Kaggle:  python -m research.kaggle.spike_run
 """
@@ -17,11 +24,17 @@ os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
 import json  # noqa: E402
 from datetime import datetime, timezone  # noqa: E402
 
-INJECT = 30  # known cause step (>= detector warmup, leaves a clean prefix for FP)
-STEPS = 60  # run long enough to see the post-inject peak + tail
+STEPS = 200  # long enough to reach the plateau before the (plateau) injections
 BATCH = 16  # fits the T4 (batch 64 OOMs at this vocab); SDPA shapes set by block/head_dim
-L, F = 2, 0.05  # DoD: median lead >= L steps at false-positive rate <= F
-WIDTHS = {"lr_bump": 3, "tiny_eps": 3, "precision": 1, "corrupt_batch": 1}
+L, F = 2, 0.05  # DoD: median lead >= L steps at false-positive rate <= F (UNCHANGED)
+
+# Per-recipe injection: plateau (~160) for most; early (20) for tiny_eps so v is still small.
+SPEC = {
+    "lr_bump": {"inject": 160, "width": 3, "params": {"factor": 50.0}},
+    "tiny_eps": {"inject": 20, "width": 5, "params": {}},
+    "precision": {"inject": 160, "width": 3, "params": {}},
+    "corrupt_batch": {"inject": 160, "width": 1, "params": {}},
+}
 
 
 def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
@@ -29,8 +42,9 @@ def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
     from research.harness.trunk import run_trunk
     from research.spikes.induce import induce
 
+    spec = SPEC[kind]
     cfg = load_config("research/experiments/proxy/config.yaml", {"train.batch_size": BATCH, "seed": seed})
-    recipe = induce(kind, cfg, inject_step=INJECT, width=WIDTHS[kind])
+    recipe = induce(kind, cfg, inject_step=spec["inject"], width=spec["width"], **spec["params"])
 
     losses, grads = [], []
 
@@ -39,7 +53,7 @@ def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
         grads.append(info["grad_norm"])
 
     run_trunk(cfg, data_dir, steps=STEPS, on_step=on_step, pre_step=recipe.pre_step, deterministic=False, device=device)
-    return {"kind": kind, "seed": seed, "inject_step": INJECT, "losses": losses, "gradnorms": grads}
+    return {"kind": kind, "seed": seed, "inject_step": spec["inject"], "losses": losses, "gradnorms": grads}
 
 
 def main() -> None:
@@ -66,10 +80,16 @@ def main() -> None:
         torch.cuda.empty_cache()
         tune_runs.append(r0)
         test_runs.append(r1)
-        occ = spike_occurred(r1["losses"], INJECT)  # ground truth on the held-out run
-        per_recipe[kind] = {"spike_occurred": occ["occurred"], "peak_step": occ["peak_step"], "ratio": occ["ratio"]}
+        occ = spike_occurred(r1["losses"], r1["inject_step"])  # ground truth on the held-out run
+        per_recipe[kind] = {
+            "inject_step": r1["inject_step"],
+            "spike_occurred": occ["occurred"],
+            "peak_step": occ["peak_step"],
+            "ratio": occ["ratio"],
+        }
         print(
-            f"[{kind}] held-out spike_occurred={occ['occurred']} peak_step={occ['peak_step']} ratio={occ['ratio']:.2f}"
+            f"[{kind}] inject={r1['inject_step']} held-out spike_occurred={occ['occurred']} "
+            f"peak_step={occ['peak_step']} ratio={occ['ratio']:.2f}"
         )
 
     best = tune(tune_runs, L=L, f=F)
@@ -81,7 +101,7 @@ def main() -> None:
 
     detail = {}
     for r in test_runs:
-        s = score_spike(r["losses"], r["gradnorms"], INJECT, params, min_lead=L)
+        s = score_spike(r["losses"], r["gradnorms"], r["inject_step"], params, min_lead=L)
         detail[r["kind"]] = {
             k: s[k] for k in ("occurred", "t0", "peak_step", "lead", "detected", "fp_steps", "clean_steps")
         }
@@ -99,10 +119,10 @@ def main() -> None:
     out_dir = os.environ.get("EVIDENCE_OUT", "results")
     os.makedirs(out_dir, exist_ok=True)
     payload = {
-        "claim": "Task 8: induced-spike recipes + online detector DoD on the real proxy trunk",
+        "claim": "Task 8: induced-spike recipes + online detector DoD on the real proxy trunk (calibrated)",
         "device": device,
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU",
-        "inject_step": INJECT,
+        "spec": SPEC,
         "steps": STEPS,
         "batch_size": BATCH,
         "L": L,

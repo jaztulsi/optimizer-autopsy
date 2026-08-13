@@ -71,16 +71,18 @@ def first_trigger(loss_hist, gradnorm_hist, p: DetectorParams) -> int | None:
     return None
 
 
-def spike_occurred(losses, inject_step: int, *, rise: float = 2.0, window: int = 25) -> dict:
+def spike_occurred(losses, inject_step: int, *, rise: float = 2.0, window: int = 25, pre_win: int = 5) -> dict:
     """MEASURE the spike event from the loss trajectory (machine-checkable ground truth, not eyeball).
 
-    baseline = median loss over the clean prefix `[0, inject_step)`; peak = max loss in
+    baseline = median loss over a LOCAL pre-injection window `[inject_step-pre_win, inject_step)` --
+    NOT the whole descending prefix, which would inflate the baseline during the initial descent and
+    hide a real bump under the naturally-high loss right before injection. peak = max loss in
     `[inject_step, inject_step+window)`. `occurred` iff peak/baseline >= `rise` (or a NaN/Inf appears in
     the window -- a definite explosion). Returns {occurred, peak_step, peak_loss, baseline, ratio}.
     """
     L = np.asarray(losses, dtype=float)
     n = len(L)
-    pre = L[:inject_step]
+    pre = L[max(0, inject_step - pre_win) : inject_step]
     base = float(np.nanmedian(pre)) if len(pre) else float(L[0])
     lo, hi = inject_step, min(n, inject_step + window)
     seg = L[lo:hi]
