@@ -52,7 +52,8 @@ def _run_steps(model, opt, x, y, steps):
     return traj
 
 
-def test_bitwise_replay(steps: int = 50) -> None:
+def test_bitwise_replay(steps: int = 50) -> list[float]:
+    """Assert bit-identical replay and return the per-step max|Δ| (all 0.0) for logging."""
     import torch
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -77,10 +78,13 @@ def test_bitwise_replay(steps: int = 50) -> None:
     restore_rng_state(snap["rng"])
     traj_b = _run_steps(model, opt, x, y, steps)
 
+    diffs = []
     for i, (a, b) in enumerate(zip(traj_a, traj_b)):
         max_abs = (a - b).abs().max().item()
         assert max_abs == 0.0, f"step {i} diverged on {device}: max|Δ|={max_abs} (must be 0)"
+        diffs.append(max_abs)
     print(f"bitwise replay OK on {device}: {steps} steps, max|Δ|=0 at every step")
+    return diffs
 
 
 if __name__ == "__main__":
