@@ -41,18 +41,18 @@ class DataConfig:
 
 
 # Presets. proxy = ~100M tokens TinyStories (prepares in <5 min via streaming). 124M = a larger
-# fixed FineWeb-Edu shard. TODO: replace revisions with the exact commit shas you pin against.
+# fixed FineWeb-Edu shard. Revisions pinned to commit shas below (NOT mutable "main").
 PRESETS = {
     "proxy": DataConfig(
         name="proxy",
         hf_dataset="roneneldan/TinyStories",
-        hf_revision="main",  # TODO: pin to a commit sha
+        hf_revision="f54c09fd23315a6f9c86f9dc80f725de7d8f9c64",  # main tip @ 2026-08-12
         target_tokens=100_000_000,
     ),
     "llm124m": DataConfig(
         name="llm124m",
         hf_dataset="HuggingFaceFW/fineweb-edu",
-        hf_revision="main",  # TODO: pin to a commit sha
+        hf_revision="87f09149ef4734204d70ed1d046ddc9ca3f2b8f9",  # main tip == tag v1.4.0 @ 2026-08-12
         hf_split="train",
         target_tokens=1_000_000_000,
     ),
