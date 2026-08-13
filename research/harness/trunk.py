@@ -131,11 +131,14 @@ def run_trunk(
     start_step: int = 0,
     on_step=None,
     grad_hook=None,
+    pre_step=None,
     use_wandb: bool = False,
     deterministic: bool = False,
     device: str | None = None,
 ) -> list[float]:
-    """Train from scratch and return the per-step loss list. See module docstring for the hooks."""
+    """Train from scratch and return the per-step loss list. See module docstring for the hooks.
+
+    `pre_step` (default None -> unperturbed trunk) forwards to train_forward for spike induction."""
     seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model, opt = build_model_opt(cfg, device)
@@ -148,7 +151,17 @@ def run_trunk(
         run = wandb.init(project="optimizer-autopsy", config=cfg, job_type="trunk")
 
     losses = train_forward(
-        model, opt, cfg, data_dir, start_step, steps, device, on_step=on_step, grad_hook=grad_hook, run=run
+        model,
+        opt,
+        cfg,
+        data_dir,
+        start_step,
+        steps,
+        device,
+        on_step=on_step,
+        grad_hook=grad_hook,
+        pre_step=pre_step,
+        run=run,
     )
     if run is not None:
         run.finish()
