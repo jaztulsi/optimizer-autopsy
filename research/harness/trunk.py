@@ -27,43 +27,43 @@ def _grad_norm(params, clip: float) -> float:
     return float(torch.nn.utils.clip_grad_norm_(params, max_norm))
 
 
-def run_trunk(
-    cfg: dict,
-    data_dir: str,
-    steps: int | None = None,
-    start_step: int = 0,
-    on_step=None,
-    grad_hook=None,
-    use_wandb: bool = False,
-    deterministic: bool = False,
-    device: str | None = None,
-) -> list[float]:
-    """Train and return the per-step loss list. See module docstring for the two hooks."""
-    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
-    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-
+def build_model_opt(cfg: dict, device: str):
+    """Construct the GPT + its AdamW exactly as the trunk does, so resumes/forks share identical
+    model and optimizer semantics (a mismatch here would silently break bitwise replay)."""
     m = dict(cfg["model"])
     if not m.get("vocab_size"):
         m["vocab_size"] = 50304  # GPT-2 vocab padded to a multiple of 64
     gptcfg = GPTConfig(**{k: m[k] for k in GPTConfig.__dataclass_fields__ if k in m})
     model = GPT(gptcfg).to(device)
-
     o = cfg["optim"]
     opt = model.configure_optimizers(
         weight_decay=o["weight_decay"], lr=o["lr"], betas=o["betas"], eps=o.get("eps", 1e-8)
     )
+    return model, opt
 
+
+def train_forward(
+    model,
+    opt,
+    cfg: dict,
+    data_dir: str,
+    start_step: int,
+    steps: int,
+    device: str,
+    on_step=None,
+    grad_hook=None,
+    run=None,
+) -> list[float]:
+    """Run `steps` optimizer steps from `start_step` on an ALREADY-BUILT model+opt; return per-step
+    losses. The single loop the trunk, resume, and forks all share -- one implementation so a fork's
+    numerics are identical to the trunk's. With dropout=0 (the deterministic fork path) it consumes
+    no RNG, which is what lets two noop forks replay bitwise. See the module docstring for the hooks.
+    """
+    block = model.cfg.block_size
     t = cfg["train"]
-    batch, block = t["batch_size"], gptcfg.block_size
+    batch = t["batch_size"]
     grad_accum = t.get("grad_accum", 1)
-    grad_clip = o.get("grad_clip", 0.0)
-    steps = steps if steps is not None else t["max_steps"]
-
-    run = None
-    if use_wandb:
-        import wandb
-
-        run = wandb.init(project="optimizer-autopsy", config=cfg, job_type="trunk")
+    grad_clip = cfg["optim"].get("grad_clip", 0.0)
 
     losses: list[float] = []
     for step in range(start_step, start_step + steps):
@@ -102,15 +102,70 @@ def run_trunk(
             run.log({"loss": step_loss, "grad_norm": grad_norm, "lr": lr}, step=step)
         if on_step is not None:
             on_step(step, {"loss": step_loss, "grad_norm": grad_norm, "lr": lr, "model": model, "opt": opt})
+    return losses
 
+
+def run_trunk(
+    cfg: dict,
+    data_dir: str,
+    steps: int | None = None,
+    start_step: int = 0,
+    on_step=None,
+    grad_hook=None,
+    use_wandb: bool = False,
+    deterministic: bool = False,
+    device: str | None = None,
+) -> list[float]:
+    """Train from scratch and return the per-step loss list. See module docstring for the hooks."""
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    model, opt = build_model_opt(cfg, device)
+    steps = steps if steps is not None else cfg["train"]["max_steps"]
+
+    run = None
+    if use_wandb:
+        import wandb
+
+        run = wandb.init(project="optimizer-autopsy", config=cfg, job_type="trunk")
+
+    losses = train_forward(
+        model, opt, cfg, data_dir, start_step, steps, device, on_step=on_step, grad_hook=grad_hook, run=run
+    )
     if run is not None:
         run.finish()
     return losses
 
 
-def resume_trunk(cfg, data_dir, from_snapshot, steps=None, **kw):
-    """Continue a trunk from a saved snapshot. TODO: wire to harness.snapshot.load (Task 6)."""
-    raise NotImplementedError("resume_trunk lands with snapshot restore in Task 6")
+def resume_trunk(
+    cfg: dict,
+    data_dir: str,
+    from_snapshot,
+    steps: int | None = None,
+    start_step: int | None = None,
+    on_step=None,
+    grad_hook=None,
+    deterministic: bool = True,
+    device: str | None = None,
+) -> list[float]:
+    """Continue a trunk from a snapshot: seed, build model+opt, restore (w, m, v, RNG), train forward.
+
+    `from_snapshot` is a path to a saved snapshot or an in-memory snapshot dict. `deterministic`
+    defaults True (resumes/forks need bitwise replay); because `seed_everything` asserts CUDA is not
+    yet initialized, call this before any other CUDA op in the process. Data stays aligned: training
+    continues from the snapshot's step, so `get_batch` reads the same stream the trunk would have next
+    -- never a "skip to the next batch".
+    """
+    from research.harness.snapshot import load as load_snapshot
+    from research.harness.snapshot import restore
+
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    model, opt = build_model_opt(cfg, device)
+    snap = load_snapshot(from_snapshot) if isinstance(from_snapshot, str) else from_snapshot
+    restore(model, opt, snap)
+    start = snap["step"] if start_step is None else start_step
+    steps = steps if steps is not None else cfg["train"]["max_steps"]
+    return train_forward(model, opt, cfg, data_dir, start, steps, device, on_step=on_step, grad_hook=grad_hook)
 
 
 def _selfcheck() -> None:
