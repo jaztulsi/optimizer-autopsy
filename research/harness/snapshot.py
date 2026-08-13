@@ -246,27 +246,38 @@ def pull_from_hub(repo_id: str, local_dir: str) -> dict:
 
 def _selfcheck() -> None:
     """Round-trip a real (tied-weight) nanoGPT snapshot: capture -> save -> load must be
-    bit-identical, RNG must replay, and restore() into a fresh model+opt must reproduce it."""
+    bit-identical, RNG must replay, and restore() into a fresh model+opt must reproduce it and
+    then take a further optimizer step without error.
+
+    Runs on CUDA when available -- that is the path that can expose an AdamW step-tensor device
+    mismatch (restore() writes a CPU step tensor into state whose params live on the GPU); a
+    post-restore opt.step() is the honest probe, since the error only fires when AdamW uses it.
+    """
     import torch
 
     from research.harness.determinism import restore_rng_state, seed_everything
     from research.model.nanogpt import GPT, GPTConfig
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     seed_everything(0, deterministic=False)
     cfg = GPTConfig(vocab_size=64, block_size=16, n_layer=2, n_head=2, n_embd=32, dropout=0.0, bias=False)
 
     def fresh():
-        model = GPT(cfg)
+        model = GPT(cfg).to(device)
         opt = model.configure_optimizers(weight_decay=0.1, lr=1e-3, betas=(0.9, 0.95))
         return model, opt
 
-    model, opt = fresh()
-    for _ in range(3):  # populate (m, v)
+    def train_step(model, opt):
         opt.zero_grad(set_to_none=True)
-        x = torch.randint(0, 64, (4, 16))
+        x = torch.randint(0, 64, (4, 16), device=device)
         _, loss = model(x, x)
         loss.backward()
         opt.step()
+        return loss
+
+    model, opt = fresh()
+    for _ in range(3):  # populate (m, v)
+        train_step(model, opt)
 
     snap = capture(model, opt, step=3, meta={"scale": "proxy-selfcheck"})
     assert "transformer.wte.weight" in snap["w"], "wte weight missing"
@@ -277,7 +288,7 @@ def _selfcheck() -> None:
         save(snap, path)
         got = load(path)
 
-    for kind in ("w", "m", "v"):
+    for kind in ("w", "m", "v"):  # snap and got are both CPU fp32 -> compare directly
         assert snap[kind].keys() == got[kind].keys(), f"{kind} names changed"
         for name in snap[kind]:
             assert torch.equal(snap[kind][name], got[kind][name]), f"{kind}/{name} not bit-identical"
@@ -292,12 +303,17 @@ def _selfcheck() -> None:
     model2, opt2 = fresh()
     restore(model2, opt2, got)
     by_name = {n: p for n, p in model2.named_parameters()}
-    for name in snap["w"]:
+    for name in snap["w"]:  # model2 tensors live on `device`; snap tensors are CPU -> move to compare
         p = by_name[name]
-        assert torch.equal(p.detach(), snap["w"][name]), f"restore w {name}"
-        assert torch.equal(opt2.state[p]["exp_avg"], snap["m"][name]), f"restore m {name}"
-        assert torch.equal(opt2.state[p]["exp_avg_sq"], snap["v"][name]), f"restore v {name}"
-    print("snapshot selfcheck OK: capture->save->load bit-identical, RNG + restore verified")
+        assert torch.equal(p.detach().cpu(), snap["w"][name]), f"restore w {name}"
+        assert torch.equal(opt2.state[p]["exp_avg"].cpu(), snap["m"][name]), f"restore m {name}"
+        assert torch.equal(opt2.state[p]["exp_avg_sq"].cpu(), snap["v"][name]), f"restore v {name}"
+
+    # The device-sensitive probe: AdamW must consume the restored step tensor on `device` without
+    # a mismatch. If this raises on CUDA, that is the real signal about where torch wants `step`.
+    loss_after = train_step(model2, opt2)
+    assert torch.isfinite(loss_after).item(), "post-restore step produced non-finite loss"
+    print(f"snapshot selfcheck OK on {device}: capture->save->load bit-identical, RNG + restore + resumed step verified")
 
 
 if __name__ == "__main__":
