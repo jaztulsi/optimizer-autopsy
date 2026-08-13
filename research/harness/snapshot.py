@@ -45,7 +45,7 @@ def capture(model, optimizer, step: int, meta: dict | None = None) -> dict:
     w: dict = {}
     m: dict = {}
     v: dict = {}
-    adam_step: int | None = None
+    steps: dict = {}  # name -> AdamW step; must all agree (see assert below)
     for group in optimizer.param_groups:
         for p in group["params"]:
             name = name_by_id.get(id(p))
@@ -57,8 +57,19 @@ def capture(model, optimizer, step: int, meta: dict | None = None) -> dict:
             w[name] = p.detach().to("cpu", torch.float32).clone()
             m[name] = st["exp_avg"].detach().to("cpu", torch.float32).clone()
             v[name] = st["exp_avg_sq"].detach().to("cpu", torch.float32).clone()
-            s = st["step"]  # all params share one value; last write wins
-            adam_step = int(s.item() if torch.is_tensor(s) else s)
+            s = st["step"]
+            steps[name] = int(s.item() if torch.is_tensor(s) else s)
+
+    # Every param must have stepped the same number of times. A disagreement means a frozen
+    # param, per-param skipping, or inconsistent grad-accum -- a real bug, not something to
+    # paper over by picking one value. Surface it loudly, naming the offenders.
+    distinct = set(steps.values())
+    if len(distinct) > 1:
+        by_step: dict = {}
+        for name, s in steps.items():
+            by_step.setdefault(s, []).append(name)
+        raise RuntimeError(f"AdamW step disagreement across params: {by_step}")
+    adam_step = distinct.pop()
 
     return {
         "w": w,
