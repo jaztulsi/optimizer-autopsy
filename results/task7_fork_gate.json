@@ -1,0 +1,23 @@
+{
+  "claim": "fork noop-vs-noop determinism GATE: max|Delta|=0 at proxy shapes (Task 7 DoD, C1 verified)",
+  "device": "cuda",
+  "gpu": "Tesla T4",
+  "capability": [
+    7,
+    5
+  ],
+  "proxy_shapes": {
+    "n_layer": 3,
+    "n_head": 6,
+    "n_embd": 192,
+    "block_size": 256,
+    "batch_size": 16,
+    "vocab_size": 50304
+  },
+  "warmup_steps": 10,
+  "gate_steps": 15,
+  "max_over_run": 0.0,
+  "note": "gate asserts max|Delta|==0 at EVERY step (raises otherwise). batch_size 64->16 to fit T4; SDPA shape range (block=256/head_dim=32/fp32) preserved. synthetic data (determinism is shape- not data-dependent).",
+  "kernel": "jastulsi/optimizer-autopsy-proxy-fork-gate (v2)",
+  "generated_utc": "2026-08-13T02:15:49.978293+00:00"
+}
