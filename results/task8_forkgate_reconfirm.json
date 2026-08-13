@@ -1,0 +1,22 @@
+{
+  "claim": "fork determinism GATE re-confirmed at proxy shapes AFTER adding the pre_step hook to train_forward (Task 8); the fork path passes pre_step=None -> the no-op branch",
+  "device": "cuda",
+  "gpu": "Tesla T4",
+  "capability": [
+    7,
+    5
+  ],
+  "proxy_shapes": {
+    "n_layer": 3,
+    "n_head": 6,
+    "n_embd": 192,
+    "block_size": 256,
+    "batch_size": 16
+  },
+  "gate_steps": 15,
+  "max_over_run": 0.0,
+  "gate_rc": 0,
+  "note": "run in a fresh subprocess (seed_everything(deterministic=True) needs CUDA-not-initialized); confirms the Task 8 train_forward change did not perturb C1. Final, non-provisional.",
+  "kernel": "jastulsi/optimizer-autopsy-spike-run (v1), part 2",
+  "generated_utc": "2026-08-13T20:05:36.926282+00:00"
+}

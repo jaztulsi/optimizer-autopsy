@@ -1,0 +1,9 @@
+KERNEL GPU: Tesla T4
+KERNEL cuda_available: True
+GPU: Tesla T4
+capability: (7, 5)
+cuda_available: True
+proxy shapes: n_layer=3 n_head=6 n_embd=192 block=256 batch=16 (warmup=10, gate_steps=15)
+fork determinism GATE OK on cuda: 15 steps, noop-vs-noop max|Δ|=0
+PROXY FORK GATE OK on cuda: noop-vs-noop max|Δ|=0 at proxy shapes
+GATE_RC=0
