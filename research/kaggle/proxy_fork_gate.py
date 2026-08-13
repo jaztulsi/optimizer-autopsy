@@ -31,6 +31,11 @@ def main(warmup: int = 10, gate_steps: int = 15) -> None:
 
     cfg = load_config("research/experiments/proxy/config.yaml")
     cfg["train"]["max_steps"] = warmup + gate_steps  # short: this answers determinism, not convergence
+    # batch_size only scales the batch dimension; which SDPA kernel runs is set by block_size(256)/
+    # n_head(6)/head_dim(32)/dtype -- so batch 16 (what real proxy T4 runs use) preserves the exact
+    # SDPA shape range while fitting the T4: logits are (batch, block, vocab)=(*,256,50304), and 64
+    # OOMs at 3.3GB fp32.
+    cfg["train"]["batch_size"] = 16
 
     seed_everything(cfg.get("seed", 1337), deterministic=True)  # ONCE, before any CUDA op
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -56,6 +61,8 @@ def main(warmup: int = 10, gate_steps: int = 15) -> None:
         save(snap, path)
         snap = load(path)  # exercise the disk round-trip too
 
+        del model, opt  # free the warmup model before the gate builds fresh ones (T4 memory)
+        torch.cuda.empty_cache()
         max_d = fork_determinism_gate(cfg, d, snap, steps=gate_steps, device=device, seed=False)
         assert max_d == 0.0
     print(f"PROXY FORK GATE OK on {device}: noop-vs-noop max|Δ|=0 at proxy shapes")
