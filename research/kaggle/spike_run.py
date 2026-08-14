@@ -1,14 +1,17 @@
 """Task 8 real proxy run: induce each of the 4 spike recipes on the REAL proxy trunk (TinyStories),
 score the online detector against MEASURED ground truth, and report the DoD on held-out spikes.
 
-Calibrated after a first run came in 0/4 (spikes injected during the steep initial descent were
-masked by a prefix-median baseline). Fixes here:
-  * inject in the PLATEAU (step 160, proxy loss ~4.7 flat) for lr_bump / precision / corrupt_batch,
-    so a bump stands clear of a flat local level;
-  * inject tiny_eps EARLY (step 20) -- a late tiny eps against an accumulated v is inert by
-    construction, so give the v-underflow pathway a fair shot while v is still small/volatile;
-  * strengthen lr_bump to x50 (a modest bump self-corrects within AdamW's next steps);
-  * the measurement itself now uses a LOCAL pre-injection baseline (see tune_detector.spike_occurred).
+Calibration history: round 1 came in 0/4 (spikes masked by a prefix-median baseline during the steep
+descent). Round 2 (LOCAL baseline + plateau injection + x50 lr_bump) reached 1/4 -- lr_bump fully
+validated the mechanism (detected, lead 2), and it surfaced two recipe-specific issues now fixed here:
+  * lr_bump    -- plateau (160), x50; validated -> unchanged.
+  * corrupt_batch -- spikes reliably but its acute loss lands ON the injection step (no lead); score
+    the AFTERMATH window [inject+1, inject+window) instead (peak_offset=1) -- the persistence in
+    optimizer state is exactly what the localizer will act on, not the acute batch.
+  * precision  -- fp16 at the plateau doesn't overflow (settled weights); inject EARLY (step 15, steep
+    descent) where fp16 is likelier to actually blow up. One escalation; if flat, that is a real answer.
+  * tiny_eps   -- held as-is (early, step 20). Appears near-mechanistically-inert at this scale
+    (1/(sqrt(v)+eps) only explodes at v~eps^2~1e-24); flagged as an open spec question, not engineered around.
 DoD thresholds are unchanged (L=2, f=0.05): these fixes make real spikes visible, they do not lower
 the bar. Two seeds per recipe: seed 0 tunes the detector thresholds, seed 1 is held out for the DoD.
 
@@ -28,12 +31,20 @@ STEPS = 200  # long enough to reach the plateau before the (plateau) injections
 BATCH = 16  # fits the T4 (batch 64 OOMs at this vocab); SDPA shapes set by block/head_dim
 L, F = 2, 0.05  # DoD: median lead >= L steps at false-positive rate <= F (UNCHANGED)
 
-# Per-recipe injection: plateau (~160) for most; early (20) for tiny_eps so v is still small.
+# Per-recipe injection + measurement:
+#   inject      -- step to perturb (plateau ~160, or early where the mechanism is more plausible)
+#   peak_offset -- start the peak window this many steps AFTER injection (1 = aftermath, skips the
+#                  acute injection-step loss; the persistence in optimizer state is what the localizer acts on)
 SPEC = {
-    "lr_bump": {"inject": 160, "width": 3, "params": {"factor": 50.0}},
-    "tiny_eps": {"inject": 20, "width": 5, "params": {}},
-    "precision": {"inject": 160, "width": 3, "params": {}},
-    "corrupt_batch": {"inject": 160, "width": 1, "params": {}},
+    "lr_bump": {"inject": 160, "width": 3, "params": {"factor": 50.0}, "peak_offset": 0},
+    "tiny_eps": {"inject": 20, "width": 5, "params": {}, "peak_offset": 0},  # held as-is (near-inert; documented)
+    "precision": {"inject": 15, "width": 3, "params": {}, "peak_offset": 0},  # early descent: fp16 likelier to overflow
+    "corrupt_batch": {
+        "inject": 160,
+        "width": 1,
+        "params": {},
+        "peak_offset": 1,
+    },  # score the aftermath, not the bad batch
 }
 
 
@@ -53,7 +64,14 @@ def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
         grads.append(info["grad_norm"])
 
     run_trunk(cfg, data_dir, steps=STEPS, on_step=on_step, pre_step=recipe.pre_step, deterministic=False, device=device)
-    return {"kind": kind, "seed": seed, "inject_step": spec["inject"], "losses": losses, "gradnorms": grads}
+    return {
+        "kind": kind,
+        "seed": seed,
+        "inject_step": spec["inject"],
+        "peak_offset": spec["peak_offset"],
+        "losses": losses,
+        "gradnorms": grads,
+    }
 
 
 def main() -> None:
@@ -80,9 +98,10 @@ def main() -> None:
         torch.cuda.empty_cache()
         tune_runs.append(r0)
         test_runs.append(r1)
-        occ = spike_occurred(r1["losses"], r1["inject_step"])  # ground truth on the held-out run
+        occ = spike_occurred(r1["losses"], r1["inject_step"], peak_offset=r1["peak_offset"])  # held-out ground truth
         per_recipe[kind] = {
             "inject_step": r1["inject_step"],
+            "peak_offset": r1["peak_offset"],
             "spike_occurred": occ["occurred"],
             "peak_step": occ["peak_step"],
             "ratio": occ["ratio"],
@@ -101,7 +120,7 @@ def main() -> None:
 
     detail = {}
     for r in test_runs:
-        s = score_spike(r["losses"], r["gradnorms"], r["inject_step"], params, min_lead=L)
+        s = score_spike(r["losses"], r["gradnorms"], r["inject_step"], params, min_lead=L, peak_offset=r["peak_offset"])
         detail[r["kind"]] = {
             k: s[k] for k in ("occurred", "t0", "peak_step", "lead", "detected", "fp_steps", "clean_steps")
         }

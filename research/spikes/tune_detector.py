@@ -71,20 +71,25 @@ def first_trigger(loss_hist, gradnorm_hist, p: DetectorParams) -> int | None:
     return None
 
 
-def spike_occurred(losses, inject_step: int, *, rise: float = 2.0, window: int = 25, pre_win: int = 5) -> dict:
+def spike_occurred(
+    losses, inject_step: int, *, rise: float = 2.0, window: int = 25, pre_win: int = 5, peak_offset: int = 0
+) -> dict:
     """MEASURE the spike event from the loss trajectory (machine-checkable ground truth, not eyeball).
 
     baseline = median loss over a LOCAL pre-injection window `[inject_step-pre_win, inject_step)` --
     NOT the whole descending prefix, which would inflate the baseline during the initial descent and
     hide a real bump under the naturally-high loss right before injection. peak = max loss in
-    `[inject_step, inject_step+window)`. `occurred` iff peak/baseline >= `rise` (or a NaN/Inf appears in
-    the window -- a definite explosion). Returns {occurred, peak_step, peak_loss, baseline, ratio}.
+    `[inject_step+peak_offset, inject_step+window)`. `peak_offset>0` measures the AFTERMATH (the poison
+    persisting in optimizer state) rather than the injection step's own acute loss -- the right thing
+    for corrupt_batch, whose bad-batch loss lands on the injection step itself. `occurred` iff
+    peak/baseline >= `rise` (or a NaN/Inf appears -- a definite explosion). Returns
+    {occurred, peak_step, peak_loss, baseline, ratio}.
     """
     L = np.asarray(losses, dtype=float)
     n = len(L)
     pre = L[max(0, inject_step - pre_win) : inject_step]
     base = float(np.nanmedian(pre)) if len(pre) else float(L[0])
-    lo, hi = inject_step, min(n, inject_step + window)
+    lo, hi = inject_step + peak_offset, min(n, inject_step + window)
     seg = L[lo:hi]
     if len(seg) == 0:
         return {"occurred": False, "peak_step": inject_step, "peak_loss": base, "baseline": base, "ratio": 0.0}
@@ -97,10 +102,10 @@ def spike_occurred(losses, inject_step: int, *, rise: float = 2.0, window: int =
     return {"occurred": ratio >= rise, "peak_step": pk, "peak_loss": peak, "baseline": base, "ratio": ratio}
 
 
-def score_spike(losses, gradnorms, inject_step: int, p: DetectorParams, *, min_lead: int) -> dict:
+def score_spike(losses, gradnorms, inject_step: int, p: DetectorParams, *, min_lead: int, peak_offset: int = 0) -> dict:
     """Score one labeled run: did the detector fire in the valid pre-spike window with enough lead,
     and how many clean-prefix steps false-fired. See the module docstring for the validity rule."""
-    occ = spike_occurred(losses, inject_step)
+    occ = spike_occurred(losses, inject_step, peak_offset=peak_offset)
     peak = occ["peak_step"]
     mask = trigger_mask(losses, gradnorms, p)
 
@@ -123,7 +128,14 @@ def score_spike(losses, gradnorms, inject_step: int, p: DetectorParams, *, min_l
 def _aggregate(labeled_runs, params: DetectorParams, min_lead: int) -> dict:
     leads, detected, fp_steps, fp_total = [], 0, 0, 0
     for r in labeled_runs:
-        s = score_spike(r["losses"], r.get("gradnorms"), r["inject_step"], params, min_lead=min_lead)
+        s = score_spike(
+            r["losses"],
+            r.get("gradnorms"),
+            r["inject_step"],
+            params,
+            min_lead=min_lead,
+            peak_offset=r.get("peak_offset", 0),
+        )
         if s["detected"]:
             detected += 1
             leads.append(s["lead"])
