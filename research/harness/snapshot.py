@@ -25,7 +25,6 @@ import json
 import os
 import tempfile
 
-
 # --------------------------------------------------------------------------------------
 # Capture / restore (in-memory <-> live model+optimizer)
 # --------------------------------------------------------------------------------------
@@ -313,7 +312,10 @@ def _selfcheck() -> None:
     # a mismatch. If this raises on CUDA, that is the real signal about where torch wants `step`.
     loss_after = train_step(model2, opt2)
     assert torch.isfinite(loss_after).item(), "post-restore step produced non-finite loss"
-    print(f"snapshot selfcheck OK on {device}: capture->save->load bit-identical, RNG + restore + resumed step verified")
+    print(
+        f"snapshot selfcheck OK on {device}: capture->save->load bit-identical, "
+        "RNG + restore + resumed step verified"
+    )
 
 
 if __name__ == "__main__":
