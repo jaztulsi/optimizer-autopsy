@@ -1,0 +1,113 @@
+{
+  "claim": "Task 8: induced-spike recipes + online detector DoD on the real proxy trunk (calibrated)",
+  "device": "cuda",
+  "gpu": "Tesla T4",
+  "spec": {
+    "lr_bump": {
+      "inject": 160,
+      "width": 3,
+      "params": {
+        "factor": 50.0
+      }
+    },
+    "tiny_eps": {
+      "inject": 20,
+      "width": 5,
+      "params": {}
+    },
+    "precision": {
+      "inject": 160,
+      "width": 3,
+      "params": {}
+    },
+    "corrupt_batch": {
+      "inject": 160,
+      "width": 1,
+      "params": {}
+    }
+  },
+  "steps": 200,
+  "batch_size": 16,
+  "L": 2,
+  "f": 0.05,
+  "detector_params": {
+    "z": 4.0,
+    "ema_mult": 3.0,
+    "warmup": 10,
+    "win": 20
+  },
+  "ground_truth_heldout": {
+    "lr_bump": {
+      "inject_step": 160,
+      "spike_occurred": true,
+      "peak_step": 163,
+      "ratio": 2.986770782839848
+    },
+    "tiny_eps": {
+      "inject_step": 20,
+      "spike_occurred": false,
+      "peak_step": 20,
+      "ratio": 0.9727028099576889
+    },
+    "precision": {
+      "inject_step": 160,
+      "spike_occurred": false,
+      "peak_step": 162,
+      "ratio": 1.0753698911104392
+    },
+    "corrupt_batch": {
+      "inject_step": 160,
+      "spike_occurred": true,
+      "peak_step": 160,
+      "ratio": 2.6705530811847056
+    }
+  },
+  "detector_heldout": {
+    "lr_bump": {
+      "occurred": true,
+      "t0": 161,
+      "peak_step": 163,
+      "lead": 2,
+      "detected": true,
+      "fp_steps": 0,
+      "clean_steps": 150
+    },
+    "tiny_eps": {
+      "occurred": false,
+      "t0": null,
+      "peak_step": 20,
+      "lead": null,
+      "detected": false,
+      "fp_steps": 0,
+      "clean_steps": 10
+    },
+    "precision": {
+      "occurred": false,
+      "t0": 163,
+      "peak_step": 162,
+      "lead": null,
+      "detected": false,
+      "fp_steps": 0,
+      "clean_steps": 150
+    },
+    "corrupt_batch": {
+      "occurred": true,
+      "t0": 160,
+      "peak_step": 160,
+      "lead": null,
+      "detected": false,
+      "fp_steps": 0,
+      "clean_steps": 150
+    }
+  },
+  "dod": {
+    "passed": false,
+    "need": 3,
+    "n_detected": 1,
+    "median_lead": 2.0,
+    "fp_rate": 0.0
+  },
+  "generated_utc": "2026-08-14T00:22:15.541344+00:00",
+  "status": "CALIBRATION-IN-PROGRESS -- NOT a passed DoD",
+  "status_note": "1/4 detected (need 3). lr_bump fully validates the induce->detect->lead mechanism (detected, lead=2). corrupt_batch/precision have identified fixes (aftermath-peak window; earlier injection). tiny_eps appears near-mechanistically-inert at this scale (v-underflow ~1e-24 essentially unreachable) -- pending review of whether the recipe should be redefined/replaced or accepted as a documented negative result."
+}
