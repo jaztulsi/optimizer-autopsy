@@ -5,9 +5,12 @@ Calibration history: round 1 came in 0/4 (spikes masked by a prefix-median basel
 descent). Round 2 (LOCAL baseline + plateau injection + x50 lr_bump) reached 1/4 -- lr_bump fully
 validated the mechanism (detected, lead 2), and it surfaced two recipe-specific issues now fixed here:
   * lr_bump    -- plateau (160), x50; validated -> unchanged.
-  * corrupt_batch -- spikes reliably but its acute loss lands ON the injection step (no lead); score
-    the AFTERMATH window [inject+1, inject+window) instead (peak_offset=1) -- the persistence in
-    optimizer state is exactly what the localizer will act on, not the acute batch.
+  * corrupt_batch -- spikes reliably but its acute loss lands ON the injection step (no lead). v3 tried
+    scoring the AFTERMATH window (peak_offset=1) to buy lead; that REGRESSED it (spike_occurred flipped
+    true->false), so v4 reverts to peak_offset=0 (measure at injection, as v2 did). OPEN SPEC QUESTION:
+    because the shock is instantaneous, corrupt_batch may be structurally incapable of lead>=L -- the
+    right DoD contribution for it may be "detected at/before peak" rather than "detected with lead>=L".
+    See `corrupt_batch_lead_note` in the payload. tiny_eps/precision are unchanged.
   * precision  -- fp16 at the plateau doesn't overflow (settled weights); inject EARLY (step 15, steep
     descent) where fp16 is likelier to actually blow up. One escalation; if flat, that is a real answer.
   * tiny_eps   -- held as-is (early, step 20). Appears near-mechanistically-inert at this scale
@@ -39,12 +42,11 @@ SPEC = {
     "lr_bump": {"inject": 160, "width": 3, "params": {"factor": 50.0}, "peak_offset": 0},
     "tiny_eps": {"inject": 20, "width": 5, "params": {}, "peak_offset": 0},  # held as-is (near-inert; documented)
     "precision": {"inject": 15, "width": 3, "params": {}, "peak_offset": 0},  # early descent: fp16 likelier to overflow
-    "corrupt_batch": {
-        "inject": 160,
-        "width": 1,
-        "params": {},
-        "peak_offset": 1,
-    },  # score the aftermath, not the bad batch
+    # corrupt_batch: measure AT the injection step (peak_offset=0, matching v2). A corrupted batch is an
+    # instantaneous loss shock, not a delayed buildup like lr_bump -- the aftermath window (peak_offset=1)
+    # regressed it in v3 (spike_occurred flipped true->false), so it doesn't fit this recipe's shape. The
+    # aftermath logic stays available in tune_detector.py for recipes where it IS mechanistically right.
+    "corrupt_batch": {"inject": 160, "width": 1, "params": {}, "peak_offset": 0},
 }
 
 
@@ -150,6 +152,16 @@ def main() -> None:
         "ground_truth_heldout": per_recipe,
         "detector_heldout": detail,
         "dod": dod,
+        "corrupt_batch_lead_note": (
+            "corrupt_batch's loss shock is instantaneous (lands ON the injection step), unlike lr_bump's "
+            "delayed buildup. It may therefore be STRUCTURALLY INCAPABLE of lead>=L: there is no pre-peak "
+            "window to detect early. v3's aftermath-window attempt (peak_offset=1) to manufacture lead "
+            "regressed the recipe, so v4 reverts to peak_offset=0. OPEN SPEC QUESTION: whether 'lead>=L for "
+            "this recipe too' is the right bar, or whether corrupt_batch's DoD contribution should be scored "
+            "as 'detected at/before peak' instead. This is a spec decision to make, not something to keep "
+            "re-tuning against."
+        ),
+        "status": "CALIBRATION-IN-PROGRESS -- NOT a passed DoD",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(out_dir, "task8_spike_detector.json"), "w") as fp:
