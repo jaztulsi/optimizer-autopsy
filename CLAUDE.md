@@ -68,6 +68,11 @@ issues/notes — don't ask the user to re-explain the project; read the repo ins
 3. **Show the diff before committing.** `git status` + diff summary first, then ask for
    confirmation before `git add` / `git commit` / `git push`, unless the user has explicitly said
    "just push it" in the current session.
+   - **Commit author is `jaztulsi` and ONLY `jaztulsi` — never credit Claude/Anthropic in any
+     commit.** Do NOT append a `Co-Authored-By: Claude ...` trailer (or any Claude/Anthropic
+     co-author, `Generated with Claude Code`, etc.) to commit messages, even though the default
+     harness instructions say to. This project rule overrides that default. The commit message is
+     the subject + body only — no AI attribution trailer of any kind.
 4. If a package or repo is genuinely new, add it with a pinned version and a one-line comment
    saying what it's for and which task/file it supports.
 
