@@ -316,7 +316,7 @@ document order (no shuffle), a fixed token cap, the fixed GPT-2 tokenizer. Shard
 live on `/kaggle/input` (read-only) or are pulled to `/kaggle/working` by fixed revision. `_selfcheck()`
 asserts determinism, target-shift (`y` = `x` shifted one token), correct offset, and cursor advance.
 
-### 5.3 Snapshots that actually restore — `harness/snapshot.py` (Task 6, to build)
+### 5.3 Snapshots that actually restore — `harness/snapshot.py` (Task 6 ✅)
 A snapshot bundles: weights; `m` (exp_avg); `v` (exp_avg_sq); **per-param `step` tensor**; param-group
 `betas/eps/wd`; RNG state; data cursor (= step); meta incl. `torch.cuda.get_device_name()`. Subtle
 correctness rules:
@@ -329,7 +329,7 @@ correctness rules:
 - **`m,v` in bf16, never fp16** (§4.2). fp32 allowed for the exact proxy gate.
 - Upload to a **rotating** `latest.safetensors` (upload time, not storage, is the real limit).
 
-### 5.4 The fork driver and the branch menu — `harness/fork.py` (Task 7, to build)
+### 5.4 The fork driver and the branch menu — `harness/fork.py` (Task 7 ✅, GPU-verified `max|Δ|=0`)
 `fork(snapshot, branches, steps)` restores the SAME snapshot per branch, applies that branch's
 intervention to `(w,m,v)`, runs `steps` with identical seed + data order (determinism ON), logs each to
 its own W&B run grouped by `spike_id`, and is **NaN-safe** (Inf/NaN loss ⇒ record `survival=0`, continue
@@ -368,17 +368,21 @@ Repo root `index.html` = the GitHub Pages site — **leave untouched**. All code
   name last. `_pinned()` is the parser. Called at the top of every entrypoint.
 - **`secrets.py`** ✅ — `get_secret(name, required=True)` resolving env → Kaggle Secrets → Colab
   userdata → `.env`; `hf_token()`, `wandb_key()`. Never prints values; missing-required fails loudly.
-- **`trunk.py`** 🟡 (Task 5) — `run_trunk(cfg, data_dir, steps, start_step, on_step, grad_hook,
+- **`trunk.py`** ✅ (Task 5) — `run_trunk(cfg, data_dir, steps, start_step, on_step, grad_hook,
   use_wandb, deterministic, device) -> list[float]`. AdamW loop over `get_batch(step)`; grad accumulation
   with **per-microbatch grad exposure** (`grad_hook(step, micro, model)` sees `p.grad` = that microbatch
-  alone, no extra backprop) and a **per-step callback** (`on_step(step, info)`); grad-clip + norm; W&B
-  scalar logging. `resume_trunk(...)` raises `NotImplementedError` until Task 6. `_selfcheck()` trains a
-  tiny GPT on a synthetic repeating pattern and asserts loss↓ + hook fires clean — **passes locally**
-  (`loss 2.207 → 0.000, grad_hook fired 400x clean`). `main()` runs `--selfcheck` or the config DoD.
-- **`snapshot.py`** ⬜ (Task 6) — planned: `capture(model, optimizer, step, rng) -> dict`;
-  `save/load` safetensors round-trip (bf16 @124M, fp32 @proxy); `push_to_hub/pull_from_hub`. Rules §5.3.
-- **`fork.py`** ⬜ (Task 7) — planned: `run_fork(snapshot, intervention, cfg)`;
-  `short_fork/full_fork`; `fork_matrix(snapshot, interventions, seeds)`; the `Δ==0` gate + `B*`. §5.4.
+  alone, no extra backprop), a **per-step callback** (`on_step(step, info)`), and a **`pre_step` injection
+  hook** (added for Task 8 spike recipes); grad-clip + norm; W&B scalar logging. `resume_trunk(...)` now
+  wired to `snapshot.restore`. `build_model_opt/train_forward` extracted so `fork.py` reuses them.
+  GPU-verified DoD on T4: `loss 10.851 → 4.730` over 200 steps.
+- **`snapshot.py`** ✅ (Task 6) — `capture(model, optimizer, step, meta) -> dict`; `save/load`
+  safetensors round-trip (fp32 @proxy; bf16 @124M per §5.3), name-keyed with per-param `step` + tied-weight
+  safe; `push_to_hub/pull_from_hub`. Asserts all params share one AdamW step; `_selfcheck()` runs on CUDA
+  when available and probes a post-restore `opt.step`. Restore path is also exercised by the Task 7 fork
+  gate on T4 (below).
+- **`fork.py`** ✅ (Task 7 — **C1, the shipped instrument**) — `run_fork(snapshot, intervention, cfg)`,
+  `short_fork/full_fork`, `fork_matrix`, and `fork_determinism_gate` (the noop-vs-noop `Δ==0` gate).
+  **GPU-verified on T4: `max|Δ|=0`** — the bitwise fork replay that licenses every causal claim.
 
 ### 6.2 `research/data/` — the determinism foundation
 - **`prepare.py`** ✅ — `DataConfig` dataclass; `PRESETS` (`proxy`=TinyStories ~100M tok,
@@ -426,11 +430,17 @@ Repo root `index.html` = the GitHub Pages site — **leave untouched**. All code
   W&B.
 
 ### 6.7 `research/spikes/` — ground-truth failures (all ⬜)
-- **`induce.py`** ⬜ — **Task 8:** reproducible recipes → (trunk cfg + expected spike step): (a) high-LR
-  bump, (b) tiny Adam eps 1e-12, (c) precision stress, (d) corrupted-batch (cheapest natural class).
-- **`tune_detector.py`** ⬜ — **Task 8:** `detect_spike()` (loss z-score / grad-norm EMA) firing pre-spike
-  `t0`; sweep thresholds to maximize lead-time subject to a false-positive cap. DoD: ≥3/4 recipes show a
-  spike + median lead ≥ L at FP ≤ f on held-out spikes.
+- **`induce.py`** 🟡 (**Task 8, partial**) — four recipes (trunk cfg + expected spike step): (a) high-LR
+  bump `lr_bump`, (b) tiny Adam eps 1e-12, (c) precision stress, (d) corrupted-batch. Injected via the
+  trunk `pre_step` hook. Ground-truth scoring in place.
+- **`tune_detector.py`** 🟡 (**Task 8, partial**) — `detect_spike()` (loss z-score / grad-norm EMA)
+  fires pre-spike `t0`; `tune()` sweeps thresholds to maximize lead-time subject to an FP cap. **DoD NOT
+  met:** on the real proxy trunk only **1 of 4** recipes (`lr_bump`) passes (bar is 3); result committed
+  honestly as *"CALIBRATION-IN-PROGRESS."* Open issues: `precision`/`tiny_eps` diagnosed (one likely-inert,
+  one unresolved); `corrupt_batch` is an instantaneous shock and may be graded against the wrong bar
+  (flagged as a **spec question**: "detected at/before peak" vs. "detected with lead ≥ L"). Current blocker
+  is mechanical, not scientific — Kaggle keeps assigning P100 (unsupported by the pinned torch build)
+  instead of T4, crashing the run before training.
 - **`k2.py`** ⬜ — **Task 21:** pull LLM360 K2 real spike/normal checkpoint pairs from HF, diff `(m,v)`,
   compute `ψ_k` on **real** spikes; run through the same attribution/repair pipeline (transfer stated as
   inference, not causation).
@@ -477,16 +487,18 @@ Repo root `index.html` = the GitHub Pages site — **leave untouched**. All code
 
 ## 7. The future code — task by task (what will be written, and its DoD)
 
-Phase 0 (Tasks 0–3) ✅ and Task 4 ✅ are done. Remaining, in dependency order:
+Phase 0 (Tasks 0–3) ✅, Task 4 ✅, **Tasks 5–7 ✅ (GPU-verified)** are done; **Task 8 is in progress**.
+Remaining, in dependency order:
 
-- **Task 5 (finish) — proxy model + trunk loop.** *Code complete.* Remaining: the GPU DoD run
-  `python -m research.harness.trunk --config research/experiments/proxy/config.yaml --steps 200`
-  (loss decreases, <~2 min) on the prepared proxy shard on Kaggle.
-- **Task 6 — snapshot/restore + HF Hub** (`harness/snapshot.py`). §5.3 rules. DoD:
-  snapshot→push→pull→restore reproduces a **bitwise-identical 20-step continuation** at proxy/fp32.
-- **Task 7 — fork driver + the Δ==0 GATE (C1, the product)** (`harness/fork.py`). §5.4. DoD:
-  noop-vs-noop `Δ==0` on the proxy. *Nothing causal proceeds until this reads 0.*
-- **Task 8 — spike induction + detector tuning** (`spikes/induce.py`, `spikes/tune_detector.py`). §6.7.
+- **Task 5 ✅ — proxy model + trunk loop.** GPU DoD ran on T4: `loss 10.851 → 4.730` over 200 steps.
+- **Task 6 ✅ — snapshot/restore + HF Hub** (`harness/snapshot.py`). §5.3 rules; name-keyed, tied-weight
+  safe, per-param step. Restore exercised by the Task 7 gate on T4.
+- **Task 7 ✅ — fork driver + the Δ==0 GATE (C1, the shipped instrument)** (`harness/fork.py`). §5.4.
+  **GATE A PASSED: noop-vs-noop `max|Δ|=0` on T4.** The causal instrument is trustworthy; science unlocked.
+- **Task 8 🟡 (in progress) — spike induction + detector tuning** (`spikes/induce.py`,
+  `spikes/tune_detector.py`). §6.7. Four recipes + online detector built; **DoD not met (1/4 recipes pass,
+  need 3)**; `corrupt_batch` grading bar is an open spec question; current blocker is Kaggle P100-vs-T4
+  scheduling, not the code.
 - **Task 9 — cheap-branch battery + "method-is-dead" check** (register `B0/Bg/Bs/B*` in `fork.py`). Run
   across induced spikes; if cheap `Bs` recovers everywhere → **PIVOT** to C1+C2. Emits a one-page
   markdown verdict with the `Δ` table + PROCEED/PIVOT. *This is the week-one keep/kill.*
@@ -715,21 +727,42 @@ Local (Mac) is fine only for: git, reading/editing, `--selfcheck` logic review �
 
 ---
 
-## 14. Current state and the immediate next action (2026-08-02)
-- **Done & GPU-verified:** Tasks 0–4 (scaffold, env preflight, fixed data + `get_batch`, secrets +
-  no-token-in-git, deterministic bitwise replay `max|Δ|=0` on CPU **and** Kaggle T4).
-- **Task 5 (proxy model + trunk loop): code-complete, self-check passes locally**
-  (`loss 2.207 → 0.000, grad_hook fired 400x clean`). Four files carry it: `model/nanogpt.py`,
-  `harness/trunk.py`, `configs/__init__.py`, `experiments/proxy/config.yaml`.
-- **The one remaining Task-5 step (do on Kaggle, not the Mac):** prepare the proxy shard, then
-  `python -m research.harness.trunk --config research/experiments/proxy/config.yaml --steps 200`
-  and confirm loss decreases in <~2 min. That closes Task 5's DoD.
-- **Then:** Task 6 (snapshot/restore + HF Hub) → Task 7 (fork driver + the `Δ==0` gate, the C1 product).
-- **Overall: ~19% built; everything so far tested and green.**
+## 14. Current state and the immediate next action (2026-08-17)
+- **Done & GPU-verified (T4):**
+  - Tasks 0–4 (scaffold, env preflight, fixed data + `get_batch`, secrets + no-token-in-git,
+    deterministic bitwise replay `max|Δ|=0` on CPU **and** Kaggle T4).
+  - **Task 5** — proxy model + trunk loop; GPU DoD ran on T4 (`loss 10.851 → 4.730`, 200 steps).
+  - **Task 6** — snapshot/restore + HF Hub; name-keyed, tied-weight safe, per-param step.
+  - **Task 7 — the milestone: C1 is shipped.** The fork driver's noop-vs-noop gate reads
+    **`max|Δ|=0` on T4** (GATE A passed). This is the bitwise fork replay that turns every downstream
+    number into a *measurement* rather than a story — the whole causal program is now unlocked.
+- **Task 8 (spike induction + detector): 🟡 IN PROGRESS — the current frontier.** Four induced-spike
+  recipes (`lr_bump`, `tiny_eps`, `precision`, `corrupt_batch`) injected through the trunk `pre_step`
+  hook, plus an online z-score/grad-norm detector with ground-truth scoring. **DoD not met:** on the real
+  proxy trunk only **1/4** recipes (`lr_bump`) currently passes (bar is 3); committed honestly as
+  *"CALIBRATION-IN-PROGRESS — NOT a passed DoD."* Three diagnosed sub-issues: (i) `precision`/`tiny_eps`
+  need retuning (one likely-inert, one unresolved), (ii) `corrupt_batch` is an *instantaneous* shock, so
+  "warn ≥ L steps before peak" may be the wrong bar — flagged as a **project spec question** ("detected
+  at/before peak" is the honest bar), not something to keep re-tuning. **Current blocker is mechanical,
+  not scientific:** Kaggle keeps assigning P100 (unsupported by the pinned torch build) instead of T4,
+  crashing the run before training; earlier Task 8 numbers came from sessions that happened to get a T4.
+- **Immediate next action:** get a fresh graded Task 8 run on a T4 (retry until Kaggle assigns one, or
+  pin/guard the GPU type), then either (a) close Task 8 at ≥3/4 or (b) formally adopt the "at/before peak"
+  bar for instantaneous recipes. After Task 8: Task 9 (cheap-branch battery `B0/Bg/Bs/B*` + the week-one
+  **method-is-dead** keep/kill), then the localizer (Tasks 10–12).
+- **Overall: instrument (C1) complete and trustworthy; project is at the *start of the actual science*.
+  The heart — localizer (C2) and repair (C3) — is entirely ahead and not yet begun.**
 
 *Known open TODOs to not forget:* pin `data/prepare.py` `PRESETS` revisions to real commit shas (both
 currently `"main"`); set `llm124m/config.yaml` `hub_repo`/revision; the proxy `<5 min` prep is a design
-target not yet timed on Kaggle.
+target not yet timed on Kaggle; resolve the Kaggle P100-vs-T4 assignment so Task 8 can be re-graded;
+decide the `corrupt_batch` detector bar. There is also a companion plain-English guide, `EXPLANATION.md`,
+kept in sync with this state.
+
+> **Repo note (not a project fact):** `main` currently shows 50↔50 divergence with `origin/main` — the
+> local history was re-authored (stripping AI co-author trailers per CLAUDE.md §3) so the commits carry
+> the same content under new SHAs. Reconcile with a force-push **only** with explicit sign-off (CLAUDE.md
+> §5 review gate #3), not a merge.
 
 ---
 
