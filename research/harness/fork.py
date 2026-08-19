@@ -17,6 +17,9 @@ the same step range and `get_batch` is a pure function of step, so a fork never 
 
 from __future__ import annotations
 
+import math
+from dataclasses import dataclass
+
 
 def _noop(model, optimizer) -> None:
     """The identity intervention: change nothing. The gate forks two of these against each other."""
@@ -32,14 +35,17 @@ def run_fork(
     device: str | None = None,
     on_step=None,
     grad_hook=None,
+    pre_step=None,
     seed: bool = True,
 ) -> list[float]:
     """One fork: (optionally seed) -> build model+opt -> restore snapshot -> apply intervention ->
     train forward. Returns the per-step loss list.
 
-    `intervention(model, optimizer)` mutates state in place (default: noop). `snapshot` is a path or
-    an in-memory snapshot dict. `seed=True` configures determinism first and MUST be the process's
-    first CUDA touch; the gate seeds once itself and calls its branches with seed=False.
+    `intervention(model, optimizer)` mutates state in place ONCE at fork start (default: noop);
+    `pre_step(step, ctx)` fires every step (the spike-replay / skip / reset channel, Task 9 -- see
+    `trunk.train_forward`). `snapshot` is a path or an in-memory snapshot dict. `seed=True` configures
+    determinism first and MUST be the process's first CUDA touch; the gate/battery seed once
+    themselves and call their branches with seed=False.
     """
     import torch
 
@@ -59,7 +65,9 @@ def run_fork(
 
     start = snap["step"] if start_step is None else start_step
     steps = steps if steps is not None else cfg["train"]["max_steps"]
-    return train_forward(model, opt, cfg, data_dir, start, steps, device, on_step=on_step, grad_hook=grad_hook)
+    return train_forward(
+        model, opt, cfg, data_dir, start, steps, device, on_step=on_step, grad_hook=grad_hook, pre_step=pre_step
+    )
 
 
 def _fork_fingerprints(cfg, data_dir, snap, steps, device, intervention=None):
@@ -124,6 +132,95 @@ def short_fork(cfg, data_dir, snapshot, intervention=None, steps=1000, **kw):
 def full_fork(cfg, data_dir, snapshot, intervention=None, **kw):
     """Convenience: a full-convergence fork (runs to cfg['train']['max_steps'])."""
     return run_fork(cfg, data_dir, snapshot, intervention=intervention, steps=None, **kw)
+
+
+# --------------------------------------------------------------------------------------
+# Task 9 -- the cheap-fix kill-test battery (B0, B*, Bg, Bs), forked from a pre-spike (t0)
+# snapshot and replaying the spike forward. See context-ai.md §5.4 (branch menu) / §9 (Gate B).
+# --------------------------------------------------------------------------------------
+
+
+@dataclass
+class Branch:
+    """One kill-test branch: a name, a per-step `pre_step` hook (None = clean / no spike), and the
+    cfg it runs under (Bs runs a clip-augmented cfg; the others reuse the trunk cfg)."""
+
+    name: str
+    pre_step: object
+    cfg: dict
+
+
+def compose(*pre_steps):
+    """Chain `pre_step(step, ctx)` hooks left-to-right; None entries are dropped, all-None -> None.
+    Order is LOAD-BEARING: the spike hook goes first (it sets LR / `ctx['batch']`); a fix hook runs
+    after and overrides it (skip resets `ctx['batch']` to the clean slot; reset zeroes moments)."""
+    hooks = [h for h in pre_steps if h is not None]
+    if not hooks:
+        return None
+
+    def pre_step(step, ctx):
+        for h in hooks:
+            h(step, ctx)
+
+    return pre_step
+
+
+def make_branches(cfg, recipe, *, clip_norm):
+    """Build `{name: Branch}` for the Task-9 cheap-fix battery -- all forked from the SAME pre-spike
+    (t0) snapshot and replaying `recipe` forward, EXCEPT `B*`, which toggles the spike off (the clean
+    counterfactual every Δ subtracts). `Bg` zeroes moments once just after the spike window; `Bs` adds
+    skip (data-side) + clip (cfg grad-norm). `recipe` is a `spikes.induce.SpikeRecipe`."""
+    from research.baselines import clip, reset, skip
+
+    spike = recipe.pre_step
+    inj, w = recipe.inject_step, recipe.width
+    return {
+        "B0": Branch("B0", spike, cfg),  # damaged do-nothing (spike on, no fix)
+        "B*": Branch("B*", None, cfg),  # clean counterfactual (spike off)
+        "Bg": Branch("Bg", compose(spike, reset.as_pre_step(inj + w)), cfg),  # blunt global reset
+        "Bs": Branch("Bs", compose(spike, skip.as_pre_step(inj, w)), clip.apply_to_cfg(cfg, clip_norm)),
+    }
+
+
+def _summarize(name: str, losses: list) -> dict:
+    """NaN-safe branch summary: `survival=0` if any loss is non-finite (or the list is empty), else
+    `survival=1` and `final` = the last loss. The battery never lets a NaN branch abort the others."""
+    survival = int(bool(losses) and all(math.isfinite(x) for x in losses))
+    return {"name": name, "losses": losses, "final": (losses[-1] if survival else float("nan")), "survival": survival}
+
+
+def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=False, on_step=None) -> dict:
+    """Run one `Branch` from `snapshot` (restore -> its cfg + pre_step -> train forward) and return a
+    NaN-safe result dict. `seed=False`: the battery seeds ONCE up front (a 2nd deterministic seed
+    would trip the 'CUDA already initialized' precondition)."""
+    losses = run_fork(
+        branch.cfg, data_dir, snapshot, steps=steps, device=device, seed=seed, pre_step=branch.pre_step, on_step=on_step
+    )
+    return _summarize(branch.name, losses)
+
+
+def run_cheap_battery(data_dir, snapshot, branches: dict, steps, device=None, seed=True) -> dict:
+    """Run the whole cheap-fix battery NaN-safely: seed once, then each branch with `seed=False`; a
+    branch that NaNs or raises records `survival=0` and the battery CONTINUES. Returns `{name: result}`.
+    All branches restore the SAME snapshot, so two `B0`s replay bitwise (the Δ==0 determinism gate)."""
+    import torch
+
+    from research.harness.determinism import seed_everything
+    from research.harness.snapshot import load as load_snapshot
+
+    any_cfg = next(iter(branches.values())).cfg
+    if seed:
+        seed_everything(any_cfg.get("seed", 1337), deterministic=True)
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    snap = load_snapshot(snapshot) if isinstance(snapshot, str) else snapshot
+
+    results = {}
+    for name, br in branches.items():
+        try:
+            results[name] = run_branch(data_dir, snap, br, steps, device=device, seed=False)
+        except Exception as e:  # a NaN kernel, transient device error, etc. -- keep the battery going
+            results[name] = {"name": name, "losses": [], "final": float("nan"), "survival": 0, "error": repr(e)}
+    return results
 
 
 def fork_matrix(*args, **kwargs):
