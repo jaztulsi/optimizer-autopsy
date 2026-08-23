@@ -1,134 +1,130 @@
 # UPDATE — where the project is, in plain English
 
-This is your simple status page. No jargon. It answers three questions: **what's done**, **what I'm
-doing right now**, and **what's next**. (The nerdy task-by-task checklist is at the very bottom if you
-ever want it.)
+This is your simple status page. No jargon. It answers three questions: **what's done**, **what's
+changing**, and **what's next**. (The nerdy task-by-task checklist is at the very bottom.)
 
-**Last updated:** 2026-08-11
+**Last updated:** 2026-08-23
 
 ---
 
 ## The one-line version
 
-The foundation is done, and the **practice AI now actually trains on a real GPU** — we watched its
-error drop by more than half in 200 steps. We're **~23% of the way** through the build. Everything
-built so far **works and is tested**. Nothing is waiting on you right now.
+The hard part of the lab is finished and proven: we can rewind a training run and replay it perfectly,
+and we've built the "fork" machinery that lets us test a fix and prove it was the fix. Now the project is
+**switching hardware** — off Kaggle's free GPUs (we kept running out of hours) and onto a dedicated AMD
+GPU budget — and then starting the actual science: finding and repairing the poison.
 
 ---
 
 ## What is this project again? (the plain version)
 
-Big AI models sometimes "blow up" during training — the loss suddenly spikes and the run gets
-damaged. Our project is like a **detective + surgeon** for that moment:
+Big AI models sometimes "blow up" during training — the loss suddenly spikes and the run gets damaged.
+This project is a **detective + surgeon** for that moment:
 
 1. **Rewind** training to the instant it broke.
 2. **Find** exactly which part of the model's "memory" got poisoned.
 3. **Repair** just that part and prove the repair is what fixed it.
 
-To do that honestly, we need to be able to **replay training perfectly** — run it twice and get the
-*exact* same numbers. That "perfect replay" is the thing we just got working today.
+To do that honestly, we need to **replay training perfectly** — run it twice and get the *exact* same
+numbers. Perfect replay is the thing we already got working.
 
 ---
 
-## ✅ What you've accomplished so far
+## ✅ What's done (and proven on a real GPU)
 
-Think of this as laying the foundation of a house. It's done and inspected:
+Think of this as a finished, inspected laboratory:
 
-1. **All your accounts and keys are set up.** Kaggle (free GPUs), Hugging Face (cloud storage),
-   Weights & Biases (charts), Colab. Your secret keys are safely stored — never on your laptop,
-   never in the code.
-2. **A private cloud storage box exists** for the big files (`optimizer-autopsy-artifacts`).
-3. **The code knows how to run on Kaggle's free GPUs** and checks the environment is correct before
-   it starts — we confirmed this on a real Kaggle GPU (a Tesla T4). It printed "OK".
-4. **The data pipeline is built.** It turns text into the numbers the model trains on, and — this is
-   important — it can hand back the *exact same* batch of data every time, which is what makes
-   perfect replay possible. We proved it gives identical results across two separate runs.
-5. **Secrets are safe.** There's an automatic guard that scans the whole project and refuses to let a
-   password or key get saved into it by accident.
-6. **🔑 Perfect replay works — confirmed on a real GPU.** We can take a snapshot of a model
-   mid-training, run it forward 50 steps, rewind, run it again — and get *byte-for-byte identical*
-   results. Zero difference, on both your laptop and a real Kaggle GPU. This is the single most
-   important piece: without it, none of the "find the poison" science would be trustworthy. It's now
-   locked in.
+1. **Accounts, keys, and cloud storage** are all set up; secret keys are never on the laptop or in the code.
+2. **The code runs on a real GPU** and checks the environment before it starts.
+3. **The data pipeline** hands back the *exact same* batch every time — the foundation of perfect replay.
+4. **A secret-safety guard** scans the whole project and refuses to let a password slip in.
+5. **Perfect replay works — confirmed on a real GPU.** Snapshot mid-training, run forward, rewind, run
+   again → byte-for-byte identical, zero difference.
+6. **The training engine learns.** The small practice model trained for 200 steps and its error fell from
+   **10.85 → 4.73**.
+7. **🔑 The "fork" gate passed — this is the big one.** Two do-nothing copies forked from the same snapshot
+   came out *exactly identical* (zero difference). That's what makes every future "the repair worked" claim
+   a real measurement instead of a guess. This is contribution **C1**, and it's done.
+
+All of these have their actual run records saved in the `results/` folder, not just claimed from memory.
 
 ---
 
-## 🔨 What I'm doing right now
+## 🔄 What's changing (the restart)
 
-The **engine is built and proven**: the small practice AI model plus the training loop that teaches
-it. We ran it on a real Kaggle GPU (Tesla T4) for 200 steps and its error fell from **10.85 → 4.73**
-— it's genuinely learning. That's Task 5 done.
+We built everything above on **Kaggle's free GPUs**, but the free tier only gives ~30 hours a week and
+kept interrupting the real runs. So the plan (now written up as **PLAN_V6.md**) is:
 
-New this session: I can now **drive Kaggle myself, headless** — push the code, run it on a free GPU,
-and pull the results back without you clicking anything. No compute ever runs on your Mac.
-
-Next I build the **snapshot** system (save/reload a model's full state to the cloud), then the
-**fork** system — the heart of the project.
+- **Move to a dedicated AMD GPU** (an MI300X, via a program called Exea Labs — we've asked, not confirmed
+  yet). More hours, no weekly cliff.
+- **Don't rebuild — port.** All the code we already proved carries over as-is. The *only* thing we have to
+  re-earn on the new hardware is the "perfect replay" guarantee, because AMD's chips do the math a bit
+  differently than the old ones.
+- **Check the risky part first.** Before spending real time, we run a tiny 6-hour test on the AMD GPU to
+  see if perfect replay is even possible there. If yes, full speed ahead. If not, we switch to a
+  "very-close-instead-of-exact" statistical approach — and we find that out in week one, not week eight.
+- **Budget in tiers** (a small version, a full version, a stretch version) so the plan survives whether the
+  grant ends up bigger or smaller than hoped.
+- **Timeline:** the big conference deadline for this year already passed, so the honest targets are TMLR (a
+  journal with no deadline) and next year's NeurIPS cycle.
 
 ---
 
 ## ⏭️ What's next (in order)
 
-1. ~~Build the small practice model + training loop (the engine).~~ ✅ done, GPU-verified.
-2. **Me:** build the "snapshot" system (save/reload a model's full state to the cloud).
-3. **Me:** build the "fork" system — the heart of the project, where we test a fix and prove it
-   worked by comparing against a perfect replay.
-
-(You'll get one more Kaggle to-do when the snapshot system is ready — saving/reloading needs a
-real-GPU check too.)
+1. **AMD "can we replay perfectly here?" test** — the 6-hour go/no-go check. This decides everything else.
+2. **Finish the spike-maker** — get at least 2 of our 4 spike recipes solid (right now 1 is).
+3. **The cheap-fix test** — check whether a simple existing fix already works everywhere. If it does, the
+   fancy repair isn't needed, and that's a real, publishable finding on its own.
+4. **Then the actual science:** build the "localizer" (finds the poison) and the "repair" (fixes just it).
 
 ---
 
 ## Progress bar
 
 ```
-Foundation  ████████████████████  DONE (4 of 4 steps)
-Safety gate ████████████████████  DONE (perfect replay, GPU-verified)
-The engine  ████████████░░░░░░░░  training loop DONE + GPU-verified; snapshot/fork next
-Everything else  ░░░░░░░░░░░░░░░░  not started
+The laboratory (C1)   ████████████████████  DONE, proven on a real GPU
+Spike-maker           ████████░░░░░░░░░░░░  1 of 4 recipes solid (need 2)
+Cheap-fix test        ████░░░░░░░░░░░░░░░░  built, not yet run
+The science (C2/C3)   ░░░░░░░░░░░░░░░░░░░░  not started — the heart of it
+Hardware restart      ░░░░░░░░░░░░░░░░░░░░  moving to AMD; replay test is step one
 ```
 
-**Overall: ~23% built. Status: 🟢 everything passing.**
+**Status: 🟢 the lab is proven; now switching hardware and starting the science.**
 
 ---
 
-## Anything I should worry about?
+## Anything to worry about?
 
-- Kaggle's free computers have **newer software** than the plan expected (that's fine, just noted so
-  nothing surprises us later).
-- The replay test now passes on **both CPU and Kaggle GPU** — the big risk is retired.
-- Everything else is green.
+- **The AMD replay test is the real unknown.** Everything rests on perfect replay, and AMD's chips have no
+  exact copy of the trick we used on the old ones. That's exactly why we test it first and cheaply.
+- **The AMD grant isn't confirmed yet** — we've reached out but nothing is locked. The budget in PLAN_V6
+  stays a plan until it is.
+- Everything already built is green and has its run records saved.
 
 ---
 ---
 
-## Appendix: the technical checklist (skip unless you want detail)
+## Appendix: the technical checklist
 
 Legend: ✅ done · 🟡 partial · ⬜ not started · ⛔ needs paid GPUs
 
-**Phase 0 · Foundation — 4/4 ✅**
-- ✅ Task 0 — repo scaffold (imports clean)
-- ✅ Task 1 — env check `check_env()` (passes on Kaggle T4)
-- ✅ Task 2 — fixed tokenized data + `get_batch` (bitwise-identical across two processes)
-- ✅ Task 3 — secrets loader + no-token-in-git test (3/3 pass)
+**Phase 0 · Foundation — 4/4 ✅** — scaffold, env check, fixed data + `get_batch`, secrets + no-token test.
 
-**Phase 1 · The instrument — 1/4**
-- ✅ Task 4 — deterministic replay + test (**PASS on CPU and Kaggle GPU**, max|Δ|=0 over 50 steps)
-- ✅ Task 5 — proxy nanoGPT model + trunk training loop (**PASS on Kaggle T4**, loss 10.85 → 4.73 / 200 steps)
-- ⬜ Task 6 — snapshot/restore of (weights + optimizer + RNG) to HF Hub
-- ⬜ Task 7 — fork driver + the Δ==0 gate
+**Phase 1 · The instrument (C1) — ✅ complete, CUDA-verified**
+- ✅ Task 4 — deterministic replay (`max|Δ|=0` over 50 steps, CPU + Kaggle T4)
+- ✅ Task 5 — proxy model + trunk loop (loss 10.85 → 4.73 / 200 steps on T4)
+- ✅ Task 6 — snapshot/restore of (weights + optimizer + RNG), name-keyed, tied-weight safe
+- ✅ Task 7 — fork driver + the `Δ==0` gate (noop-vs-noop `max|Δ|=0` on T4)
 
-**Phases 2–6 — not started:** spike induction, kill-test (T8–9), localizer (T10–12), repair +
-baselines (T13–15), attribution + theory (T16–19), scale + figures + paper (T20–24). ⛔ Task 25
-(410M) needs paid GPUs.
+**Phase 2 · Spikes + kill-test — 🟡 partial**
+- 🟡 Task 8 — spike induction + detector: 1 of 4 recipes solid (`lr_bump`); V6 relaxes the bar to ≥2
+- 🟡 Task 9 — cheap-fix battery (B0/Bg/Bs/B*) + PROCEED/PIVOT rule: built, not yet run to a verdict
 
-**Totals:** ✅ 5 · 🟡 1 · ⬜ 19 · ⛔ 1  →  **5 fully done / 26.**
+**Hardware restart (PLAN V6):** ⬜ AMD go/no-go determinism smoke test · ⬜ ROCm strict-mode setup + pins
 
-**Known technical caveats:** Kaggle image is newer than planned (numpy 2.0.2, datasets 5.0.0 —
-watch for API drift); `prepare.py` dataset revisions still `"main"` (need pinned commit shas);
-`<5 min` proxy prep is a design target, not yet timed on Kaggle.
-- **Proxy config OOMs a free T4 at `batch_size: 64`** (50304-vocab logits ≈ 3.3 GB × forward+backward).
-  Task 5 was validated at batch 16; for real experiments drop to `batch_size: 16` + `grad_accum: 4`
-  (same effective batch). Not yet changed in the committed config — an experiment-design call.
-- **Kaggle P100 vs T4:** pinned torch is sm_70+, so it **crashes on Kaggle's P100** (sm_60). Kernels
-  must force `machine_shape: NvidiaTeslaT4`. Wired into the headless run.
+**Phases 3–6 — ⬜ not started:** localizer (C2), repair + baselines (C3), attribution + theory, scale +
+figures + paper. ⛔ 410M needs paid GPUs.
+
+**Known caveats:** `prepare.py` dataset revisions still `"main"` (need pinned commit shas); proxy `<5 min`
+prep not yet timed; on AMD the recipe numerics may shift and need re-checking. Governing plan: `PLAN_V6.md`.

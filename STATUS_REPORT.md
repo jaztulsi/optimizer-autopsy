@@ -1,5 +1,12 @@
 # Optimizer Autopsy — Status Report
 
+> **⚠ Historical snapshot (2026-08-12) — SUPERSEDED.** This report predates the fork gate landing and the
+> committed `results/` evidence. Two things it says are now stale: (1) it lists `fork.py` as a stub and the
+> Task 7 determinism GATE as "not yet run" — that gate has since **passed** (`max|Δ|=0` on T4, C1 shipped);
+> (2) it says no run logs are committed — the `results/` folder now holds per-task JSON + Kaggle logs. For
+> current state see `context-ai.md` §14; the governing plan is `PLAN_V6.md` (AMD restart). Kept as a
+> point-in-time record.
+
 **Generated:** 2026-08-12 · **Branch:** `main` @ `0d5cd0e` · **Scope:** read-only snapshot of the repo + local environment.
 
 This report is evidence-based. Every claim is tagged **measured** (backed by a run/test I or a prior

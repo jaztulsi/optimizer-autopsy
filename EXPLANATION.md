@@ -313,6 +313,39 @@ number.
 
 ---
 
+---
+
+## Part D — The hardware restart (what PLAN V6 changes)
+
+Everything in Part C was built and proven on **Kaggle's free GPUs** (the "Tesla T4"). The trouble: the
+free tier only gives about 30 GPU-hours a week, and it kept interrupting the longer runs partway through.
+So the project is restarting on a **dedicated AMD GPU** (an MI300X, through a program called Exea Labs that
+gives students free AMD compute — the request is out, not yet confirmed). The full write-up is `PLAN_V6.md`;
+here is what actually changes, in plain terms.
+
+- **Port, don't rebuild.** None of the science changes, and almost none of the code does either. The data
+  pipeline, the model, the spike recipes, and the whole fork-and-replay laboratory carry over unchanged.
+  This is called "Path B." The alternative — rewriting everything from scratch on the new hardware — would
+  burn an estimated 150–250 hours reproducing work that's already correct, so we don't.
+- **Re-earn only the one hardware-specific thing.** Perfect replay depends on forcing the GPU into a
+  strict, repeatable mode. The trick we used to do that is specific to the *old* chip maker (NVIDIA); AMD's
+  chips use different math libraries and have no exact copy of it. So "perfect replay works" has to be
+  *re-proven* on AMD — it is not assumed just because it worked before.
+- **Test the risky part first (the "go/no-go").** Before spending the full budget on re-proving replay, we
+  run a cheap ~6-hour smoke test: fork one pair, take one training step, and check the numbers match
+  *exactly*, on the specific operations this project actually uses. If they match — great, continue. If
+  they can't be made to match on AMD, we switch to a "very close, measured many times" statistical approach
+  instead of an exact-zero one — and crucially, we learn that in **week one**, not after weeks of assuming.
+- **A budget with a written cut list.** The plan is sized to 500 GPU-hours with a ranked list, decided in
+  advance, of what to trim first if hours run short (fewer spike recipes, then fewer repeats, then fewer
+  baselines) — and what to *never* cut (the perfect-replay proof and the honest held-out testing). There
+  are three sizes (Floor / Core / Stretch) so the plan survives a smaller or larger grant without a rewrite.
+- **Decisions written down in advance.** For the two moments where an ambiguous result could tempt you
+  toward the more exciting conclusion — the cheap-fix test and the "is the poison concentrated enough to
+  repair?" threshold — the rules for what counts as which outcome are written *before* the test is run.
+- **Honest timeline.** This year's big-conference deadline already passed, so the targets are TMLR (a
+  journal with no deadline, which judges whether the claims are well-supported) and next year's NeurIPS.
+
 ## Where things stand, in one honest paragraph
 
 The **laboratory is built and trustworthy**: runs replay to exactly zero (Task 4), the training loop
@@ -326,4 +359,6 @@ the grading rule itself is fair for an instantaneous shock. Still entirely ahead
 in earnest, is the heart of the project: the **localizer** (C2, which finds *where* the poison lives)
 and the **repair operator** (C3, which fixes just that part and must beat the blunt baselines). In
 short: the instrument is proven, the first measurements are underway and honestly reported as
-partial, and the headline scientific claims remain to be tested.
+partial, and the headline scientific claims remain to be tested. The one change since that milestone is
+practical, not scientific: the project is **moving from Kaggle's free GPUs to a dedicated AMD budget**
+(Part D), with re-proving perfect replay on the new hardware as the very first, cheapest step.

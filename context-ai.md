@@ -16,6 +16,11 @@
 > decision-gate outcome tree (incl. every failure branch) · §10 free-tier survival mechanics · §11
 > load-bearing invariants · §12 "why this not that" FAQ · §13 how to run · §14 current state + next action.
 
+> **Governing plan:** `PLAN_V6.md` (AMD MI300X restart, 500–600 GPU-h budget, Path B, go/no-go gate, cut
+> order, tiers, pre-registered protocol). This packet is the technical context; V6 is the current source of
+> truth for hardware, compute, budget, timeline, and Definitions of Done. Where the two disagree on those,
+> V6 wins; the science and math here are unchanged.
+
 ---
 
 ## 1. Compass — the whole project in one page
@@ -69,12 +74,20 @@ regime, empirically confirmed). Every branch of reality is a paper (see the full
 
 ### 1.5 Scale ladder and compute reality
 - **Proxy (1–3M params)** — same spike phenomenology, runs the *entire* attribution battery in minutes–
-  1h on a free T4. This is the **primary iteration + keep/kill signal** and the free MVP.
+  1h. This is the **primary iteration + keep/kill signal** and the MVP.
 - **124M nanoGPT** — a **robustness section**, not the contribution: reproduce spike windows + short
-  forks (500–2000 steps), ~1–3h each, snapshots ~0.75 GB bf16 to HF Hub; quota-serialized by Kaggle's
-  ~30 GPU-h/week.
-- **410M** — ⛔ credits-gated (TRC/Lambda/Modal), out of scope for the free MVP; a transfer-of-mechanism
-  robustness check only.
+  forks (500–2000 steps), ~1–3h each, snapshots ~0.75 GB bf16 to HF Hub.
+- **410M** — ⛔ credits-gated, out of scope for the MVP; a transfer-of-mechanism robustness check only.
+
+**Compute restart (PLAN V6, the governing plan).** Everything so far was built and CUDA-verified on a
+free Kaggle T4, but Kaggle's ~30 GPU-h/week quota kept serializing/interrupting real runs. The project is
+restarting on a **dedicated AMD MI300X budget** (target 500–600 GPU-hours via Exea Labs — requested, not
+yet confirmed). The migration is **Path B**: port all hardware-independent code (data, model, spike
+recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) unchanged, and
+**re-earn only the hardware-specific determinism guarantee** on ROCm. A cheap **go/no-go smoke test** runs
+first (see §14) because ROCm has no exact `CUBLAS_WORKSPACE_CONFIG` analog and bitwise `Δ==0` on MI300X is
+not assumed. Full budget, cut order, tiers (Floor/Core/Stretch), and pre-registered decision protocol live
+in `PLAN_V6.md`; venue target shifts to TMLR / NeurIPS 2027 (NeurIPS 2026 has passed).
 
 ---
 
@@ -623,7 +636,9 @@ produces nothing.
 
 ## 11. Load-bearing invariants (do not let these regress)
 1. Data is a **fixed pre-tokenized memmap**; a batch is a **pure function of `step`** (no streaming).
-2. `CUBLAS_WORKSPACE_CONFIG` set **before** `import torch`; asserted in two places.
+2. `CUBLAS_WORKSPACE_CONFIG` set **before** `import torch`; asserted in two places. **(CUDA-specific.
+   On AMD/ROCm there is no exact analog — PLAN V6 Phase 1 re-derives the equivalent strict-mode setup and
+   re-proves the gate via the go/no-go smoke test before it is trusted.)**
 3. Snapshots key optimizer state by **param name** (+ shape asserts); handle **tied weights**; restore
    **per-param `step`**; store `m,v` in **bf16** (never fp16).
 4. `B*` keeps the data stream **aligned** (toggle the spike off / clean the same slot) — never "skip".
@@ -725,10 +740,21 @@ python -m research.experiments.llm124m.run trunk              # (once built) 124
 ```
 Local (Mac) is fine only for: git, reading/editing, `--selfcheck` logic review — **not** training.
 
+**AMD note (PLAN V6):** the sequence above is the CUDA/Kaggle path that built C1. On the MI300X restart,
+the launcher's first-cell env setup and `research/requirements.txt` pins become ROCm-specific, and the
+**first command run on AMD is the go/no-go determinism smoke test** (one forked pair, one step, compare
+`m`/`v`/`w` bit-for-bit over the exact ops this pipeline uses — the HVP double-backward and the Adam
+moment update), *before* `test_determinism` is trusted as a passing gate on the new hardware.
+
 ---
 
-## 14. Current state and the immediate next action (2026-08-17)
-- **Done & GPU-verified (T4):**
+## 14. Current state and the immediate next action (updated 2026-08-23)
+> **Governing plan is now `PLAN_V6.md`** (AMD MI300X restart, 500–600 GPU-h cap, Path B, go/no-go gate,
+> written cut order + tiers, pre-registered decision protocol, TMLR/NeurIPS-2027 timeline). Everything
+> "done & GPU-verified" below was earned on **CUDA / Kaggle T4** and carries forward unchanged under Path
+> B; the AMD determinism guarantee is **being re-earned, not assumed**.
+
+- **Done & GPU-verified (CUDA / Kaggle T4):**
   - Tasks 0–4 (scaffold, env preflight, fixed data + `get_batch`, secrets + no-token-in-git,
     deterministic bitwise replay `max|Δ|=0` on CPU **and** Kaggle T4).
   - **Task 5** — proxy model + trunk loop; GPU DoD ran on T4 (`loss 10.851 → 4.730`, 200 steps).
@@ -746,18 +772,26 @@ Local (Mac) is fine only for: git, reading/editing, `--selfcheck` logic review �
   at/before peak" is the honest bar), not something to keep re-tuning. **Current blocker is mechanical,
   not scientific:** Kaggle keeps assigning P100 (unsupported by the pinned torch build) instead of T4,
   crashing the run before training; earlier Task 8 numbers came from sessions that happened to get a T4.
-- **Immediate next action:** get a fresh graded Task 8 run on a T4 (retry until Kaggle assigns one, or
-  pin/guard the GPU type), then either (a) close Task 8 at ≥3/4 or (b) formally adopt the "at/before peak"
-  bar for instantaneous recipes. After Task 8: Task 9 (cheap-branch battery `B0/Bg/Bs/B*` + the week-one
-  **method-is-dead** keep/kill), then the localizer (Tasks 10–12).
-- **Overall: instrument (C1) complete and trustworthy; project is at the *start of the actual science*.
-  The heart — localizer (C2) and repair (C3) — is entirely ahead and not yet begun.**
+- **Immediate next action (V6):** on AMD MI300X, build and run the **go/no-go determinism smoke test**
+  first — one forked pair, one step, compare `m`/`v`/`w` bit-for-bit over the HVP double-backward and the
+  Adam moment update. If it hits exact zero, spend the rest of Phase 1's determinism re-verification; if it
+  can't, pivot Phase 1 to a tolerance-based statistical framework (paired seeds, many-run averaging)
+  rather than a single-run bitwise proof. Then finish spike induction to the **relaxed V6 DoD of ≥2
+  recipes** (not 4), then run Task 9's cheap-fix kill-test against the **pre-registered §8 threshold**,
+  then the localizer (C2). Note the old Kaggle P100-vs-T4 blocker disappears on AMD, but recipe numerics
+  may shift on MI300X and need re-checking.
+- **Overall: instrument (C1) complete and trustworthy on CUDA; project is at the *start of the actual
+  science* and mid-hardware-restart.** The heart — localizer (C2) and repair (C3) — is entirely ahead and
+  not yet begun. The AMD determinism go/no-go is the gate that decides which PLAN V6 tier
+  (Floor/Core/Stretch) is actually buildable.
 
 *Known open TODOs to not forget:* pin `data/prepare.py` `PRESETS` revisions to real commit shas (both
 currently `"main"`); set `llm124m/config.yaml` `hub_repo`/revision; the proxy `<5 min` prep is a design
-target not yet timed on Kaggle; resolve the Kaggle P100-vs-T4 assignment so Task 8 can be re-graded;
-decide the `corrupt_batch` detector bar. There is also a companion plain-English guide, `EXPLANATION.md`,
-kept in sync with this state.
+target not yet timed; decide the `corrupt_batch` detector bar; **(V6, AMD)** build the go/no-go smoke test,
+derive the ROCm strict-mode setup + `requirements-rocm` pin set, and resolve PLAN V6 §5's three open items
+(team-size figure, realistic Exea allocation, GPU parallelism/expiry) before locking a budget tier. The
+old Kaggle P100-vs-T4 assignment blocker is moot on AMD. Companion plain-English guides `EXPLANATION.md`
+and `update.md` are kept in sync with this state; `PLAN_V6.md` is the governing plan.
 
 > **Repo note (not a project fact):** `main` currently shows 50↔50 divergence with `origin/main` — the
 > local history was re-authored (stripping AI co-author trailers per CLAUDE.md §3) so the commits carry
@@ -922,7 +956,6 @@ Thm2 regime    iff  ψ_k < ψ*   (bulk mass too large → any rank-k leaves some
 - **AR(2) / companion matrix / spectral radius `ρ_i`** — the per-direction recovery recursion (momentum +
   preconditioner = 2-step memory); `ρ_i<1` recovers, `ρ_i>1` diverges.
 - **Commutator / coupling term** — the error from assuming `H` and `D` are simultaneously diagonalizable;
-  measured and plotted to bound `ρ_i`'s validity.
 - **Trunk** — the main training trajectory we snapshot and fork from (may run determinism OFF).
 - **Fork / branch** — a continuation from a snapshot with one intervention applied (determinism ON).
 - **`t0`** — the detector-fired pre-spike trigger step; where the snapshot + autopsy happen.

@@ -12,11 +12,21 @@ list below will just say *"Nothing left for you to do!"*
 
 ## Open items
 
-**Nothing left for you to do!** 🎉
+These come from the **PLAN_V6** restart (`PLAN_V6.md` §5) — three things only you can resolve, and they
+block locking the compute budget. None are code.
 
-(I can now drive Kaggle myself, headless — the Kaggle CLI is wired up on your Mac, so I push code
-and run it on a free GPU and pull results back without you clicking anything. Compute never touches
-your machine.)
+1. **Confirm the Exea Labs AMD grant.** *What:* follow up on the inquiry and get a yes/no plus an actual
+   number. *Why:* the whole 500–600 GPU-hour budget is a plan until this lands. *How:* reply to the founder
+   thread; ask what a realistic single-project allocation looks like.
+2. **Confirm GPU parallelism + expiration.** *What:* ask how many GPUs can run at once and whether the
+   hours expire. *Why:* it decides whether GPU-hours or your own dev-time is the real bottleneck (and
+   whether the 24-week timeline compresses).
+3. **Pin down the team-size figure.** *What:* settle on one accurate number (five? eight? one + mentor?).
+   *Why:* it's stated differently in different places against a one-author commit history — cheap to fix
+   now, costly to credibility if a compute partner checks it later.
+
+*(I can still drive Kaggle myself headless via the CLI; once AMD access exists we wire up the equivalent
+there. Compute never touches your Mac.)*
 
 ---
 

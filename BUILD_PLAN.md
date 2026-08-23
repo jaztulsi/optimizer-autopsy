@@ -1,8 +1,17 @@
 # OPTIMIZER AUTOPSY — Build Plan
 **Fork training at the moment of failure, find where the poison lives, repair it.**
-Solo-friendly, free-compute execution guide. Companion to the research plan at
+Solo-friendly execution guide. Companion to the research plan at
 <https://jaztulsi.github.io/optimizer-autopsy/>. Every task below is a **ready-to-paste Claude
 Code prompt** — open Claude Code *inside this repo* and run them in order.
+
+> **⚠ Superseded on hardware/budget/DoD by `PLAN_V6.md` (the governing plan).** This file is still the
+> per-file *science* detail — the task-by-task build prompts and their code-level DoDs are current. But
+> where it says **Kaggle / free-tier CUDA**, read **AMD MI300X under a 500–600 GPU-hour budget (Path B:
+> port everything, re-earn only the ROCm determinism guarantee via a go/no-go smoke test first)**; where
+> Task 8's DoD says **≥3 of 4 spike recipes**, read the relaxed V6 bar of **≥2**; and the calibration +
+> attribution battery scale with the surviving recipe count per V6's cut order. Current banked state and
+> committed run evidence: `context-ai.md` §14 + `results/`. Tasks 0–7 (the instrument, C1) are done and
+> CUDA-verified.
 
 > **How to use this doc.** Do the one-time setup (§1). Then work top-to-bottom through §2 — paste
 > one prompt into Claude Code, let it build + run its own check, commit, move on. Each task names
