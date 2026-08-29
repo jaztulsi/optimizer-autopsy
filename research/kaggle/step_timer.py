@@ -52,7 +52,11 @@ def main(config_path=CONFIG_PATH, warmup=WARMUP_STEPS, timed=TIMED_STEPS) -> Non
     model, opt = build_model_opt(cfg, device)
     model.train()
     t, block = cfg["train"], model.cfg.block_size
-    batch, grad_clip = t["batch_size"], cfg["optim"].get("grad_clip", 0.0)
+    grad_clip = cfg["optim"].get("grad_clip", 0.0)
+    # Real proxy config is batch_size=64, but its (batch,block,vocab)=(64,256,50304) fp32 logits +
+    # cross_entropy peak ~16GB and OOM a free T4/P100 -- the fork gate (proxy_fork_gate.py) runs 16
+    # for the same reason. STEP_TIMER_BATCH overrides it so you can profile the batch a given GPU fits.
+    batch = int(os.environ.get("STEP_TIMER_BATCH", t["batch_size"]))
 
     print("GPU:", torch.cuda.get_device_name(0) if device == "cuda" else "CPU")
     print(f"params (non-embedding): {model.num_params():,}")
