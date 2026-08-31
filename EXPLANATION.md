@@ -336,10 +336,17 @@ here is what actually changes, in plain terms.
   *exactly*, on the specific operations this project actually uses. If they match — great, continue. If
   they can't be made to match on AMD, we switch to a "very close, measured many times" statistical approach
   instead of an exact-zero one — and crucially, we learn that in **week one**, not after weeks of assuming.
-- **A budget with a written cut list.** The plan is sized to 500 GPU-hours with a ranked list, decided in
-  advance, of what to trim first if hours run short (fewer spike recipes, then fewer repeats, then fewer
-  baselines) — and what to *never* cut (the perfect-replay proof and the honest held-out testing). There
-  are three sizes (Floor / Core / Stretch) so the plan survives a smaller or larger grant without a rewrite.
+- **A budget with a written cut list.** The build is roughly 500 hours of *work* (person-hours) — but an
+  audit found the actual *GPU* compute needed on AMD is only about **15–40 GPU-hours** (the old "500 GPU-hours"
+  had mixed up hours-of-coding with hours-of-GPU-time). Most of the project is engineering, and GPU time is
+  cheap: the throughput was measured at 0.06 seconds per step at proxy scale, and most components barely
+  touch the GPU. Of the ~15–40 GPU-hours, ~5–10 go to re-proving perfect replay on AMD (the one thing never
+  tested on AMD — everything so far ran on NVIDIA) and the rest to the proxy-scale experiments. The big
+  124M-model robustness check (~71–302 GPU-hours) deliberately stays on free Kaggle over several weeks, *not*
+  on the AMD grant. There's still a ranked cut list, decided in advance, of what to trim first if time runs
+  short (fewer spike recipes, then fewer repeats, then fewer baselines) — and what to *never* cut (the
+  perfect-replay proof and the honest held-out testing) — in three sizes (Floor / Core / Stretch). The data
+  behind the audit is in `research/kaggle/step_timer_results.md`.
 - **Decisions written down in advance.** For the two moments where an ambiguous result could tempt you
   toward the more exciting conclusion — the cheap-fix test and the "is the poison concentrated enough to
   repair?" threshold — the rules for what counts as which outcome are written *before* the test is run.

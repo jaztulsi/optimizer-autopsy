@@ -91,11 +91,11 @@ Verified facts to date (CUDA / Kaggle T4, committed under [`results/`](results/)
 
 ## Plan and budget
 
-The project is restarting on **AMD MI300X** (a dedicated grant, target 500–600 GPU-hours) instead of Kaggle's quota-limited free tier, which kept running out of hours. The full reference is [PLAN&nbsp;V6](PLAN_V6.md); the essentials:
+The project is restarting on **AMD MI300X** (a dedicated grant) instead of Kaggle's quota-limited free tier, which kept running out of hours. The **audited AMD compute ask is ~15–40 GPU-hours**, not the earlier "500–600" — a bottom-up recount (measured 0.0619 s/step at proxy scale + a full code audit of GPU-bound vs engineering-time work; see [`research/kaggle/step_timer_results.md`](research/kaggle/step_timer_results.md)) found that the old figure conflated **build-effort (person-hours)** with **GPU-compute**. The ~15–40h is ~5–10h to re-earn bit-exact determinism on AMD/ROCm (the one line nothing has tested — every measurement so far ran on NVIDIA/CUDA) plus ~3–30h of proxy-scale GPU-bound science. The full reference is [PLAN&nbsp;V6](PLAN_V6.md); the essentials:
 
 - **Path B (port, don't rebuild).** The hardware-independent code (data pipeline, model, spike recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) carries over unchanged. Only the hardware-specific determinism guarantee is re-earned on ROCm.
 - **Go/no-go first.** Before the full 30-hour AMD determinism line, a ~6-hour smoke test checks bit-for-bit reproducibility of the exact ops this pipeline uses (the HVP double-backward and the Adam moment update). If it can't hit exact zero, Phase 1 pivots to a tolerance-based statistical framework rather than discovering the wall weeks in.
-- **Budget with a written cut order and three tiers** (Floor ~150–200h / Core 500h / Stretch 600h), so a smaller-or-larger grant doesn't force a rewrite.
+- **A written cut order and three scope tiers** (Floor / Core / Stretch, measured in build-effort, not GPU-hours), so a smaller-or-larger scope doesn't force a rewrite. The GPU-compute ask (~15–40 GPU-h) is small at every tier; the [124M robustness check](research/kaggle/step_timer_results.md) (~71–302 GPU-h/battery) stays on free-tier Kaggle over multiple weeks, off the AMD ask.
 - **Pre-registered decisions** for the two places a result could be nudged: the cheap-fix kill-test and the ψ_k repair-sufficiency threshold.
 - **Timeline:** NeurIPS 2026 has passed; the honest targets are **TMLR** (no deadline, judges claim-support) and a NeurIPS 2027 cycle.
 
@@ -171,7 +171,7 @@ Code lives here; compute in the cloud; artifacts on the Hub. The instrument was 
 | Component | Service | Role |
 | --- | --- | --- |
 | Code | GitHub | This repository |
-| Compute (target) | AMD MI300X via Exea Labs (500–600 GPU-h grant, requested) | The V6 restart: real experiments |
+| Compute (target) | AMD MI300X via Exea Labs (audited ask ~15–40 GPU-h, requested) | The V6 restart: real experiments |
 | Compute (origin) | Kaggle T4 (30 h/week, headless via the Kaggle CLI) | Where C1 was built + CUDA-verified |
 | Compute (iteration) | Colab | Fast proxy-scale iteration |
 | Compute (backup) | Azure credits (in reserve) | Overflow compute + checkpoint storage |

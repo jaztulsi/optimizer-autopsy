@@ -12,7 +12,9 @@ changing**, and **what's next**. (The nerdy task-by-task checklist is at the ver
 The hard part of the lab is finished and proven: we can rewind a training run and replay it perfectly,
 and we've built the "fork" machinery that lets us test a fix and prove it was the fix. Now the project is
 **switching hardware** — off Kaggle's free GPUs (we kept running out of hours) and onto a dedicated AMD
-GPU budget — and then starting the actual science: finding and repairing the poison.
+GPU — and then starting the actual science: finding and repairing the poison. (The AMD compute ask is
+small once measured: **~15–40 GPU-hours**, not the "500–600" that earlier mixed up hours-of-coding with
+hours-of-GPU-time — see `research/kaggle/step_timer_results.md`.)
 
 ---
 

@@ -1,5 +1,5 @@
 # OPTIMIZER AUTOPSY — PLAN V6
-### Complete project reference · AMD-only restart · 500–600 GPU-hour cap · reallocated budget, go/no-go gate, and a written cut order
+### Complete project reference · AMD-only restart · audited GPU ask ~15–40 GPU-h (~500 build-effort h) · reallocated budget, go/no-go gate, and a written cut order
 ### Self-contained: everything needed to understand and continue this project is in this one file.
 
 > **Governing plan.** V6 is the current source of truth for hardware, compute, budget, timeline, and
@@ -209,7 +209,22 @@ personal dev-hours available around school — worth stating that as its own exp
 
 ---
 
-## 6 · The V6 budget: 500 AMD GPU-hours, reallocated
+## 6 · The V6 budget: ~500 build-effort hours; audited AMD GPU ask ~15–40 GPU-h
+
+> **⚠ AUDITED 2026-08-31 — the compute ask is ~15–40 GPU-hours, not 500.** A bottom-up recount of the
+> table below, grounded in a **measured 0.0619 s/step** at proxy scale (11M params, batch 16, Tesla P100;
+> committed under `research/kaggle/step_timer_results.md`) and a code audit of which line items are actually
+> GPU-bound vs engineering-bound, found that the "500" conflated two different resources: **build-effort
+> (person-hours)** and **GPU-compute**. The table's hours are best read as **build-effort**, which drives
+> the ~24-week wall-clock. The real **AMD GPU-compute ask is ~15–40 GPU-h**: ~5–10h to re-earn bit-exact
+> determinism on AMD/ROCm (the one line nothing has tested — every measurement so far ran on NVIDIA/CUDA
+> free-tier Kaggle; a P100 grad_accum=40 gate has since confirmed max|Δ|=0 on **CUDA**, not AMD), plus
+> ~3–30h of proxy-scale GPU-bound science (short-fork calibration ~2–14h + the attribution battery
+> ~0.4–4.8h; the rest is dev-validation runs). **The 124M robustness battery (~71–302 GPU-h/battery) stays
+> on free-tier Kaggle over multiple weeks per Task 22 — off the AMD ask.** Full per-line breakdown and the
+> measured numbers behind it: `research/kaggle/step_timer_results.md`.
+
+The line below are **build-effort estimates** (person-hours), not GPU-hours; see the audit note above for the GPU-compute figures.
 
 | Phase | V5 hours | V6 hours | Why it changed |
 |---|---|---|---|
@@ -266,7 +281,10 @@ sites — not after most of the hours are already spent.
 
 ## 7 · Three versions of this plan, depending on what actually materializes
 
-| Version | Hours | Scope | Deliverable |
+These tiers are **scope / build-effort** tiers (person-hours), not GPU-hours — the audited GPU-compute
+ask is ~15–40 GPU-h at every tier (see §6's audit note and `research/kaggle/step_timer_results.md`).
+
+| Version | Build-effort h | Scope | Deliverable |
 |---|---|---|---|
 | **Floor** | ~150–200 | Determinism + go/no-go + 2 recipes + kill-test + a cruder heuristic-subspace repair (skip the full eigensolve if it isn't cheap on AMD) + 1 baseline comparison + a 1–2-site battery | The "cheap fix wins" or "why global reset wins" paper — still real, still TMLR-shaped |
 | **Core** | 500 | Full C1→C2→C3 pipeline, reallocated as in §6 | Benchmark paper or full paper, decided by what the kill-test and ψ_k criterion actually show |
@@ -350,8 +368,9 @@ be, a near-certain top-tier acceptance.
 scheduling until a verified team with assigned roles is confirmed and reconciled across every place it's
 been stated.
 
-**Compute:** requesting AMD GPU-hours (MI300X or equivalent) from Exea Labs — see §5.2 and §5.3 for the
-specific questions to resolve (realistic allocation size, parallelism, expiration) before this budget's
+**Compute:** requesting AMD GPU-hours (MI300X or equivalent) from Exea Labs — the **audited ask is
+~15–40 GPU-h** (see §6's audit note; the old 500–600 was build-effort, not GPU-compute). See §5.2 and §5.3
+for the questions to resolve (realistic allocation size, parallelism, expiration) before this budget's
 tier (§7) is locked. Azure credits remain in reserve for backup compute and checkpoint storage; get the
 actual amount specified rather than leaving it open-ended. No OpenAI credits are needed — the pipeline
 uses local, offline tokenization only.
@@ -422,5 +441,13 @@ localizer, repair operator, held-out validation loss, paired statistics — as d
   budget tiers so the plan survives a smaller-or-larger-than-hoped compute grant without a rewrite;
   corrects the NeurIPS 2027 timeline claim from "verified" to "a reasonable, historically-grounded
   prediction."
+- **V6.1 audit (2026-08-31):** bottom-up recount of the §6 budget against measured proxy step-time
+  (0.0619 s/step, P100) and a code audit of GPU-bound vs engineering-bound line items. Finding: the
+  "500–600 GPU-hours" conflated **build-effort (person-hours)** with **GPU-compute**; the real **AMD GPU
+  ask is ~15–40 GPU-h** (~5–10h AMD/ROCm determinism re-verification + ~3–30h proxy-scale GPU-bound
+  science). The 124M robustness battery (~71–302 GPU-h/battery) is confirmed off the AMD ask (free-tier
+  Kaggle, Task 22). Also measured: 124M step-time 1.08 s/step (batch 8, P100) and a P100 grad_accum=40
+  determinism gate at max|Δ|=0 (on CUDA — AMD/ROCm still untested). Data + full breakdown:
+  `research/kaggle/step_timer_results.md`. Numbers propagated to `index.html`, `README.md`, and the docs.
 
 *End of document.*

@@ -16,7 +16,8 @@
 > decision-gate outcome tree (incl. every failure branch) · §10 free-tier survival mechanics · §11
 > load-bearing invariants · §12 "why this not that" FAQ · §13 how to run · §14 current state + next action.
 
-> **Governing plan:** `PLAN_V6.md` (AMD MI300X restart, 500–600 GPU-h budget, Path B, go/no-go gate, cut
+> **Governing plan:** `PLAN_V6.md` (AMD MI300X restart, audited GPU ask ~15–40 GPU-h — the old 500–600 was
+> build-effort, not GPU-compute; see `research/kaggle/step_timer_results.md` — Path B, go/no-go gate, cut
 > order, tiers, pre-registered protocol). This packet is the technical context; V6 is the current source of
 > truth for hardware, compute, budget, timeline, and Definitions of Done. Where the two disagree on those,
 > V6 wins; the science and math here are unchanged.
@@ -81,8 +82,10 @@ regime, empirically confirmed). Every branch of reality is a paper (see the full
 
 **Compute restart (PLAN V6, the governing plan).** Everything so far was built and CUDA-verified on a
 free Kaggle T4, but Kaggle's ~30 GPU-h/week quota kept serializing/interrupting real runs. The project is
-restarting on a **dedicated AMD MI300X budget** (target 500–600 GPU-hours via Exea Labs — requested, not
-yet confirmed). The migration is **Path B**: port all hardware-independent code (data, model, spike
+restarting on a **dedicated AMD MI300X** (via Exea Labs — requested, not yet confirmed). The **audited GPU
+ask is ~15–40 GPU-hours** (measured 0.0619 s/step proxy + code audit; the old "500–600" conflated
+build-effort with GPU-compute — see `research/kaggle/step_timer_results.md`). The migration is **Path B**:
+port all hardware-independent code (data, model, spike
 recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) unchanged, and
 **re-earn only the hardware-specific determinism guarantee** on ROCm. A cheap **go/no-go smoke test** runs
 first (see §14) because ROCm has no exact `CUBLAS_WORKSPACE_CONFIG` analog and bitwise `Δ==0` on MI300X is
@@ -750,7 +753,8 @@ moment update), *before* `test_determinism` is trusted as a passing gate on the 
 ---
 
 ## 14. Current state and the immediate next action (updated 2026-08-23)
-> **Governing plan is now `PLAN_V6.md`** (AMD MI300X restart, 500–600 GPU-h cap, Path B, go/no-go gate,
+> **Governing plan is now `PLAN_V6.md`** (AMD MI300X restart, audited GPU ask ~15–40 GPU-h [old 500–600 was
+> build-effort; see `research/kaggle/step_timer_results.md`], Path B, go/no-go gate,
 > written cut order + tiers, pre-registered decision protocol, TMLR/NeurIPS-2027 timeline). Everything
 > "done & GPU-verified" below was earned on **CUDA / Kaggle T4** and carries forward unchanged under Path
 > B; the AMD determinism guarantee is **being re-earned, not assumed**.

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="OPTIMIZER AUTOPSY: causally localize the poison in Adam's optimizer state after a loss spike and repair it without resetting, proven by bit-identical replay forks. Instrument built + CUDA-verified; restarting on AMD MI300X under PLAN V6.">
+<meta name="description" content="OPTIMIZER AUTOPSY: causally localize the poison in Adam's optimizer state after a loss spike and repair it without resetting, proven by bit-identical replay forks. Instrument built + CUDA-verified; restarting on AMD MI300X under PLAN V6 — audited compute ask ~15–40 GPU-hours (not the old 500), based on measured proxy throughput.">
 <title>OPTIMIZER AUTOPSY — Research Plan</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -25,11 +25,11 @@
 </div></nav>
 
 <header><div class="wrap">
-  <div class="eyebrow">Research &amp; Publication Plan · PLAN V6 — AMD MI300X restart, 500–600 GPU-h budget · supersedes the team-scaled V3 plan below</div>
+  <div class="eyebrow">Research &amp; Publication Plan · PLAN V6 — AMD MI300X restart · audited compute ask ~15–40 GPU-h · supersedes the team-scaled V3 plan below</div>
   <h1>Fork training at the moment of failure. Find where the poison lives. Repair it — don't reset it.</h1>
   <p class="sub"><strong>OPTIMIZER AUTOPSY</strong> forks training at a detected pre-spike step and intervenes directly on Adam's state, showing <strong>where</strong> in (w, m, v) the damage lives, <strong>when</strong> it can be surgically repaired to recover the pre-spike trajectory, and <strong>when it provably cannot</strong> — turning a folklore mitigation into a predictable, measurable operation.</p>
   <div class="hero-meta">
-    <span class="chip">Compute <b>AMD MI300X · 500–600 GPU-h</b></span>
+    <span class="chip">Compute <b>AMD MI300X · ~15–40 GPU-h (audited)</b></span>
     <span class="chip">Status <b>instrument (C1) done, CUDA-verified</b></span>
     <span class="chip">Next <b>AMD determinism go/no-go</b></span>
     <span class="chip">Venue <b>TMLR · NeurIPS 2027</b></span>
@@ -278,23 +278,25 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
     <div class="card"><h4>Datasets &amp; spike sourcing</h4><p><b>LLM track:</b> OpenWebText or FineWeb 10BT sample (<span class="mono" style="color:var(--trace)">HuggingFaceFW/fineweb</span>) on GPT-2 124M and Pythia-style 410M. You need spike windows, not convergence: 2–5B tokens per 124M run.</p><p style="margin-top:10px"><b>Induced spikes:</b> high LR, tiny Adam ε (1e-12), bf16→fp16 on sensitive ops, weakened QK-layernorm.<br><b>Natural spikes (mandatory):</b> data-injected corrupted-batch spikes — the cheapest natural class (AdaGC's catalog: data quality, hardware faults, precision, hyperparameters) — plus LLM360's released K2 spike/normal checkpoint pairs as a real-world validation set. A repair that only handles ε-perturbation spikes at 124M is a toy.</p></div>
   </div>
 
-  <h3>The V6 budget — 500 AMD GPU-hours, reallocated toward the unbuilt science</h3>
-  <p class="lede">The restart moves off Kaggle's quota-limited free tier onto a dedicated <b>AMD MI300X</b> budget (target 500–600 GPU-hours via Exea Labs, requested). <b>Path B:</b> port every hardware-independent piece (data, model, spike recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) unchanged; re-earn only the ROCm determinism guarantee. A cheap <b>go/no-go smoke test runs first</b> — one forked pair, one step, compare m/v/w bit-for-bit over the exact ops this pipeline uses (HVP double-backward + Adam moment update) — because ROCm has no exact <code>CUBLAS_WORKSPACE_CONFIG</code> analog and bitwise Δ==0 on MI300X is not assumed.</p>
+  <h3>The audited AMD compute ask — roughly 15–40 GPU-hours, not 500</h3>
+  <p class="lede">The earlier "500–600 GPU-hours" figure conflated two different resources: <b>build-effort (person-hours)</b> and <b>GPU-compute</b>. A bottom-up recount — grounded in a <b>measured 0.0619 s/step</b> at proxy scale (11M params, batch 16, Tesla P100; committed under <code>research/kaggle/step_timer_results.md</code>) and a full code audit of which components are actually GPU-bound versus engineering-time — puts the <b>real AMD GPU ask at ~15–40 GPU-hours</b>. That is <b>~5–10h to re-earn bit-exact determinism on AMD/ROCm</b> (the one line nothing has tested — every measurement so far ran on NVIDIA/CUDA free-tier Kaggle) plus <b>~3–30h of proxy-scale GPU-bound science</b> (calibration + attribution battery). The ~500 remaining hours are <b>build-effort</b>, which drives the ~24-week wall-clock, not the GPU grant. <b>Path B:</b> port every hardware-independent piece (data, model, spike recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) unchanged; re-earn only the ROCm determinism guarantee. A cheap <b>go/no-go smoke test runs first</b> — one forked pair, one step, compare m/v/w bit-for-bit over the exact ops this pipeline uses (HVP double-backward + Adam moment update) — because ROCm has no exact <code>CUBLAS_WORKSPACE_CONFIG</code> analog and bitwise Δ==0 on MI300X is not assumed.</p>
+  <p style="margin-bottom:8px;font-size:14px;color:var(--ink-2)">Bottom-up recount. <b>Build-effort</b> = person-hours (drives wall-clock, not the GPU grant). <b>GPU-h (audited)</b> = real proxy-scale compute at the measured 0.0619 s/step, low–high; the assumption behind each range is stated. Rows marked <b>ENG</b> are engineering-bound (their GPU cost is only dev-validation runs); <b>GPU</b> rows are genuinely compute-bound.</p>
   <div class="tbl-scroll"><table>
-    <tr><th>Phase</th><th>Hours</th><th>Note</th></tr>
-    <tr><td>AMD determinism re-verification</td><td class="mono">30</td><td>Gated by the ~6h go/no-go smoke test; if it can't hit exact zero, Phase 1 pivots to a tolerance-based statistical framework</td></tr>
-    <tr><td>Finish spike induction + detection</td><td class="mono">30</td><td><b>DoD relaxed to ≥2 solid recipes</b> (not 4); calibration + battery scale with the surviving count</td></tr>
-    <tr><td>Cheap-fix kill-test</td><td class="mono">15</td><td>Run against a <b>pre-registered</b> recovery threshold written down before it runs</td></tr>
-    <tr><td>Localizer (C2)</td><td class="mono">70</td><td>Never-built; the highest scientific risk — gained hours vs V5</td></tr>
-    <tr><td>Repair operator (C3)</td><td class="mono">60</td><td>Never-built; gained hours vs V5</td></tr>
-    <tr><td>Baselines</td><td class="mono">45</td><td>skip+clip, SPAM, ZClip, AdaGC, naive reset</td></tr>
-    <tr><td>Short-fork calibration</td><td class="mono">55</td><td>Faster heuristic pilot; back-solved against measured seconds/step from the committed CUDA logs</td></tr>
-    <tr><td>Full attribution battery</td><td class="mono">120</td><td>A ceiling, not a floor; trimmed by the written cut order if hours run short</td></tr>
-    <tr><td>Commutator-error measurement</td><td class="mono">15</td><td>Across confirmed spike sites</td></tr>
-    <tr><td>Contingency</td><td class="mono">60</td><td><b>12% of total</b> (up from 8%) — a cross-vendor port plus two never-built components earns more than a routine buffer</td></tr>
-    <tr><td><b>Total</b></td><td class="mono"><b>500</b></td><td>Three tiers exist (Floor ~150–200h · Core 500h · Stretch 600h) so a smaller/larger grant needs no rewrite</td></tr>
+    <tr><th>Line item</th><th>Build-effort (h)</th><th>Bound by</th><th>GPU-h (audited)</th><th>Basis</th></tr>
+    <tr><td>AMD determinism re-verification</td><td class="mono">30</td><td>ENG + AMD</td><td class="mono">5–10</td><td><b>The one unverified line.</b> Bit-exact Δ==0 has only ever run on NVIDIA/CUDA; re-earning it on ROCm is the go/no-go. Small compute, high risk.</td></tr>
+    <tr><td>Spike induction + detection</td><td class="mono">30</td><td>ENG</td><td class="mono">0.1–1.4</td><td>induce + detector built &amp; run (1/4 recipes pass DoD); remainder is coding + threshold sweeps over cached runs, not retraining.</td></tr>
+    <tr><td>Cheap-fix kill-test</td><td class="mono">15</td><td>ENG (built)</td><td class="mono">0.1–0.5</td><td>Battery + Gate-B verdict built, not yet run: 4 branches × (2–4 recipes) × 3–5 seeds × 200 steps.</td></tr>
+    <tr><td>Localizer (C2)</td><td class="mono">70</td><td>ENG</td><td class="mono">0.1–2</td><td>Pure TODO stubs today; HVP/eigensolve on the 11M proxy is cheap — the 70h is coding, not GPU.</td></tr>
+    <tr><td>Repair operator (C3)</td><td class="mono">60</td><td>ENG</td><td class="mono">0.2–1.7</td><td>9-line stub; repair is a cheap tensor edit validated by 50–200 short forks vs the clean counterfactual.</td></tr>
+    <tr><td>Baselines</td><td class="mono">45</td><td>ENG</td><td class="mono">0.2–1.3</td><td>skip/clip/reset real; SPAM/ZClip/AdaGC are 3-line stubs — reproducing published methods is human time.</td></tr>
+    <tr><td>Short-fork calibration</td><td class="mono">55</td><td>GPU</td><td class="mono">2–14</td><td>Genuinely GPU-bound: ~20 full-length proxy forks (5000 steps) to fix the shortest fork length that preserves branch-ordering.</td></tr>
+    <tr><td>Full attribution battery (proxy)</td><td class="mono">120</td><td>GPU</td><td class="mono">0.4–4.8</td><td>recipes × 7 branches × seeds × fork-len × 0.0619s ÷ 3600: (2×7×3×500)→0.4h … (4×7×5×2000)→4.8h. A ceiling.</td></tr>
+    <tr><td>Commutator-error measurement</td><td class="mono">15</td><td>Analysis</td><td class="mono">0.1–1</td><td>Measured once at 1–4 confirmed spike sites (a few HVPs each).</td></tr>
+    <tr><td>Contingency</td><td class="mono">60</td><td>Buffer</td><td class="mono">—</td><td>Effort buffer, not GPU compute.</td></tr>
+    <tr><td><b>Total</b></td><td class="mono"><b>~500</b></td><td><b>—</b></td><td class="mono"><b>~15–40</b></td><td>The ~500 is <b>build-effort</b> (PLAN V6 §5 flagged the GPU-vs-dev-hours conflation). The audited <b>AMD GPU ask is ~15–40 GPU-h</b>.</td></tr>
   </table></div>
-  <p style="margin-top:14px"><b>Written cut order (decided now, not mid-crunch):</b> (1) shrink to the recipes that work; (2) fewer seeds, flagged as a limitation; (3) drop the two adaptive-clipping baselines; (4) measure the commutator error once, not per site. <b>Never cut:</b> the exact-zero replay proof or the held-out validation methodology. Snapshots: proxy (w,m,v) fp32 ≈ 12–36 MB, 124M bf16 ≈ 0.75 GB → rotating <code>latest.safetensors</code> on HuggingFace; Azure credits held in reserve for overflow compute + checkpoint storage. Full detail: <code>PLAN_V6.md</code>.</p>
+  <div class="card kill" style="margin-top:14px"><h4>Off the AMD ask — the 124M robustness check</h4><p>The larger-scale (124M) robustness battery measures <b>~71–302 GPU-hours per battery</b> (measured 124M step-time 1.08 s/step at batch 8 on P100, grad_accum=40; see <code>step_timer_results.md §2</code>). It is designed to run on <b>free-tier Kaggle over multiple weeks</b> per BUILD_PLAN Task 22's own weekly-cap survival design — <b>not on the AMD grant</b>, and it is not part of what is requested from Exea Labs.</p></div>
+  <p style="margin-top:14px"><b>Written cut order (decided now, not mid-crunch):</b> (1) shrink to the recipes that work; (2) fewer seeds, flagged as a limitation; (3) drop the two adaptive-clipping baselines; (4) measure the commutator error once, not per site. <b>Never cut:</b> the exact-zero replay proof or the held-out validation methodology. Snapshots: proxy (w,m,v) fp32 ≈ 12–36 MB, 124M bf16 ≈ 0.75 GB → rotating <code>latest.safetensors</code> on HuggingFace. Underlying data + full audit: <code>research/kaggle/step_timer_results.md</code>; plan detail: <code>PLAN_V6.md</code>.</p>
 </div></section>
 
 <!-- TEAM -->
@@ -309,14 +311,14 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
     <tr><td><b>Localizer (C2)</b> + <b>repair (C3)</b> + baselines</td><td>⬜ not started</td><td>Directional SNR + preconditioned-Hessian curvature → poison score; rank-limited projection repair; SPAM/ZClip/AdaGC/skip+clip/reset baselines. The genuinely novel, highest-risk work.</td></tr>
     <tr><td><b>Theory</b></td><td>⬜ not started</td><td>AR(2) recovery criterion + ψ_k crossover; commutator-error measurement; the per-spike falsifiable prediction. Mentor: proof checking, venue strategy, endorsement.</td></tr>
   </table></div>
-  <p style="margin-top:14px"><b>Compute (open items, from PLAN V6 §5):</b> confirm Exea Labs' realistic single-project AMD allocation (don't assume 500–600h is the default), and confirm GPU parallelism + any grant expiry — those decide whether GPU-hours or personal dev-hours is the binding constraint. Nothing in the budget is locked until the Exea inquiry resolves.</p>
+  <p style="margin-top:14px"><b>Compute (open items, from PLAN V6 §5):</b> the audited AMD GPU ask is <b>~15–40 GPU-hours</b> (see §04) — the earlier 500–600h figure was build-effort, not GPU-compute. Still to confirm with Exea Labs: the realistic single-project AMD allocation, plus GPU parallelism + any grant expiry, since those decide whether the (small) GPU-hours or personal dev-hours is the binding constraint. Nothing is locked until the Exea inquiry resolves.</p>
 </div></section>
 
 <!-- TIMELINE -->
 <section id="timeline"><div class="wrap">
   <div class="sec-kicker">06 · Phase by phase</div>
-  <h2>The V6 timeline (Core / 500h)</h2>
-  <p class="lede">Wall-clock is the single-contributor-plus-mentor pacing (~24 weeks); it compresses if a verified team or parallel GPUs materialize. The week numbers are relative to the AMD grant landing, not fixed calendar dates. Venue: <b>TMLR</b> (no deadline, judges claim-support) and/or a <b>NeurIPS 2027</b> cycle — NeurIPS 2026 has passed, and 2027's deadline is a historically-grounded prediction (2024 May 22 → 2025 May 16 → 2026 May 6), not a locked date.</p>
+  <h2>The V6 timeline (~24 weeks of build-effort)</h2>
+  <p class="lede"><b>The per-phase hour tags below are build-effort (person-hours), not GPU-hours</b> — the audited GPU-compute ask is the separate ~15–40 GPU-h in §04. Wall-clock is the single-contributor-plus-mentor pacing (~24 weeks); it compresses if a verified team or parallel GPUs materialize. The week numbers are relative to the AMD grant landing, not fixed calendar dates. Venue: <b>TMLR</b> (no deadline, judges claim-support) and/or a <b>NeurIPS 2027</b> cycle — NeurIPS 2026 has passed, and 2027's deadline is a historically-grounded prediction (2024 May 22 → 2025 May 16 → 2026 May 6), not a locked date.</p>
 
   <div class="phase">
     <div class="phase-head"><span class="phase-tag p1">PHASE 1 · WKS 1–3</span><h3>Re-earn determinism on AMD, finish the spike-maker</h3></div>
@@ -325,7 +327,7 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
       <li>Decision point: exact zero on MI300X → continue on a single-run bitwise proof. Can't hit zero → pivot Phase 1 to a tolerance-based statistical framework (paired seeds, many-run averaging).</li>
     </ul></div>
     <div class="week"><div class="wk-label">Weeks 1–3<span>Re-verify + spikes</span></div><ul>
-      <li>Remaining AMD determinism re-verification (24h): derive the ROCm strict-mode setup + pin set; re-run the noop-vs-noop gate at proxy and at the larger scale.</li>
+      <li>Remaining AMD determinism re-verification (24h build; <b>~5–10 GPU-h</b> — the one line nothing has tested, all prior gates ran on NVIDIA/CUDA): derive the ROCm strict-mode setup + pin set; re-run the noop-vs-noop gate at proxy and at the larger scale.</li>
       <li>Finish spike induction to the <b>relaxed V6 DoD of ≥2 solid recipes</b> (30h). The old Kaggle P100-vs-T4 blocker is moot on AMD, but recipe numerics may shift and need re-checking.</li>
     </ul></div>
   </div>
@@ -344,10 +346,10 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
       <li>Reimplement <b>baselines (45h)</b>: skip+clip, SPAM, ZClip, AdaGC, naive full-reset, each as a fork intervention.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Weeks 13–15<span>Calibration</span></div><ul>
-      <li>Short-fork calibration (55h): find the shortest fork length that preserves the branch-ordering of Δ, back-solved against measured seconds/step from the committed CUDA logs so the battery fits the budget.</li>
+      <li>Short-fork calibration (55h build; <b>~2–14 GPU-h</b>): find the shortest fork length that preserves the branch-ordering of Δ, back-solved against the measured 0.0619 s/step from the committed CUDA logs so the battery fits the budget.</li>
     </ul></div>
     <div class="week"><div class="wk-label">Weeks 16–20<span>Attribution</span></div><ul>
-      <li class="crit">The <b>full attribution battery (120h, a ceiling)</b>: multiple spike sites × branches × seeds at the calibrated length, sized to the surviving recipe count, trimmed by the written cut order if hours run short.</li>
+      <li class="crit">The <b>full attribution battery (120h build ceiling; <b>~0.4–4.8 GPU-h</b> at proxy scale)</b>: multiple spike sites × branches × seeds at the calibrated length, sized to the surviving recipe count, trimmed by the written cut order if hours run short.</li>
       <li>Measure the commutator-error correction (15h) across confirmed spike sites.</li>
     </ul></div>
   </div>
@@ -391,7 +393,7 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
 
   <div class="verdict"><h4>Risk #1 — AMD/ROCm bitwise determinism may not be achievable (the load-bearing one)</h4><p>The entire evidentiary standard is exact-zero replay, and the CUDA trick that earned it (<code>CUBLAS_WORKSPACE_CONFIG</code> set before torch imports) has <b>no exact ROCm analog</b>; rocBLAS/hipBLASLt determinism is handled differently and deterministic-kernel coverage is less complete than CUDA. If Δ==0 is unachievable on MI300X, the proof standard collapses on that hardware. <b>Mitigation:</b> the ~6h go/no-go smoke test runs <i>first</i>, on the exact ops this pipeline uses; if it fails, Phase 1 pivots to a tolerance-based statistical framework (paired seeds, many-run averaging) rather than discovering the wall weeks in. A useful narrowing: the eigensolve appears to run its iterative solve on the host and farm only matvecs to the GPU — so the burden may be one bit-reproducible HVP, not a whole multi-step solve. Confirm that.</p></div>
 
-  <div class="verdict"><h4>Risk #2 — the compute grant, and its terms, aren't confirmed</h4><p>The whole AMD budget is contingent on an Exea Labs grant that is <b>requested, not approved</b>, and "500–600 GPU-hours" plus "24 weeks" are only the same constraint if there's one GPU with no expiry. <b>Mitigation:</b> three budget tiers (Floor/Core/Stretch) so a smaller-or-larger grant needs no rewrite; and PLAN V6 §5 lists the exact questions to resolve (realistic allocation, parallelism, expiry) before locking a tier. Abandoning a working CUDA stack for an unconfirmed one is the real cost if this falls through.</p></div>
+  <div class="verdict"><h4>Risk #2 — the compute grant, and its terms, aren't confirmed</h4><p>The AMD restart is contingent on an Exea Labs grant that is <b>requested, not approved</b>. The audited ask is modest — <b>~15–40 GPU-hours</b> (the old "500–600 GPU-hours" was build-effort mislabeled as compute) — so the binding constraint is more likely personal dev-time than GPU-hours, but "24 weeks" and any hour figure are only the same constraint if there's one GPU with no expiry. <b>Mitigation:</b> three scope tiers (Floor/Core/Stretch) so a smaller-or-larger grant needs no rewrite; PLAN V6 §5 lists the exact questions to resolve (realistic allocation, parallelism, expiry) before locking a tier. Abandoning a working CUDA stack for an unconfirmed one is the real cost if this falls through.</p></div>
 
   <div class="verdict"><h4>Risk #3 — C1 might show that reaction is enough</h4><p>If the kill-test reveals that one-step-late spike-skip recovers held-out loss as well as any surgery, the repair contribution collapses — a live possibility, since the field skips-and-reinjects routinely. <b>Mitigation is baked in:</b> the cheap-fix battery runs early (Phase 2), against a <b>pre-registered</b> threshold, so the answer is known before the expensive machinery is built. If reaction wins → C1+C2 ship as a science/benchmark paper; the methodology de-risks everything either way.</p></div>
 
@@ -403,7 +405,7 @@ c_i ∈ [0,1] scheduled → full repair over R recovery steps
 
   <h3>Immediate actions (PLAN V6 open items)</h3>
   <ul class="tick">
-    <li>Confirm the Exea Labs AMD grant — get a yes/no and an actual hour figure; ask what a realistic single-project allocation looks like.</li>
+    <li>Confirm the Exea Labs AMD grant — get a yes/no and an actual hour figure; the audited need is only ~15–40 GPU-hours, so ask what a realistic single-project allocation looks like at that scale.</li>
     <li>Confirm GPU parallelism + any grant expiry — this decides whether GPU-hours or personal dev-hours is the binding constraint.</li>
     <li>Resolve the team-size figure to one accurate number before it appears in any funding or compute request.</li>
     <li>Build the go/no-go determinism smoke test — the first thing to run on AMD, before the full determinism budget is spent.</li>

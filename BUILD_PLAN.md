@@ -6,8 +6,9 @@ Code prompt** — open Claude Code *inside this repo* and run them in order.
 
 > **⚠ Superseded on hardware/budget/DoD by `PLAN_V6.md` (the governing plan).** This file is still the
 > per-file *science* detail — the task-by-task build prompts and their code-level DoDs are current. But
-> where it says **Kaggle / free-tier CUDA**, read **AMD MI300X under a 500–600 GPU-hour budget (Path B:
-> port everything, re-earn only the ROCm determinism guarantee via a go/no-go smoke test first)**; where
+> where it says **Kaggle / free-tier CUDA**, read **AMD MI300X (Path B: port everything, re-earn only the
+> ROCm determinism guarantee via a go/no-go smoke test first); audited GPU ask ~15–40 GPU-h, not the old
+> 500–600 — see `research/kaggle/step_timer_results.md`**; where
 > Task 8's DoD says **≥3 of 4 spike recipes**, read the relaxed V6 bar of **≥2**; and the calibration +
 > attribution battery scale with the surviving recipe count per V6's cut order. Current banked state and
 > committed run evidence: `context-ai.md` §14 + `results/`. Tasks 0–7 (the instrument, C1) are done and

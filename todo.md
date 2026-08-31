@@ -16,8 +16,10 @@ These come from the **PLAN_V6** restart (`PLAN_V6.md` §5) — three things only
 block locking the compute budget. None are code.
 
 1. **Confirm the Exea Labs AMD grant.** *What:* follow up on the inquiry and get a yes/no plus an actual
-   number. *Why:* the whole 500–600 GPU-hour budget is a plan until this lands. *How:* reply to the founder
-   thread; ask what a realistic single-project allocation looks like.
+   number. *Why:* the AMD restart is a plan until this lands — though the audited ask is modest, **~15–40
+   GPU-hours** (the old "500–600" was build-effort, not GPU-compute; see
+   `research/kaggle/step_timer_results.md`). *How:* reply to the founder thread; ask what a realistic
+   single-project allocation looks like at ~15–40 GPU-h.
 2. **Confirm GPU parallelism + expiration.** *What:* ask how many GPUs can run at once and whether the
    hours expire. *Why:* it decides whether GPU-hours or your own dev-time is the real bottleneck (and
    whether the 24-week timeline compresses).
