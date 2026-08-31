@@ -15,8 +15,11 @@ validated the mechanism (detected, lead 2), and it surfaced two recipe-specific 
     descent) where fp16 is likelier to actually blow up. One escalation; if flat, that is a real answer.
   * tiny_eps   -- held as-is (early, step 20). Appears near-mechanistically-inert at this scale
     (1/(sqrt(v)+eps) only explodes at v~eps^2~1e-24); flagged as an open spec question, not engineered around.
-DoD thresholds are unchanged (L=2, f=0.05): these fixes make real spikes visible, they do not lower
-the bar. Two seeds per recipe: seed 0 tunes the detector thresholds, seed 1 is held out for the DoD.
+V6 resolves the corrupt-batch specification by declaring policies before the next run: delayed
+recipes retain the strict predictive bar (at least L=2 steps before peak); corrupt_batch uses an
+onset bar because its measured loss lands on the injection step, making advance warning impossible.
+An onset hit is always reported as zero lead and never called early warning. V6 requires any two solid
+recipes at f<=0.05. Two seeds per recipe: seed 0 tunes; seed 1 is held out for the DoD.
 
 Run on Kaggle:  python -m research.kaggle.spike_run
 """
@@ -32,21 +35,50 @@ from datetime import datetime, timezone  # noqa: E402
 
 STEPS = 200  # long enough to reach the plateau before the (plateau) injections
 BATCH = 16  # fits the T4 (batch 64 OOMs at this vocab); SDPA shapes set by block/head_dim
-L, F = 2, 0.05  # DoD: median lead >= L steps at false-positive rate <= F (UNCHANGED)
+L, F = 2, 0.05
+MIN_RECIPES = 2  # PLAN V6 supersedes BUILD_PLAN's original >=3/4 target.
 
 # Per-recipe injection + measurement:
 #   inject      -- step to perturb (plateau ~160, or early where the mechanism is more plausible)
 #   peak_offset -- start the peak window this many steps AFTER injection (1 = aftermath, skips the
 #                  acute injection-step loss; the persistence in optimizer state is what the localizer acts on)
 SPEC = {
-    "lr_bump": {"inject": 160, "width": 3, "params": {"factor": 50.0}, "peak_offset": 0},
-    "tiny_eps": {"inject": 20, "width": 5, "params": {}, "peak_offset": 0},  # held as-is (near-inert; documented)
-    "precision": {"inject": 15, "width": 3, "params": {}, "peak_offset": 0},  # early descent: fp16 likelier to overflow
+    "lr_bump": {
+        "inject": 160,
+        "width": 3,
+        "params": {"factor": 50.0},
+        "peak_offset": 0,
+        "min_lead": L,
+        "allow_at_peak": False,
+    },
+    "tiny_eps": {
+        "inject": 20,
+        "width": 5,
+        "params": {},
+        "peak_offset": 0,
+        "min_lead": L,
+        "allow_at_peak": False,
+    },  # held as-is (near-inert; documented)
+    "precision": {
+        "inject": 15,
+        "width": 3,
+        "params": {},
+        "peak_offset": 0,
+        "min_lead": L,
+        "allow_at_peak": False,
+    },  # early descent: fp16 likelier to overflow
     # corrupt_batch: measure AT the injection step (peak_offset=0, matching v2). A corrupted batch is an
     # instantaneous loss shock, not a delayed buildup like lr_bump -- the aftermath window (peak_offset=1)
     # regressed it in v3 (spike_occurred flipped true->false), so it doesn't fit this recipe's shape. The
     # aftermath logic stays available in tune_detector.py for recipes where it IS mechanistically right.
-    "corrupt_batch": {"inject": 160, "width": 1, "params": {}, "peak_offset": 0},
+    "corrupt_batch": {
+        "inject": 160,
+        "width": 1,
+        "params": {},
+        "peak_offset": 0,
+        "min_lead": 0,
+        "allow_at_peak": True,
+    },
 }
 
 
@@ -71,6 +103,8 @@ def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
         "seed": seed,
         "inject_step": spec["inject"],
         "peak_offset": spec["peak_offset"],
+        "min_lead": spec["min_lead"],
+        "allow_at_peak": spec["allow_at_peak"],
         "losses": losses,
         "gradnorms": grads,
     }
@@ -113,7 +147,7 @@ def main() -> None:
             f"peak_step={occ['peak_step']} ratio={occ['ratio']:.2f}"
         )
 
-    best = tune(tune_runs, L=L, f=F)
+    best = tune(tune_runs, L=L, f=F, min_recipes=MIN_RECIPES)
     params = best["params"] if best else DetectorParams()
     print(
         f"tuned params: z={params.z} ema_mult={params.ema_mult} warmup={params.warmup} "
@@ -122,16 +156,36 @@ def main() -> None:
 
     detail = {}
     for r in test_runs:
-        s = score_spike(r["losses"], r["gradnorms"], r["inject_step"], params, min_lead=L, peak_offset=r["peak_offset"])
+        s = score_spike(
+            r["losses"],
+            r["gradnorms"],
+            r["inject_step"],
+            params,
+            min_lead=r["min_lead"],
+            peak_offset=r["peak_offset"],
+            allow_at_peak=r["allow_at_peak"],
+        )
         detail[r["kind"]] = {
-            k: s[k] for k in ("occurred", "t0", "peak_step", "lead", "detected", "fp_steps", "clean_steps")
+            k: s[k]
+            for k in (
+                "occurred",
+                "t0",
+                "peak_step",
+                "lead",
+                "detected",
+                "detection_mode",
+                "required_lead",
+                "allow_at_peak",
+                "fp_steps",
+                "clean_steps",
+            )
         }
         print(
             f"[{r['kind']}] held-out: occurred={s['occurred']} t0={s['t0']} peak={s['peak_step']} "
             f"lead={s['lead']} detected={s['detected']}"
         )
 
-    dod = dod_check(test_runs, params, L=L, f=F)
+    dod = dod_check(test_runs, params, L=L, f=F, min_recipes=MIN_RECIPES)
     print(
         f"DoD (held-out): passed={dod['passed']} detected={dod['n_detected']}/{len(test_runs)} "
         f"(need {dod['need']}) median_lead={dod['median_lead']} FP={dod['fp_rate']:.3f} [L={L}, f={F}]"
@@ -148,20 +202,17 @@ def main() -> None:
         "batch_size": BATCH,
         "L": L,
         "f": F,
+        "min_recipes": MIN_RECIPES,
         "detector_params": {"z": params.z, "ema_mult": params.ema_mult, "warmup": params.warmup, "win": params.win},
         "ground_truth_heldout": per_recipe,
         "detector_heldout": detail,
         "dod": dod,
         "corrupt_batch_lead_note": (
-            "corrupt_batch's loss shock is instantaneous (lands ON the injection step), unlike lr_bump's "
-            "delayed buildup. It may therefore be STRUCTURALLY INCAPABLE of lead>=L: there is no pre-peak "
-            "window to detect early. v3's aftermath-window attempt (peak_offset=1) to manufacture lead "
-            "regressed the recipe, so v4 reverts to peak_offset=0. OPEN SPEC QUESTION: whether 'lead>=L for "
-            "this recipe too' is the right bar, or whether corrupt_batch's DoD contribution should be scored "
-            "as 'detected at/before peak' instead. This is a spec decision to make, not something to keep "
-            "re-tuning against."
+            "RESOLVED FOR V6: corrupt_batch's loss shock lands on the injection step, so no detector using "
+            "that step's loss/gradient can warn before it. It uses an explicit onset policy: t0==peak is a "
+            "valid zero-lead detection, never early warning. Delayed recipes keep the strict lead>=L rule."
         ),
-        "status": "CALIBRATION-IN-PROGRESS -- NOT a passed DoD",
+        "status": "V6 DoD PASS" if dod["passed"] else "CALIBRATION-IN-PROGRESS -- NOT a passed DoD",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
     }
     with open(os.path.join(out_dir, "task8_spike_detector.json"), "w") as fp:

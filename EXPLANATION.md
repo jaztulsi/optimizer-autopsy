@@ -261,14 +261,15 @@ The project defined four ways to induce a spike ("recipes"), each triggered at a
 - **`corrupt_batch`** — feed the model a batch of pure garbage (random nonsense text) for one step, so
   the loss shoots up on that step.
 
-The detector's success bar (its DoD) is strict: to count, it must catch **at least 3 of the 4**
-recipes, and for a caught spike it must give **at least 2 steps of early warning** before the peak
-("lead ≥ 2"), while raising essentially no false alarms on the calm stretches. Two runs are used per
+The original detector bar required 3 of 4 recipes and at least 2 steps of warning for every recipe.
+PLAN V6 changed the count to **at least 2 solid recipes**. The policy now also distinguishes delayed
+failures, which still require at least 2 steps of genuine advance warning, from an instantaneous batch
+shock, which may count only as explicitly labeled **zero-lead onset detection**. Two runs are used per
 recipe: one to *tune* the detector's sensitivity, and a separate *held-out* run to *grade* it — so
 it's graded on a spike it wasn't tuned on, which is the honest way to test.
 
-**What actually happened — the honest version.** After two rounds of calibration, the current result
-is **1 out of 4** recipes detected — the bar is 3. Concretely:
+**What the original T4 run measured.** Under the original all-predictive rule, it detected
+**1 out of 4** recipes against a bar of 3. V6's later policy regrade is described below. Concretely:
 
 - **`lr_bump`** — ✅ works end to end. The spike reliably happens (the loss roughly tripled), and the
   detector catches it **2 steps before the peak** with **zero false alarms**. This single recipe
@@ -292,17 +293,16 @@ is **1 out of 4** recipes detected — the bar is 3. Concretely:
   peak"*, not *"detected with lead."* This is a decision to be made about the *rules*, not something
   to keep endlessly re-tuning against.
 
-**Did it pass?** 🟡 **No — partial.** The detector currently passes for **only 1 of the 4** spike
-types (`lr_bump`), against a bar of 3, so Task 8's Definition of Done is **not met**. The result is
-committed honestly, labeled **"CALIBRATION-IN-PROGRESS — NOT a passed DoD,"** precisely so nobody
-mistakes it for a finished result. What *is* solidly established is that the core loop works for at
-least one recipe (proving the approach is sound), and the remaining three each have a clearly
-diagnosed reason — one likely-inert recipe, one still-unresolved recipe, and one that may be measured
-against the wrong standard.
+**Did it pass?** 🟡 **Provisionally under V6, not yet prospectively.** The original artifact remains
+an honest 1/4 result under its original all-predictive rule. Applying the now-explicit V6 policy to
+that same held-out evidence qualifies two recipes: predictive `lr_bump` (lead 2) and onset-detected
+`corrupt_batch` (lead 0, never called early warning), both with zero false alarms. Because that policy
+decision was made after inspecting the source run, the repository records it separately in
+`results/task8_v6_policy_regrade.json`; a fresh held-out GPU run is required before it becomes a
+binding preregistered result.
 
-**A footnote on the most recent attempt (infrastructure, not science).** The latest fix — a small,
-correct change to grade `corrupt_batch` at its injection step (matching the earlier working behavior)
-— is written, tested, and committed, but has **not yet produced a fresh graded result.** The reason is
+**A footnote on the most recent attempt (infrastructure, not science).** The policy fix is written and
+covered by CPU-only regression checks, but has **not yet produced a fresh graded GPU result.** The reason is
 purely mechanical: the free cloud service (Kaggle) has started handing out an older GPU model (a
 "P100") that the current, version-pinned math library no longer supports, so the run crashes before it
 can do any training. Earlier Task 8 runs succeeded only because the service happened to assign a

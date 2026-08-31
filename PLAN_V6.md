@@ -372,12 +372,12 @@ Unchanged from V5 except where noted. Current banked evidence is committed under
 - **Training loop, tokenized-data pipeline, model architecture, freeze-and-restore, fork-and-compare** —
   done and verified, carried forward under Path B. The fork `Δ==0` gate (C1) reads
   `max|Δ|=0` on T4 (`results/task7_fork_gate.json`, re-confirmed in `task8_forkgate_reconfirm.json`).
-- **Deliberate spike-triggering and early detection** — partially built. One of four attempted methods
-  (`lr_bump`) reliably produces a spike with genuine early warning; a second (`tiny_eps`) appears
-  mechanistically too weak at current scale; a third (`precision`) hasn't yet produced a clean spike; a
-  fourth (`corrupt_batch`) reliably spikes but raises an open question about whether the standard
-  early-warning bar is the right one for an instantaneous shock. **V6 target: get any two of these four to
-  a defensible state, not all four.**
+- **Deliberate spike-triggering and detection** — V6's two-recipe policy gate is implemented. `lr_bump`
+  qualifies predictively with two-step lead; instantaneous `corrupt_batch` uses a distinct zero-lead
+  onset policy and never earns an early-warning claim. Regrading the committed held-out T4 evidence
+  qualifies 2/4 with no false positives, but the policy was resolved after that run was inspected, so
+  `results/task8_v6_policy_regrade.json` is explicitly provisional pending a fresh prospective GPU run.
+  `tiny_eps` remains too weak at proxy scale and `precision` has not produced a clean spike.
 - **The cheap-fix kill-test** — built, passing internal logic checks, never run on real data. **Run it
   only after the §8 threshold is written down.**
 - **The localizer, the repair operator, comparison baselines, statistical analysis/figures, the theory

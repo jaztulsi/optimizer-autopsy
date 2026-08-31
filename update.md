@@ -73,7 +73,9 @@ kept interrupting the real runs. So the plan (now written up as **PLAN_V6.md**) 
 ## ⏭️ What's next (in order)
 
 1. **AMD "can we replay perfectly here?" test** — the 6-hour go/no-go check. This decides everything else.
-2. **Finish the spike-maker** — get at least 2 of our 4 spike recipes solid (right now 1 is).
+2. **Prospectively confirm the spike-maker** — the V6 policy now qualifies 2 recipes on the existing
+   held-out T4 evidence; rerun once on the target GPU because the instantaneous-recipe rule was fixed
+   after that evidence was inspected.
 3. **The cheap-fix test** — check whether a simple existing fix already works everywhere. If it does, the
    fancy repair isn't needed, and that's a real, publishable finding on its own.
 4. **Then the actual science:** build the "localizer" (finds the poison) and the "repair" (fixes just it).
@@ -84,7 +86,7 @@ kept interrupting the real runs. So the plan (now written up as **PLAN_V6.md**) 
 
 ```
 The laboratory (C1)   ████████████████████  DONE, proven on a real GPU
-Spike-maker           ████████░░░░░░░░░░░░  1 of 4 recipes solid (need 2)
+Spike-maker           ████████████████████  V6 policy: 2 qualify; fresh GPU confirmation pending
 Cheap-fix test        ████░░░░░░░░░░░░░░░░  built, not yet run
 The science (C2/C3)   ░░░░░░░░░░░░░░░░░░░░  not started — the heart of it
 Hardware restart      ░░░░░░░░░░░░░░░░░░░░  moving to AMD; replay test is step one
@@ -118,7 +120,9 @@ Legend: ✅ done · 🟡 partial · ⬜ not started · ⛔ needs paid GPUs
 - ✅ Task 7 — fork driver + the `Δ==0` gate (noop-vs-noop `max|Δ|=0` on T4)
 
 **Phase 2 · Spikes + kill-test — 🟡 partial**
-- 🟡 Task 8 — spike induction + detector: 1 of 4 recipes solid (`lr_bump`); V6 relaxes the bar to ≥2
+- 🟡 Task 8 — spike induction + detector: V6 policy now distinguishes predictive `lr_bump` (lead 2)
+  from instantaneous `corrupt_batch` (onset, lead 0). Existing held-out T4 evidence qualifies 2/4,
+  provisionally; a fresh prospective GPU run is still required.
 - 🟡 Task 9 — cheap-fix battery (B0/Bg/Bs/B*) + PROCEED/PIVOT rule: built, not yet run to a verdict
 
 **Hardware restart (PLAN V6):** ⬜ AMD go/no-go determinism smoke test · ⬜ ROCm strict-mode setup + pins

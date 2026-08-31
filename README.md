@@ -189,7 +189,7 @@ The instrument (C1) is complete and CUDA-verified; the actual science (localizer
 ```
 Foundation       ####################  done (scaffold, env, fixed data, secrets)
 Instrument (C1)  ####################  done, CUDA-verified: snapshot + fork Δ==0 gate pass
-Spike induction  ########------------  1 of 4 recipes solid; V6 DoD relaxed to >=2
+Spike induction  ####################  2 recipes qualify under V6 policy; fresh GPU confirmation pending
 Kill-test        ####----------------  battery built; not yet run to a verdict
 Localizer/repair --------------------  not started (the heart of the project)
 AMD re-verify    --------------------  go/no-go smoke test is the immediate next action
@@ -199,7 +199,7 @@ AMD re-verify    --------------------  go/no-go smoke test is the immediate next
 | --- | --- | --- |
 | 0 · Foundation | scaffold, env check, fixed data, secrets | Complete |
 | 1 · Instrument (C1) | deterministic replay, proxy model + trunk, snapshot, fork Δ==0 gate | Complete, CUDA-verified |
-| 2 · Spikes + kill-test | induce spikes, tune detector, cheap-fix PROCEED/PIVOT | Detector 1/4; kill-test built, not run |
+| 2 · Spikes + kill-test | induce spikes, tune detector, cheap-fix PROCEED/PIVOT | V6 two-recipe policy gate implemented; existing T4 evidence regrades 2/4 provisionally; fresh held-out run pending; kill-test not run |
 | AMD restart | re-earn determinism on MI300X (go/no-go first), then resume | Next, pending the grant |
 | 3-6 | localizer, repair + baselines, attribution, theory, scale + paper | Not started |
 

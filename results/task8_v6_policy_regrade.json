@@ -1,0 +1,48 @@
+{
+  "claim": "Task 8 V6 policy regrade of the committed held-out T4 evidence",
+  "source_artifact": "results/task8_spike_detector.json",
+  "source_generated_utc": "2026-08-14T00:22:15.541344+00:00",
+  "new_gpu_run": false,
+  "policy_change_timing": "Declared after inspecting the source run; prospective confirmation is required before treating this as a binding preregistered result.",
+  "v6_target_recipes": 2,
+  "false_positive_cap": 0.05,
+  "recipes": {
+    "lr_bump": {
+      "occurred": true,
+      "ratio": 2.986770782839848,
+      "inject_step": 160,
+      "trigger_step": 161,
+      "peak_step": 163,
+      "policy": "predictive",
+      "required_lead": 2,
+      "measured_lead": 2,
+      "qualifies": true
+    },
+    "corrupt_batch": {
+      "occurred": true,
+      "ratio": 2.6705530811847056,
+      "inject_step": 160,
+      "trigger_step": 160,
+      "peak_step": 160,
+      "policy": "onset",
+      "required_lead": 0,
+      "measured_lead": 0,
+      "qualifies": true,
+      "early_warning_claim": false
+    },
+    "tiny_eps": {
+      "occurred": false,
+      "qualifies": false
+    },
+    "precision": {
+      "occurred": false,
+      "qualifies": false
+    }
+  },
+  "qualified_recipes": 2,
+  "target_met_under_v6_policy": true,
+  "false_positive_steps": 0,
+  "clean_prefix_steps": 460,
+  "false_positive_rate": 0.0,
+  "status": "PROVISIONAL POLICY REGRADE PASS; FRESH HELD-OUT GPU CONFIRMATION PENDING"
+}

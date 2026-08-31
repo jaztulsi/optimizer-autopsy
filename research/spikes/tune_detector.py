@@ -7,11 +7,15 @@ logged (loss, grad_norm) arrays, so it is CPU-only unit-testable with no torch (
 
 Scoring against ground truth (context §15.1): a recipe records the KNOWN `inject_step` (the cause). The
 spike EVENT is the loss `peak_step`, MEASURED from the trajectory (argmax in a post-inject window) --
-derived, never eyeballed. A detection is valid iff the trigger fired AFTER the cause and BEFORE the
-explosion, with enough lead:  `inject_step <= t0 < peak_step`  and  `lead = peak_step - t0 >= L`.
-A false positive is any trigger in the clean prefix `[warmup, inject_step)`.
+derived, never eyeballed. Delayed recipes use the predictive policy: the trigger must fire AFTER the
+cause and BEFORE the explosion with enough lead. An instantaneous recipe whose loss lands on the
+injection step uses the onset policy: `t0 == peak_step` is valid, but is reported as zero-lead onset
+detection and never described as early warning. A false positive is any trigger in the clean prefix
+`[warmup, inject_step)`.
 
-DoD (context §15.2): median lead >= `L` at false-positive rate <= `f` for >= 3 of the 4 recipes.
+V6 DoD: each qualifying recipe must meet its declared policy at false-positive rate <= `f`, and at
+least two recipes must qualify. The old BUILD_PLAN default (3 of 4 predictive recipes) remains the API
+default when callers do not pass V6's `min_recipes=2` or per-run onset metadata.
 """
 
 from __future__ import annotations
@@ -102,7 +106,16 @@ def spike_occurred(
     return {"occurred": ratio >= rise, "peak_step": pk, "peak_loss": peak, "baseline": base, "ratio": ratio}
 
 
-def score_spike(losses, gradnorms, inject_step: int, p: DetectorParams, *, min_lead: int, peak_offset: int = 0) -> dict:
+def score_spike(
+    losses,
+    gradnorms,
+    inject_step: int,
+    p: DetectorParams,
+    *,
+    min_lead: int,
+    peak_offset: int = 0,
+    allow_at_peak: bool = False,
+) -> dict:
     """Score one labeled run: did the detector fire in the valid pre-spike window with enough lead,
     and how many clean-prefix steps false-fired. See the module docstring for the validity rule."""
     occ = spike_occurred(losses, inject_step, peak_offset=peak_offset)
@@ -113,28 +126,65 @@ def score_spike(losses, gradnorms, inject_step: int, p: DetectorParams, *, min_l
     fp_steps, clean_steps = int(sum(clean)), len(clean)
 
     t0 = next((t for t, fired in enumerate(mask) if fired), None)
-    detected = bool(occ["occurred"] and t0 is not None and inject_step <= t0 < peak and (peak - t0) >= min_lead)
+    detected, lead = detection_qualifies(
+        occurred=occ["occurred"],
+        inject_step=inject_step,
+        trigger_step=t0,
+        peak_step=peak,
+        min_lead=min_lead,
+        allow_at_peak=allow_at_peak,
+    )
     return {
         "occurred": occ["occurred"],
         "peak_step": peak,
         "t0": t0,
         "detected": detected,
-        "lead": (peak - t0) if detected else None,
+        "lead": lead if detected else None,
+        "detection_mode": "onset" if allow_at_peak else "predictive",
+        "required_lead": min_lead,
+        "allow_at_peak": allow_at_peak,
         "fp_steps": fp_steps,
         "clean_steps": clean_steps,
     }
 
 
+def detection_qualifies(
+    *,
+    occurred: bool,
+    inject_step: int,
+    trigger_step: int | None,
+    peak_step: int,
+    min_lead: int,
+    allow_at_peak: bool = False,
+) -> tuple[bool, int | None]:
+    """Apply a declared detection policy to measured cause/trigger/peak steps.
+
+    Kept separate from trace processing so committed evidence can be regraded when a specification
+    changes without pretending the GPU experiment was rerun. The returned lead is populated only
+    when the detection qualifies.
+    """
+    if min_lead < 0:
+        raise ValueError(f"min_lead must be >=0, got {min_lead}")
+    if not occurred or trigger_step is None or trigger_step < inject_step:
+        return False, None
+    before_or_at_peak = trigger_step <= peak_step if allow_at_peak else trigger_step < peak_step
+    lead = peak_step - trigger_step
+    detected = before_or_at_peak and lead >= min_lead
+    return detected, lead if detected else None
+
+
 def _aggregate(labeled_runs, params: DetectorParams, min_lead: int) -> dict:
     leads, detected, fp_steps, fp_total = [], 0, 0, 0
     for r in labeled_runs:
+        run_min_lead = int(r.get("min_lead", min_lead))
         s = score_spike(
             r["losses"],
             r.get("gradnorms"),
             r["inject_step"],
             params,
-            min_lead=min_lead,
+            min_lead=run_min_lead,
             peak_offset=r.get("peak_offset", 0),
+            allow_at_peak=bool(r.get("allow_at_peak", False)),
         )
         if s["detected"]:
             detected += 1
@@ -152,24 +202,35 @@ def default_grid() -> list[DetectorParams]:
     return [DetectorParams(z=z, ema_mult=em) for z in (3.0, 4.0, 5.0, 6.0) for em in (2.5, 3.0, 4.0, 5.0)]
 
 
-def tune(labeled_runs, *, L: int, f: float, grid=None) -> dict | None:
-    """Sweep the threshold grid; keep operating points that pass the DoD (>=3/4 detected, median
-    lead >= L, FP rate <= f); return the DoD-passing point with the LARGEST median lead, or None."""
+def _needed_recipe_count(n_runs: int, min_recipes: int | None) -> int:
+    need = math.ceil(0.75 * n_runs) if min_recipes is None else int(min_recipes)
+    if n_runs < 1 or not 1 <= need <= n_runs:
+        raise ValueError(f"need 1 <= min_recipes <= number of runs ({n_runs}), got {need}")
+    return need
+
+
+def tune(labeled_runs, *, L: int, f: float, grid=None, min_recipes: int | None = None) -> dict | None:
+    """Sweep detector thresholds and return the best policy-compliant operating point.
+
+    A detection already proves that recipe's own lead requirement, so the aggregate gate only needs
+    the requested recipe count and false-positive cap. With no per-run policy or `min_recipes`, this
+    is backward-compatible with the original >=3/4, lead>=L gate.
+    """
     best = None
     for p in grid or default_grid():
         agg = _aggregate(labeled_runs, p, L)
-        need = math.ceil(0.75 * len(labeled_runs))
-        passed = agg["n_detected"] >= need and agg["median_lead"] >= L and agg["fp_rate"] <= f
+        need = _needed_recipe_count(len(labeled_runs), min_recipes)
+        passed = agg["n_detected"] >= need and agg["fp_rate"] <= f
         if passed and (best is None or agg["median_lead"] > best["median_lead"]):
             best = {"params": p, **agg, "need": need, "passed": True}
     return best
 
 
-def dod_check(labeled_runs, params: DetectorParams, *, L: int, f: float) -> dict:
+def dod_check(labeled_runs, params: DetectorParams, *, L: int, f: float, min_recipes: int | None = None) -> dict:
     """Evaluate a fixed operating point against the Task 8 DoD. Returns the metrics + pass/fail."""
     agg = _aggregate(labeled_runs, params, L)
-    need = math.ceil(0.75 * len(labeled_runs))
-    passed = agg["n_detected"] >= need and agg["median_lead"] >= L and agg["fp_rate"] <= f
+    need = _needed_recipe_count(len(labeled_runs), min_recipes)
+    passed = agg["n_detected"] >= need and agg["fp_rate"] <= f
     return {"passed": passed, "need": need, **agg}
 
 

@@ -446,12 +446,13 @@ Repo root `index.html` = the GitHub Pages site — **leave untouched**. All code
 - **`induce.py`** 🟡 (**Task 8, partial**) — four recipes (trunk cfg + expected spike step): (a) high-LR
   bump `lr_bump`, (b) tiny Adam eps 1e-12, (c) precision stress, (d) corrupted-batch. Injected via the
   trunk `pre_step` hook. Ground-truth scoring in place.
-- **`tune_detector.py`** 🟡 (**Task 8, partial**) — `detect_spike()` (loss z-score / grad-norm EMA)
-  fires pre-spike `t0`; `tune()` sweeps thresholds to maximize lead-time subject to an FP cap. **DoD NOT
-  met:** on the real proxy trunk only **1 of 4** recipes (`lr_bump`) passes (bar is 3); result committed
-  honestly as *"CALIBRATION-IN-PROGRESS."* Open issues: `precision`/`tiny_eps` diagnosed (one likely-inert,
-  one unresolved); `corrupt_batch` is an instantaneous shock and may be graded against the wrong bar
-  (flagged as a **spec question**: "detected at/before peak" vs. "detected with lead ≥ L"). Current blocker
+- **`tune_detector.py`** 🟡 (**Task 8, prospective confirmation pending**) — `detect_spike()` (loss
+  z-score / grad-norm EMA) fires `t0`; `tune()` enforces per-recipe policies plus an FP cap. Delayed
+  recipes require predictive lead ≥ L; instantaneous `corrupt_batch` may qualify only as explicitly
+  labeled zero-lead onset detection. Under V6's two-recipe target, the existing held-out T4 evidence
+  regrades to 2/4 provisionally (`lr_bump` predictive, `corrupt_batch` onset). Because the policy was
+  resolved after inspecting that run, `results/task8_v6_policy_regrade.json` requires prospective
+  confirmation. `precision`/`tiny_eps` remain diagnosed negative/unresolved. Current blocker
   is mechanical, not scientific — Kaggle keeps assigning P100 (unsupported by the pinned torch build)
   instead of T4, crashing the run before training.
 - **`k2.py`** ⬜ — **Task 21:** pull LLM360 K2 real spike/normal checkpoint pairs from HF, diff `(m,v)`,
@@ -762,21 +763,21 @@ moment update), *before* `test_determinism` is trusted as a passing gate on the 
   - **Task 7 — the milestone: C1 is shipped.** The fork driver's noop-vs-noop gate reads
     **`max|Δ|=0` on T4** (GATE A passed). This is the bitwise fork replay that turns every downstream
     number into a *measurement* rather than a story — the whole causal program is now unlocked.
-- **Task 8 (spike induction + detector): 🟡 IN PROGRESS — the current frontier.** Four induced-spike
+- **Task 8 (spike induction + detector): 🟡 PROSPECTIVE CONFIRMATION PENDING.** Four induced-spike
   recipes (`lr_bump`, `tiny_eps`, `precision`, `corrupt_batch`) injected through the trunk `pre_step`
-  hook, plus an online z-score/grad-norm detector with ground-truth scoring. **DoD not met:** on the real
-  proxy trunk only **1/4** recipes (`lr_bump`) currently passes (bar is 3); committed honestly as
-  *"CALIBRATION-IN-PROGRESS — NOT a passed DoD."* Three diagnosed sub-issues: (i) `precision`/`tiny_eps`
-  need retuning (one likely-inert, one unresolved), (ii) `corrupt_batch` is an *instantaneous* shock, so
-  "warn ≥ L steps before peak" may be the wrong bar — flagged as a **project spec question** ("detected
-  at/before peak" is the honest bar), not something to keep re-tuning. **Current blocker is mechanical,
+  hook, plus an online z-score/grad-norm detector with ground-truth scoring. V6's two-recipe gate and
+  topology-aware policy are implemented: delayed recipes require lead ≥2; instantaneous
+  `corrupt_batch` may qualify at onset with lead 0 but never earns an early-warning claim. The existing
+  held-out T4 artifact regrades to 2/4 with FP=0, recorded separately as a provisional policy regrade;
+  the changed policy must pass a fresh held-out GPU run before the result is binding. `precision` and
+  `tiny_eps` remain negative/unresolved. **Current blocker is mechanical,
   not scientific:** Kaggle keeps assigning P100 (unsupported by the pinned torch build) instead of T4,
   crashing the run before training; earlier Task 8 numbers came from sessions that happened to get a T4.
 - **Immediate next action (V6):** on AMD MI300X, build and run the **go/no-go determinism smoke test**
   first — one forked pair, one step, compare `m`/`v`/`w` bit-for-bit over the HVP double-backward and the
   Adam moment update. If it hits exact zero, spend the rest of Phase 1's determinism re-verification; if it
   can't, pivot Phase 1 to a tolerance-based statistical framework (paired seeds, many-run averaging)
-  rather than a single-run bitwise proof. Then finish spike induction to the **relaxed V6 DoD of ≥2
+  rather than a single-run bitwise proof. Then prospectively confirm the **relaxed V6 DoD of ≥2
   recipes** (not 4), then run Task 9's cheap-fix kill-test against the **pre-registered §8 threshold**,
   then the localizer (C2). Note the old Kaggle P100-vs-T4 blocker disappears on AMD, but recipe numerics
   may shift on MI300X and need re-checking.
@@ -787,7 +788,7 @@ moment update), *before* `test_determinism` is trusted as a passing gate on the 
 
 *Known open TODOs to not forget:* pin `data/prepare.py` `PRESETS` revisions to real commit shas (both
 currently `"main"`); set `llm124m/config.yaml` `hub_repo`/revision; the proxy `<5 min` prep is a design
-target not yet timed; decide the `corrupt_batch` detector bar; **(V6, AMD)** build the go/no-go smoke test,
+target not yet timed; prospectively confirm the resolved `corrupt_batch` onset bar; **(V6, AMD)** build the go/no-go smoke test,
 derive the ROCm strict-mode setup + `requirements-rocm` pin set, and resolve PLAN V6 §5's three open items
 (team-size figure, realistic Exea allocation, GPU parallelism/expiry) before locking a budget tier. The
 old Kaggle P100-vs-T4 assignment blocker is moot on AMD. Companion plain-English guides `EXPLANATION.md`
