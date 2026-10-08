@@ -37,15 +37,17 @@ def run_fork(
     grad_hook=None,
     pre_step=None,
     seed: bool = True,
+    pre_opt_step=None,
 ) -> list[float]:
     """One fork: (optionally seed) -> build model+opt -> restore snapshot -> apply intervention ->
     train forward. Returns the per-step loss list.
 
     `intervention(model, optimizer)` mutates state in place ONCE at fork start (default: noop);
     `pre_step(step, ctx)` fires every step (the spike-replay / skip / reset channel, Task 9 -- see
-    `trunk.train_forward`). `snapshot` is a path or an in-memory snapshot dict. `seed=True` configures
-    determinism first and MUST be the process's first CUDA touch; the gate/battery seed once
-    themselves and call their branches with seed=False.
+    `trunk.train_forward`); `pre_opt_step(step, ctx)` fires every step on the final gradient just before
+    `opt.step()` (the gradient-side baseline channel, Task 15). `snapshot` is a path or an in-memory
+    snapshot dict. `seed=True` configures determinism first and MUST be the process's first CUDA touch;
+    the gate/battery seed once themselves and call their branches with seed=False.
     """
     import torch
 
@@ -66,7 +68,17 @@ def run_fork(
     start = snap["step"] if start_step is None else start_step
     steps = steps if steps is not None else cfg["train"]["max_steps"]
     return train_forward(
-        model, opt, cfg, data_dir, start, steps, device, on_step=on_step, grad_hook=grad_hook, pre_step=pre_step
+        model,
+        opt,
+        cfg,
+        data_dir,
+        start,
+        steps,
+        device,
+        on_step=on_step,
+        grad_hook=grad_hook,
+        pre_step=pre_step,
+        pre_opt_step=pre_opt_step,
     )
 
 
@@ -142,12 +154,14 @@ def full_fork(cfg, data_dir, snapshot, intervention=None, **kw):
 
 @dataclass
 class Branch:
-    """One kill-test branch: a name, a per-step `pre_step` hook (None = clean / no spike), and the
-    cfg it runs under (Bs runs a clip-augmented cfg; the others reuse the trunk cfg)."""
+    """One branch: a name, a per-step `pre_step` hook (None = clean / no spike), the cfg it runs under
+    (Bs runs a clip-augmented cfg; the others reuse the trunk cfg), and an optional `pre_opt_step` hook
+    on the final gradient (gradient-side baselines like SPAM; None for the Task-9 cheap branches)."""
 
     name: str
     pre_step: object
     cfg: dict
+    pre_opt_step: object = None
 
 
 def compose(*pre_steps):
@@ -182,6 +196,41 @@ def make_branches(cfg, recipe, *, clip_norm):
     }
 
 
+def make_baseline_branches(cfg, recipe, *, spam_params=None, zclip_state=None, adagc_state=None, device=None):
+    """Build `{name: Branch}` for the Task-15 published baselines, forked from the same pre-spike
+    snapshot and replaying `recipe` like `B0`. Kept separate from `make_branches` so the pre-registered
+    Task-9 kill-test battery stays exactly B0/B*/Bg/Bs; merge the two dicts for the full battery.
+
+    ZClip and AdaGC replace global clipping: their branches run with `grad_clip=0` and take the trunk's
+    clip value as their own cap. Both are stateful -- pass the `state_dict()` of a copy primed on the
+    trunk via `observer()` (see their module docstrings), or they start cold. Branch hooks are single-use:
+    rebuild the branches for every battery run. `spam_params` overrides SPAM's paper defaults.
+
+    Bskipstep skips the optimizer update over the spike window (vs Bs, which swaps the batch); Bvreset
+    zeroes v only (m kept) once after the window, the blunt counterpart of Bg and of the v-repair arm."""
+    from research.baselines import adagc, reset, skip_step, spam, zclip
+
+    max_norm = cfg.get("optim", {}).get("grad_clip") or 1.0
+    inj, w = recipe.inject_step, recipe.width
+    return {
+        "Bskipstep": Branch("Bskipstep", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(inj, w)),
+        "Bvreset": Branch("Bvreset", compose(recipe.pre_step, reset.as_pre_step(inj + w, reset.V_ONLY)), cfg),
+        "Bspam": Branch("Bspam", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**(spam_params or {}))),
+        "Bzclip": Branch(
+            "Bzclip",
+            recipe.pre_step,
+            zclip.apply_to_cfg(cfg),
+            pre_opt_step=zclip.as_pre_opt_step(zclip_state, max_norm=max_norm),
+        ),
+        "Badagc": Branch(
+            "Badagc",
+            recipe.pre_step,
+            adagc.apply_to_cfg(cfg),
+            pre_opt_step=adagc.as_pre_opt_step(adagc_state, device=device, max_norm=max_norm),
+        ),
+    }
+
+
 def _summarize(name: str, losses: list) -> dict:
     """NaN-safe branch summary: `survival=0` if any loss is non-finite (or the list is empty), else
     `survival=1` and `final` = the last loss. The battery never lets a NaN branch abort the others."""
@@ -194,7 +243,15 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
     NaN-safe result dict. `seed=False`: the battery seeds ONCE up front (a 2nd deterministic seed
     would trip the 'CUDA already initialized' precondition)."""
     losses = run_fork(
-        branch.cfg, data_dir, snapshot, steps=steps, device=device, seed=seed, pre_step=branch.pre_step, on_step=on_step
+        branch.cfg,
+        data_dir,
+        snapshot,
+        steps=steps,
+        device=device,
+        seed=seed,
+        pre_step=branch.pre_step,
+        on_step=on_step,
+        pre_opt_step=branch.pre_opt_step,
     )
     return _summarize(branch.name, losses)
 
