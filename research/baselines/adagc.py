@@ -112,11 +112,15 @@ class AdaGC:
         return on_step
 
     def state_dict(self) -> dict:
-        return {"steps": self.steps, "gamma": {k: v.detach().cpu().clone() for k, v in self.gamma.items()}}
+        """Plain python ({steps, gamma: {name: float}}), so it can ride in a snapshot's JSON meta.
+        fp32 -> float -> fp32 is exact."""
+        return {"steps": self.steps, "gamma": {k: float(v) for k, v in self.gamma.items()}}
 
     def load_state_dict(self, sd: dict, device=None) -> None:
+        import torch
+
         self.steps = int(sd["steps"])
-        self.gamma = {k: v.clone() if device is None else v.to(device) for k, v in sd["gamma"].items()}
+        self.gamma = {k: torch.tensor(float(v), dtype=torch.float32, device=device) for k, v in sd["gamma"].items()}
 
 
 def as_pre_opt_step(state: dict | None = None, device=None, **params) -> AdaGC:

@@ -196,6 +196,53 @@ def make_branches(cfg, recipe, *, clip_norm):
     }
 
 
+def _baseline_max_norm(cfg) -> float:
+    """The cap ZClip/AdaGC take over from the trunk's global clip (1.0, their papers' default, if none)."""
+    return cfg.get("optim", {}).get("grad_clip") or 1.0
+
+
+def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=True, on_step=None, meta=None):
+    """Train the trunk from scratch to `fork_step` with the ZClip/AdaGC observers attached, and capture
+    the fork snapshot there (w, m, v at `fork_step`, i.e. after `fork_step` optimizer steps).
+
+    The observers only WATCH: every trunk step they run their method's statistics update (computing
+    what it would clip and feeding that clipped size into its EMA) without touching gradients, so the
+    trunk is exactly the plain trunk. The primed states land in `snap["meta"]["baseline_priming"]` as
+    plain JSON, so they survive `snapshot.save`/`load` across Kaggle sessions. Then:
+
+        snap = prime_trunk(cfg, data_dir, t0)
+        branches = make_baseline_branches(cfg, recipe, **snap["meta"]["baseline_priming"])
+        run_cheap_battery(data_dir, snap, branches, steps, seed=False)
+
+    Seeds ONCE; `deterministic=True` by default so the forks can run in this same process with
+    `seed=False` (a second deterministic seed would trip the 'CUDA already initialized' precondition).
+    Primes with the default ZClip/AdaGC hyperparameters -- the ones `make_baseline_branches` uses.
+    `on_step` (optional) still sees every trunk step, e.g. for logging."""
+    from research.baselines import adagc, zclip
+    from research.harness.snapshot import capture
+    from research.harness.trunk import run_trunk
+
+    assert fork_step >= 1, f"fork_step must be >= 1 (got {fork_step}): nothing to prime on at step 0"
+    max_norm = _baseline_max_norm(cfg)
+    z, a = zclip.ZClip(max_norm=max_norm), adagc.AdaGC(max_norm=max_norm)
+    watch_z, watch_a = z.observer(), a.observer(cfg.get("optim", {}).get("grad_clip") or 0.0)
+    out = {}
+
+    def watch(step, info):
+        watch_z(step, info)
+        watch_a(step, info)
+        if on_step is not None:
+            on_step(step, info)
+        if step == fork_step - 1:  # after this step's update: the state a fork at `fork_step` restores
+            priming = {"zclip_state": z.state_dict(), "adagc_state": a.state_dict()}
+            out["snap"] = capture(
+                info["model"], info["opt"], step=fork_step, meta={**(meta or {}), "baseline_priming": priming}
+            )
+
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+    return out["snap"]
+
+
 def make_baseline_branches(cfg, recipe, *, spam_params=None, zclip_state=None, adagc_state=None, device=None):
     """Build `{name: Branch}` for the Task-15 published baselines, forked from the same pre-spike
     snapshot and replaying `recipe` like `B0`. Kept separate from `make_branches` so the pre-registered
@@ -210,7 +257,7 @@ def make_baseline_branches(cfg, recipe, *, spam_params=None, zclip_state=None, a
     zeroes v only (m kept) once after the window, the blunt counterpart of Bg and of the v-repair arm."""
     from research.baselines import adagc, reset, skip_step, spam, zclip
 
-    max_norm = cfg.get("optim", {}).get("grad_clip") or 1.0
+    max_norm = _baseline_max_norm(cfg)
     inj, w = recipe.inject_step, recipe.width
     return {
         "Bskipstep": Branch("Bskipstep", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(inj, w)),

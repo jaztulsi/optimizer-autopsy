@@ -27,9 +27,9 @@ import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
 from research.baselines import adagc, reset, skip_step, spam, zclip  # noqa: E402
-from research.harness.fork import Branch, make_baseline_branches, run_branch, run_fork  # noqa: E402
+from research.harness.fork import Branch, make_baseline_branches, prime_trunk, run_branch, run_fork  # noqa: E402
 from research.harness.snapshot import capture  # noqa: E402
-from research.harness.trunk import build_model_opt, train_forward  # noqa: E402
+from research.harness.trunk import build_model_opt, run_trunk, train_forward  # noqa: E402
 
 _CFG = {
     "seed": 0,
@@ -407,6 +407,44 @@ def test_run_fork_and_branch_pass_pre_opt_step_through():
             assert res["survival"] == 1 and len(res["losses"]) == 2, b.name
 
 
+def test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe():
+    import json
+
+    fork_step = 4
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        snap = prime_trunk(_CFG, data, fork_step, device="cpu")
+        assert snap["step"] == fork_step
+
+        # The observers only watch: the snapshot is bitwise the plain trunk's at the same step.
+        plain = {}
+
+        def grab(step, info):
+            if step == fork_step - 1:
+                plain["snap"] = capture(info["model"], info["opt"], step=fork_step)
+
+        run_trunk(_CFG, data, steps=fork_step, on_step=grab, deterministic=True, device="cpu")
+        for key in ("w", "m", "v"):
+            assert snap[key].keys() == plain["snap"][key].keys()
+            assert all(torch.equal(snap[key][n], plain["snap"][key][n]) for n in snap[key]), key
+
+        primed = snap["meta"]["baseline_priming"]
+        assert len(primed["zclip_state"]["buffer"]) == fork_step  # still inside ZClip's 25-step warmup
+        assert primed["adagc_state"]["steps"] == fork_step
+        assert set(primed["adagc_state"]["gamma"]) == {n for n, _ in _fresh()[0].named_parameters()}
+
+        # `snapshot.save` stores meta as JSON in the safetensors header (safetensors itself isn't in the
+        # CI image), so a JSON round-trip is the property that matters: exact, floats included.
+        assert json.loads(json.dumps(snap["meta"])) == snap["meta"]
+
+        br = make_baseline_branches(_CFG, SimpleNamespace(pre_step=None, inject_step=5, width=1), **primed)
+        assert br["Bzclip"].pre_opt_step.state_dict() == primed["zclip_state"]
+        assert br["Badagc"].pre_opt_step.state_dict() == primed["adagc_state"]
+        for b in br.values():
+            res = run_branch(data, snap, b, steps=2, device="cpu", seed=False)
+            assert res["survival"] == 1, b.name
+
+
 def test_never_firing_zclip_is_bitwise_identical_to_no_clip():
     # A ZClip that can never clip (no cap, huge threshold, already initialized) must leave the
     # trajectory bitwise equal to running with no clip at all: the hook has no side effects.
@@ -428,9 +466,7 @@ def _main() -> None:
     fns = [g for n, g in sorted(globals().items()) if n.startswith("test_") and callable(g)]
     for fn in fns:
         fn()
-    print(
-        f"baselines selfcheck OK: {len(fns)} tests passed (SPAM, ZClip, AdaGC, skip-step, v-reset, pre_opt_step wiring)"
-    )
+    print(f"baselines selfcheck OK: {len(fns)} tests passed (baselines, trunk priming, hook wiring)")
 
 
 if __name__ == "__main__":
