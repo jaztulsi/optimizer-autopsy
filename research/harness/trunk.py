@@ -1,9 +1,11 @@
 """Trunk run: the main training trajectory we snapshot and later fork from.
 
-An AdamW loop over the fixed memmap (data.get_batch — a pure function of step). Two hooks make it the
+An AdamW loop over the fixed memmap (data.get_batch — a pure function of step). Its hooks make it the
 substrate for the rest of the project:
   * `grad_hook(step, micro, model)` fires after EACH microbatch's backward, with `p.grad` holding
     THAT microbatch's gradient alone (no extra backprop) — this is what the localizer's SNR consumes.
+  * `pre_opt_step(step, ctx)` fires once per step on the FINAL gradient (accumulated + globally
+    clipped), right before `opt.step()` — where gradient-side baselines (SPAM, ZClip, AdaGC) act.
   * `on_step(step, info)` fires after each optimizer step — where fork/snapshot/detector logic hangs.
 
 The trunk may run with determinism OFF for speed (default); forks flip it ON. Dropout is 0 on the
@@ -54,6 +56,7 @@ def train_forward(
     grad_hook=None,
     pre_step=None,
     run=None,
+    pre_opt_step=None,
 ) -> list[float]:
     """Run `steps` optimizer steps from `start_step` on an ALREADY-BUILT model+opt; return per-step
     losses. The single loop the trunk, resume, and forks all share -- one implementation so a fork's
@@ -64,6 +67,13 @@ def train_forward(
     a mutable ctx = {model, opt, cfg, batch, autocast_dtype}; a recipe may mutate `opt` (LR/eps),
     override the batch (ctx["batch"]=(x,y)), or force reduced precision (ctx["autocast_dtype"]="float16").
     Default None is a pure no-op -- the trunk/resume/fork paths are byte-for-byte unchanged.
+
+    `pre_opt_step(step, ctx)` (Task 15 baselines) fires after accumulation + global clip, right before
+    `opt.step()`, with the same ctx plus ctx["grad_norm"] (the pre-clip total norm). It may edit `p.grad`
+    or `opt` state in place, and may return an `undo()` callable that runs right after `opt.step()` --
+    for a change that must last exactly one step (e.g. SPAM scaling the LR). Setting ctx["skip_update"]
+    = True skips `opt.step()` for this step entirely (w, m, v and Adam's step count untouched; the
+    batch is still consumed, so the data stream stays aligned). Default None: unchanged.
     """
     block = model.cfg.block_size
     t = cfg["train"]
@@ -74,8 +84,9 @@ def train_forward(
     losses: list[float] = []
     for step in range(start_step, start_step + steps):
         ctx = None
-        if pre_step is not None:
+        if pre_step is not None or pre_opt_step is not None:
             ctx = {"model": model, "opt": opt, "cfg": cfg, "batch": None, "autocast_dtype": None}
+        if pre_step is not None:
             pre_step(step, ctx)  # may mutate opt, set ctx["batch"] / ctx["autocast_dtype"]
         opt.zero_grad(set_to_none=True)
         total_loss = 0.0
@@ -112,7 +123,14 @@ def train_forward(
                 p.grad = a.div_(grad_accum)
 
         grad_norm = _grad_norm(model.parameters(), grad_clip)
-        opt.step()
+        undo = None
+        if pre_opt_step is not None:
+            ctx["grad_norm"] = grad_norm
+            undo = pre_opt_step(step, ctx)  # may edit p.grad / opt state on the final gradient
+        if ctx is None or not ctx.get("skip_update"):
+            opt.step()
+        if undo is not None:
+            undo()
 
         step_loss = total_loss / grad_accum
         lr = opt.param_groups[0]["lr"]

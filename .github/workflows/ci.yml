@@ -26,6 +26,8 @@ jobs:
         with:
           fetch-depth: 0  # scan full history, not just the tip
       - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # required by the action to scan pull_request events
 
   test:
     runs-on: ubuntu-latest
