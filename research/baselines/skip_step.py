@@ -8,9 +8,12 @@ stays aligned) but `opt.step()` never fires -- w, m, v and Adam's step count are
 were. For non-batch spikes (`lr_bump`, `tiny_eps`, `precision`) this is the only "skip" that does
 anything, since there is no bad batch to swap.
 
-Oracle timing, like `skip.py`: it skips exactly the known injection window [inject_step, inject_step +
-width). That is the most favourable version of the baseline (a real trainer only sees the symptom),
-which is the right side to err on for a comparison we want to beat.
+Two timings, same hook (`as_pre_opt_step(start, width)` skips [start, start + width)):
+  * Bskipstep, oracle: start = the known `inject_step`. The most favourable version (a real trainer only
+    sees the symptom), which is the right side to err on for a comparison we want to beat.
+  * Bskipstep_det, detector-timed: start = the detector trigger t0, same `width` budget. What a real
+    trainer could actually do. The detector is causal and the fork replays the trunk bitwise, so t0 from
+    `first_trigger` on the trunk's logs is exactly when it would fire live inside the fork.
 """
 
 from __future__ import annotations

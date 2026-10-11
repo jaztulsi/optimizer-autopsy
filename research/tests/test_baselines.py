@@ -445,6 +445,66 @@ def test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe():
             assert res["survival"] == 1, b.name
 
 
+def test_reused_branch_starts_from_primed_state_every_run():
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        snap = prime_trunk(_CFG, data, 4, device="cpu")
+        primed = snap["meta"]["baseline_priming"]
+        br = make_baseline_branches(_CFG, SimpleNamespace(pre_step=None, inject_step=4, width=1), **primed)
+        for name in ("Bzclip", "Badagc"):
+            first = run_branch(data, snap, br[name], steps=3, device="cpu", seed=False)
+            again = run_branch(data, snap, br[name], steps=3, device="cpu", seed=False)  # e.g. a second seed
+            assert first["losses"] == again["losses"], name
+        # The branch's own hooks were never consumed: each run worked on a deep copy.
+        assert br["Bzclip"].pre_opt_step.state_dict() == primed["zclip_state"]
+        assert br["Badagc"].pre_opt_step.state_dict() == primed["adagc_state"]
+
+
+def test_optional_branches_only_with_their_inputs():
+    recipe = SimpleNamespace(pre_step=None, inject_step=10, width=3)
+    assert not {"Bskipstep_det", "Bvbar"} & set(make_baseline_branches(_CFG, recipe))
+
+    model, opt = _fresh()
+    v_bar = {n: torch.full_like(p, 0.25) for n, p in model.named_parameters()}
+    br = make_baseline_branches(_CFG, recipe, detector_t0=12, v_bar=v_bar)
+    # Detector-timed skip: starts at t0 (12), same budget as the oracle (width 3) -> skips 12, 13, 14.
+    for step, want in [(11, False), (12, True), (14, True), (15, False)]:
+        ctx = {}
+        br["Bskipstep_det"].pre_opt_step(step, ctx)
+        assert ctx.get("skip_update", False) is want, step
+    # Bvbar resets v once, at the end of the spike window (13), like Bg/Bvreset.
+    with _tmpdir() as d:
+        train_forward(model, opt, _CFG, _data_dir(d), 0, 2, "cpu")
+    ctx = {"model": model, "opt": opt}
+    br["Bvbar"].pre_step(12, ctx)
+    assert all(not torch.equal(opt.state[p]["exp_avg_sq"], v_bar[n]) for n, p in model.named_parameters())
+    m_before = {n: opt.state[p]["exp_avg"].clone() for n, p in model.named_parameters()}
+    br["Bvbar"].pre_step(13, ctx)
+    for n, p in model.named_parameters():
+        assert torch.equal(opt.state[p]["exp_avg_sq"], v_bar[n]), n
+        assert torch.equal(opt.state[p]["exp_avg"], m_before[n]), n  # m kept
+
+
+def test_vbar_reset_is_strict_about_names_and_shapes():
+    model, opt = _fresh()
+    with _tmpdir() as d:
+        train_forward(model, opt, _CFG, _data_dir(d), 0, 1, "cpu")
+    v_bar = {n: torch.ones_like(p) for n, p in model.named_parameters()}
+    missing = dict(list(v_bar.items())[1:])
+    try:
+        reset.set_v_to_vbar(model, opt, missing)
+        raise AssertionError("missing v_bar entry was accepted")
+    except KeyError:
+        pass
+    name = next(iter(v_bar))
+    try:
+        reset.set_v_to_vbar(model, opt, {**v_bar, name: torch.ones(1)})  # broadcastable, but wrong shape
+        raise AssertionError("wrong-shape v_bar was accepted")
+    except ValueError:
+        pass
+    assert reset.set_v_to_vbar(model, opt, v_bar) == len(v_bar)
+
+
 def test_never_firing_zclip_is_bitwise_identical_to_no_clip():
     # A ZClip that can never clip (no cap, huge threshold, already initialized) must leave the
     # trajectory bitwise equal to running with no clip at all: the hook has no side effects.

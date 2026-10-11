@@ -12,7 +12,7 @@ seeds each gamma_i with the MINIMUM post-clip tensor norm seen in that window.
 AdaGC REPLACES global clipping, so its branch runs with `optim.grad_clip = 0` (see `apply_to_cfg`);
 `max_norm` (warm-up phase only) takes over the trunk's clip value.
 
-Fork protocol -- shadow priming, as for ZClip: a fork starts a few steps before the spike, far short of
+Fork protocol -- shadow priming, as for ZClip: a fork starts at the spike's `inject_step`, far short of
 the 100-step warm-up, so attach `observer()` to the trunk's `on_step` and start the fork from
 `state_dict()`. The trunk's grads at on_step are AFTER its own global clip (coef c); priming rescales
 them by 1/c where AdaGC would have seen raw norms (the adaptive phase) and keeps them as-is where it

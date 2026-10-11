@@ -15,6 +15,10 @@ final, accumulated + clipped gradient, right before `opt.step()`):
 All three schedules are keyed to the GLOBAL step (training step 0 = SPAM's first step), so a fork at
 step T is in the same reset/clip/warmup phase as if SPAM had run from the start of training.
 
+REPORT SPAM PER SITE, never pooled across spike sites: its resets run on a fixed clock (every
+`delta_t` steps), so what it does to a spike depends on where the spike lands. With delta_t=500 the first
+reset is at step 499 -- 19 steps after a spike at 480, but 339 steps after a spike at 160.
+
 Known departures from the authors' release (both shared by every branch, so Δ comparisons are unaffected):
   * The optimizer is torch AdamW, not an HF-style AdamW: eps is added to sqrt(v / bc2) rather than
     sqrt(v), and weight decay is applied before the update rather than after.

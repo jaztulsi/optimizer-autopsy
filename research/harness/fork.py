@@ -17,6 +17,7 @@ the same step range and `get_batch` is a pure function of step, so a fork never 
 
 from __future__ import annotations
 
+import copy
 import math
 from dataclasses import dataclass
 
@@ -210,9 +211,12 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
     trunk is exactly the plain trunk. The primed states land in `snap["meta"]["baseline_priming"]` as
     plain JSON, so they survive `snapshot.save`/`load` across Kaggle sessions. Then:
 
-        snap = prime_trunk(cfg, data_dir, t0)
+        snap = prime_trunk(cfg, data_dir, recipe.inject_step)
         branches = make_baseline_branches(cfg, recipe, **snap["meta"]["baseline_priming"])
         run_cheap_battery(data_dir, snap, branches, steps, seed=False)
+
+    Fork at `recipe.inject_step`, NOT at the detector trigger t0: a t0 snapshot already has the spike
+    baked in, so B0 never replays it and every baseline looks like it recovers.
 
     Seeds ONCE; `deterministic=True` by default so the forks can run in this same process with
     `seed=False` (a second deterministic seed would trip the 'CUDA already initialized' precondition).
@@ -243,23 +247,44 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
     return out["snap"]
 
 
-def make_baseline_branches(cfg, recipe, *, spam_params=None, zclip_state=None, adagc_state=None, device=None):
+def make_baseline_branches(
+    cfg, recipe, *, spam_params=None, zclip_state=None, adagc_state=None, device=None, detector_t0=None, v_bar=None
+):
     """Build `{name: Branch}` for the Task-15 published baselines, forked from the same pre-spike
     snapshot and replaying `recipe` like `B0`. Kept separate from `make_branches` so the pre-registered
     Task-9 kill-test battery stays exactly B0/B*/Bg/Bs; merge the two dicts for the full battery.
 
     ZClip and AdaGC replace global clipping: their branches run with `grad_clip=0` and take the trunk's
     clip value as their own cap. Both are stateful -- pass the `state_dict()` of a copy primed on the
-    trunk via `observer()` (see their module docstrings), or they start cold. Branch hooks are single-use:
-    rebuild the branches for every battery run. `spam_params` overrides SPAM's paper defaults.
+    trunk via `observer()` (see their module docstrings), or they start cold. `run_branch` deep-copies the
+    hook each run, so a branch can be reused (second seed, determinism check) and always starts from the
+    primed state. `spam_params` overrides SPAM's paper defaults.
 
     Bskipstep skips the optimizer update over the spike window (vs Bs, which swaps the batch); Bvreset
-    zeroes v only (m kept) once after the window, the blunt counterpart of Bg and of the v-repair arm."""
+    zeroes v only (m kept) once after the window, the blunt counterpart of Bg and of the v-repair arm.
+
+    Optional, added only when their input is given:
+      * `detector_t0` -> Bskipstep_det: the same skip budget (`recipe.width` steps), but starting when the
+        detector fires instead of at the known injection step -- what a real trainer could do. The
+        detector is causal and the fork replays the trunk bitwise, so `first_trigger` on the trunk's
+        logs is exactly when it would fire live in the fork. If the detector never fired, there is no
+        branch: that recipe's skip-step result is B0's by definition.
+      * `v_bar` ({param name: tensor}, the spike manifest's pre-spike v average) -> Bvbar: reset ALL of
+        v to v_bar (m kept) once after the window, at the same step as Bg/Bvreset. The fair global
+        comparison for our selective v repair."""
     from research.baselines import adagc, reset, skip_step, spam, zclip
 
     max_norm = _baseline_max_norm(cfg)
     inj, w = recipe.inject_step, recipe.width
+    optional = {}
+    if detector_t0 is not None:
+        optional["Bskipstep_det"] = Branch(
+            "Bskipstep_det", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(detector_t0, w)
+        )
+    if v_bar is not None:
+        optional["Bvbar"] = Branch("Bvbar", compose(recipe.pre_step, reset.as_vbar_pre_step(inj + w, v_bar)), cfg)
     return {
+        **optional,
         "Bskipstep": Branch("Bskipstep", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(inj, w)),
         "Bvreset": Branch("Bvreset", compose(recipe.pre_step, reset.as_pre_step(inj + w, reset.V_ONLY)), cfg),
         "Bspam": Branch("Bspam", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**(spam_params or {}))),
@@ -288,7 +313,8 @@ def _summarize(name: str, losses: list) -> dict:
 def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=False, on_step=None) -> dict:
     """Run one `Branch` from `snapshot` (restore -> its cfg + pre_step -> train forward) and return a
     NaN-safe result dict. `seed=False`: the battery seeds ONCE up front (a 2nd deterministic seed
-    would trip the 'CUDA already initialized' precondition)."""
+    would trip the 'CUDA already initialized' precondition). The `pre_opt_step` hook is deep-copied, so a
+    stateful one (ZClip/AdaGC) starts from the branch's initial state every run, however often it's reused."""
     losses = run_fork(
         branch.cfg,
         data_dir,
@@ -298,7 +324,7 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
         seed=seed,
         pre_step=branch.pre_step,
         on_step=on_step,
-        pre_opt_step=branch.pre_opt_step,
+        pre_opt_step=copy.deepcopy(branch.pre_opt_step),
     )
     return _summarize(branch.name, losses)
 

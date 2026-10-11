@@ -10,10 +10,12 @@ capped at `max_grad_norm`, and feeds the clipped value (not the spike) back into
 ZClip REPLACES global clipping, so its branch runs with `optim.grad_clip = 0` (see `apply_to_cfg`) and
 reads the raw total norm from ctx["grad_norm"]; `max_norm` takes over the trunk's clip value.
 
-Fork protocol -- shadow priming. A kill-test fork starts at the detector trigger t0, a few steps before
-the spike: far short of ZClip's 25-step warmup, so a cold ZClip would just be global clipping. Instead
-attach `observer()` to the trunk's `on_step`: every trunk step runs ZClip's exact statistics update on
-that step's raw norm WITHOUT touching gradients, and the fork starts from `state_dict()` at t0. The one
+Fork protocol -- shadow priming. A kill-test fork starts at the spike's `inject_step` and replays the
+spike forward (NOT at the detector trigger t0: a t0 snapshot already has the spike baked in, so B0 could
+never replay it and every baseline would look like it recovers). That leaves no room for ZClip's 25-step
+warmup, so a cold ZClip would just be global clipping. Instead attach `observer()` to the trunk's
+`on_step`: every trunk step runs ZClip's exact statistics update on that step's raw norm WITHOUT
+touching gradients, and the fork starts from `state_dict()` at `inject_step`. The one
 approximation: the trunk itself ran without ZClip, which only matters on steps ZClip would have clipped
 (rare on a clean pre-spike trunk).
 
