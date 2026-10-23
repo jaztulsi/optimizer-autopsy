@@ -38,33 +38,64 @@ class DetectorParams:
     use_gradnorm: bool = True
 
 
-def trigger_mask(loss_hist, gradnorm_hist, p: DetectorParams) -> list[bool]:
-    """Causal per-step firing decision: at each step t it uses ONLY data in [0, t] (loss z-score vs
-    the previous `win` steps; grad-norm vs the EMA of PAST grad-norms). A NaN/Inf loss fires
-    immediately. Returns a bool per step."""
-    loss = np.asarray(loss_hist, dtype=float)
-    n = len(loss)
-    mask = [False] * n
-    ema = None
-    for t in range(n):
-        gt = float(gradnorm_hist[t]) if gradnorm_hist is not None else None
-        fired = False
+class OnlineDetector:
+    """The detector, one step at a time: `update(loss, grad_norm)` decides step t from data in [0, t]
+    only (loss z-score vs the previous `win` steps; grad-norm vs the EMA of PAST grad-norms; a NaN/Inf
+    loss fires immediately). `trigger_mask` is this class run over a whole log, so the live capture
+    driver and offline scoring can never disagree. After each update `stat` holds that step's evidence
+    (loss z-score, grad-norm / past EMA) -- the K2 manifest's `trigger_stat`."""
+
+    def __init__(self, p: DetectorParams):
+        self.p = p
+        self.loss: list[float] = []
+        self.ema: float | None = None
+        self.stat: dict = {}
+
+    def update(self, loss: float, grad_norm: float | None = None) -> bool:
+        p, t = self.p, len(self.loss)
+        lt = float(loss)
+        self.loss.append(lt)
+        gt = float(grad_norm) if grad_norm is not None else None
+        fired, z, ratio = False, None, None
         if t >= p.warmup:
-            if not np.isfinite(loss[t]):
+            if not np.isfinite(lt):
                 fired = True  # NaN/Inf loss = definite spike
             else:
-                past = loss[max(0, t - p.win) : t]
+                past = np.asarray(self.loss[max(0, t - p.win) : t], dtype=float)
                 if len(past) >= 2:
                     mu, sd = past.mean(), past.std()
-                    if sd > 0 and (loss[t] - mu) / sd > p.z:
+                    if sd > 0:
+                        z = float((lt - mu) / sd)
+                        fired = z > p.z
+                if p.use_gradnorm and self.ema is not None and gt is not None and np.isfinite(gt):
+                    ratio = gt / self.ema if self.ema > 0 else float("inf")
+                    if gt > p.ema_mult * self.ema:
                         fired = True
-                if p.use_gradnorm and ema is not None and gt is not None and np.isfinite(gt):
-                    if gt > p.ema_mult * ema:
-                        fired = True
-        mask[t] = fired
+        nonfinite = not np.isfinite(lt)
+        self.stat = {"step": t, "fired": fired, "loss_z": z, "gradnorm_over_ema": ratio, "nonfinite": nonfinite}
         if gt is not None and np.isfinite(gt):  # update EMA AFTER testing t (keeps the test causal)
-            ema = gt if ema is None else p.ema_beta * ema + (1 - p.ema_beta) * gt
-    return mask
+            self.ema = gt if self.ema is None else p.ema_beta * self.ema + (1 - p.ema_beta) * gt
+        return fired
+
+
+def trigger_mask(loss_hist, gradnorm_hist, p: DetectorParams) -> list[bool]:
+    """Causal per-step firing decision over a whole log (see `OnlineDetector`). Returns a bool per step."""
+    det = OnlineDetector(p)
+    grads = [None] * len(loss_hist) if gradnorm_hist is None else gradnorm_hist
+    return [det.update(loss_hist[t], grads[t]) for t in range(len(loss_hist))]
+
+
+def load_params(results_dir: str = "results") -> DetectorParams:
+    """The operating point `spike_run.py` tuned (its committed result), else the defaults."""
+    import json
+    import os
+
+    path = os.path.join(results_dir, "task8_spike_detector.json")
+    if not os.path.exists(path):
+        return DetectorParams()
+    with open(path) as fp:
+        dp = json.load(fp).get("detector_params", {})
+    return DetectorParams(**{k: dp[k] for k in ("z", "win", "ema_mult", "warmup") if k in dp})
 
 
 def first_trigger(loss_hist, gradnorm_hist, p: DetectorParams) -> int | None:
