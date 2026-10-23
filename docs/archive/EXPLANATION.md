@@ -1,5 +1,7 @@
 # EXPLANATION.md — the whole project, in plain English
 
+> **Archived (Oct 2026).** Historical status snapshot; do not treat as current. Current plan: [`PLAN_V8.md`](../../PLAN_V8.md). Doc map: [`docs/README.md`](../README.md).
+
 This document explains what this project is, why it is built the way it is, and exactly what has
 been built and checked so far. It is written for a smart person who is *not* a machine-learning
 specialist. Wherever a technical word is unavoidable, it is defined in a sentence right where it

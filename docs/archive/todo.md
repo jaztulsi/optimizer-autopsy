@@ -1,5 +1,7 @@
 # TODO — things I need YOU to do
 
+> **Archived (Oct 2026).** Historical status snapshot; do not treat as current. Current plan: [`PLAN_V8.md`](../../PLAN_V8.md). Doc map: [`docs/README.md`](../README.md).
+
 This file is where I put anything I can't do from inside Claude Code: create an account, get an API
 key/token, run something on a GPU, confirm a value, etc. Each item says **what**, **why**, **how**,
 and **where**.

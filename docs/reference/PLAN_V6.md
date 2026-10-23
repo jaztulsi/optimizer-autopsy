@@ -1,4 +1,6 @@
 # OPTIMIZER AUTOPSY — PLAN V6
+
+> **Superseded where it differs:** the governing plan is [`PLAN_V8.md`](../../PLAN_V8.md) (2026-10-22). Kept as long-form reference.
 ### Complete project reference · AMD-only restart · audited GPU ask ~15–40 GPU-h (~500 build-effort h) · reallocated budget, go/no-go gate, and a written cut order
 ### Self-contained: everything needed to understand and continue this project is in this one file.
 
