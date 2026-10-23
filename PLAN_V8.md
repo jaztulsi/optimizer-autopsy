@@ -482,7 +482,7 @@ experiment.
 | **H7 PRIMARY** | Selective repair matches or beats the best baseline while editing little | Non-inferior; G ≥ 0.5; ≤ 10% of coordinates edited | TOST fails |
 | H8 scale | The H1 sign holds up the ladder | mid rung CI > 0; same sign at 124M (n = 5) | sign flips |
 | H9 detector | The lower-tail NIS gives lead time on decay-stage spikes | median lead ≥ 1 step at conformal FP ≤ 0.05 | no lead |
-| **H10** anti-windup | Post-spike drift on dominated coordinates saturates at D(β1, β2)·η once G/ḡ ≫ 1/√(1−β2), so it is clip-invariant in that regime | within ±20% of 5.84η / 10.47η / 31.8η for dominated coordinates; smaller below the threshold, as derived | no saturation |
+| **H10** anti-windup | Post-spike drift on dominated coordinates saturates at D(β1, β2)·η once G/ḡ ≫ 1/√(1−β2), so it is clip-invariant in that regime. **Harm is collective**, so measure it as the drift's projection onto ∇L_val and Bai's top-Ĥ directions, not per-coordinate \|Δw\| (reviewer) | per-coordinate drift within ±20% of 5.84η / 10.47η / 31.8η; projected harm saturates with G | no saturation |
 | **H11** SDC split | Undo fixes `sdc_grad`. The parity residual flags `v_bitflip`. v *up*-flips cause no loss spike; v *down*-flips do | ≥ 0.8 / ≥ 0.95 / ≥ 90% silent (up-flips) | any reverses |
 | **H12** protection | The integrated v-excess on written rows predicts self-recovery time (R20; read Biswas in full first) | Spearman ≥ 0.5 | ρ ≤ 0 |
 | **H13** held-out law | L1 observables at the mid rung and 124M fall inside the 95% PI fitted on 5 small configs | inside the PI | outside |
@@ -669,7 +669,17 @@ Each fix carries its `docs/improvement.md` ID.
 
 ## 10 · New instruments and tools to release
 
-None of these was found in our bounded searches (§5). Each ships with tests and docs.
+**Invented algorithms, packaged as three contributions** (reviewer, `13_reviewer_algorithms.md`; full specs in
+`docs/EXPERIMENT_CATALOG.md` Part A):
+- **RML, Reversible Moment Log** (P1, C-4): a per-coordinate reversible log of what each flagged gradient wrote into
+  m and v, with a deferred delete-later / insert-later / weight back-projection decision. PARTIAL, leaning NEW as a
+  mechanism.
+- **BiH-Adam** (P2): a bipower/MedRV jump-robust second moment. Bipower v is NEW at low confidence; its Huber clip
+  is SPAM's.
+- **MomentABFT** (P2/P3 or a systems venue): checksum detect/locate/correct for stored Adam moments, paired with the
+  elementwise invariant for v down-flips. NEW at medium-low confidence.
+
+The tools below (none found in our bounded searches, §5) each ship with tests and docs.
 
 1. **Autopsy report.** For any spike: w/m/v shares over time, the localized signed support and the recommended
    repair, as one JSON plus a figure.

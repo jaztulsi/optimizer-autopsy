@@ -50,24 +50,46 @@ A second indirect channel has the opposite sign: the **v-stall**. Inflated v sup
 must handle m and v together (C-2). Most of the damage is still preventable *after* the spike, if you act within
 about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, plus tools to measure it.
 
-| ID | Name | One line | Kind | Paper | Verdict (pending) |
-|---|---|---|---|---|---|
-| A1 | **REC**: Reversible Echo Cancellation | Online, soft, reversible removal of a flagged step's echo from the moments the update uses | repair (online) | P1 | likely NEW |
-| A2 | **QV**: Quarantined moments (two-phase commit) | Withhold a flagged gradient from m and v (impute it), then commit or discard it later with exact forward compensation | prevention (online) | P1/P2 | PARTIAL (SPAM clips irreversibly) |
-| A3 | **BiH-Adam**: Bipower–Huber Adam | A jump-robust bipower second moment plus Huberized m, so isolated spikes neither inflate v nor dominate m | optimizer | P2 | PARTIAL (TAdam, AdaTerm) |
-| A4 | **SAMS**: Spike-Aware Migration Scheduler | Choose the repair by lag τ using the remaining-echo fraction r^τ | policy | P1 | likely NEW (as a policy) |
-| A5 | **CWB**: Counterfactual Weight Back-Projection ("echo-aware amnesiac subtraction for Adam") | Retroactive skip without rollback: subtract the echo-written weight drift computed from the same gradients | repair (offline/online) | P1 | **PARTIAL** (reviewer): Amnesiac ML, SWIFT, DeltaGrad. Ours: the Adam echo, plus the measured open- vs closed-loop error |
-| A6 | **LRA**: Linear-Response Autopsy | A fork-free estimate of the w/m/v shares and the mediation curve by forward-mode JVP through H unrolled steps | measurement | P1/P2 | PARTIAL (Guo 2026; Liu & Li) |
-| A7 | **MomentABFT** | Algorithm-based fault tolerance for Adam state: linear row/column checksums detect, locate and correct single bit flips in m/v | reliability | P2/P3 | likely NEW |
-| A8 | **SCR**: Stability-Certified Restoration (two-sided) | A log-space move of v on the support with a Bai-Ĥ certificate; "bulk unstable" is a falsifiable failure flag | repair | P1 | PARTIAL (Biswas; GI-Adam) |
-| A9 | **PAR**: Protection-Aware Release | Release v-excess on the rows a spike wrote, ranked by the integrated-write ratio (Biswas law), to speed healing | repair (variant of A8) | P1 | PARTIAL |
-| A10 | **IAW-Adam**: Integral Anti-Windup | Clamp each coordinate's *leaky integral* of updates (back-calculation anti-windup), not the per-step update | optimizer / repair | P2 | PARTIAL? (PID optimizers; StableAdamW) |
-| A11 | **GT-Oracle**: causal group testing over optimizer-state groups | Adaptive splitting with a placebo-calibrated firing threshold, plus a SuSiE fallback | measurement | P1 | PARTIAL (ACDC, ddmin) |
-| A12 | **FTA**: Forensic Token Attribution under tied embeddings | Rank wte rows by Δlog v over an output-side baseline, to recover the spike batch's tokens with no data logs | localization (data side) | BL/P3 | PARTIAL (Melis 2019) |
-| A13 | **DT-Gate**: dual-timescale v with a disagreement gate | A fast v detects a jump; the slow v doesn't absorb it (β2_eff = 1) for that coordinate and step | prevention | P2 | PARTIAL (Kourkoutas-β) |
-| A14 | **Sketch-REC** | Echo registers in a Count-Sketch when the flagged set is dense | systems | BL | PARTIAL |
-| A15 | **Selective β1 drop** | After a flag, lower β1 on the flagged support for k steps, shrinking r and the echo | repair | P1 (ablation) | PARTIAL (SPAM resets globally) |
-| A16 | **Shadow-v monitor** | Track v_BV next to v; the jump share J = 1 − v_BV/v is a zero-fork, zero-log localizer | localization | P1 | PARTIAL (estimator use new) |
+**Packaging (agreed with the reviewer, `master-research/output/13_reviewer_algorithms.md`): three contributions, not
+sixteen names.**
+
+| Contribution | Members (operators and ablations) | Paper | Verdict (reviewer kill-search) |
+|---|---|---|---|
+| **RML: Reversible Moment Log.** A per-coordinate, reversible log of what each flagged gradient wrote into m and v, with a *deferred* decision | A1 REC (delete later) · A2 QV (insert later) · A5 CWB (the weight side, "echo-aware amnesiac subtraction") · A4 lag policy · A13 detector gate · A15 β1-drop ablation | **P1** (C-4) | PARTIAL, leaning NEW as a mechanism (low confidence). Nearest: SPAM (the same g²/v detector, but an irreversible clip); SWIFT; skip-step; Amnesiac ML; DeltaGrad |
+| **BiH-Adam.** A jump-robust second moment | A3 (bipower or MedRV v) + A16 as its monitor | **P2**, or an optimizer paper | Bipower v: NEW (low confidence; nearest TAdam). **The Huber clip is SPAM's** sign·√(θv): cite it, don't claim it |
+| **MomentABFT.** Integrity of stored optimizer state | A7 + the honest-Adam invariant | **P2/P3**, or a systems venue (SC, MLSys) | NEW (medium-low confidence; nothing on ABFT for optimizer state in 2 searches) |
+
+**Instruments** (used, not claimed as inventions):
+- A6 → use **Liu & Li's response operator** (2608.19762; TAKEN as a method) as a named fork-free baseline estimator
+  of the mediation curve, scored against our bitwise factorial. The JVP must include the global-clip Jacobian, which
+  is active at the spike.
+- A8 SCR and A9 PAR. PAR depends on Biswas, which is still [UNV], so it stays exploratory.
+- A11 GT-Oracle; A12 FTA.
+
+**Backlog:**
+- A10 IAW-Adam. The 5.84η echo is *smaller* than a high-SNR coordinate's ordinary ≈ 13η drift over the same window,
+  so a per-coordinate integral cap can't tell them apart.
+- A14 Sketch-REC. Count-sketching Adam state is Spring et al., *Compressing Gradient Optimizers via Count-Sketches*,
+  arXiv 1902.00179 [V]; its venue is unverified.
+
+| ID | Name | Role now | Verdict |
+|---|---|---|---|
+| A1 | REC: Reversible Echo Cancellation | RML · delete-later | PARTIAL, leaning NEW |
+| A2 | QV: Quarantined moments | RML · insert-later (default impute g̃ = 0) | PARTIAL |
+| A3 | BiH-Adam | its own optimizer | bipower v NEW (low confidence); clip TAKEN |
+| A4 | SAMS lag policy | RML · policy | PARTIAL (composition) |
+| A5 | CWB weight back-projection | RML · weight side | PARTIAL |
+| A6 | LRA | instrument (Liu & Li operator) | TAKEN as a method |
+| A7 | MomentABFT | its own contribution | NEW (medium-low confidence) |
+| A8 | SCR | instrument / repair | PARTIAL |
+| A9 | PAR | repair variant | PARTIAL; depends on Biswas [UNV] |
+| A10 | IAW-Adam | backlog | PARTIAL; technically weak |
+| A11 | GT-Oracle | instrument | PARTIAL |
+| A12 | FTA | instrument | PARTIAL |
+| A13 | DT-Gate | RML · detector | PARTIAL |
+| A14 | Sketch-REC | backlog | near TAKEN (Spring et al.) |
+| A15 | β1 drop | RML · ablation | PARTIAL |
+| A16 | Shadow-v | BiH monitor / localizer | PARTIAL |
 
 ### A1 · REC: Reversible Echo Cancellation
 - **Problem.** The echo of a flagged step (s, with flagged set F_s) keeps writing damage for about 1/(1−r) steps.
@@ -95,7 +117,15 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
     replaced by v̄ (v).
   - Toggling c 1 → 0 restores Adam's moments exactly.
 - **Closest prior work:** SPAM (irreversible clip); SWIFT (one-step inversion); Biswas (an offline clear).
-  **To kill-search:** "reversible", "soft deletion", "deferred" plus Adam moments.
+- **Reviewer fixes (adopted):**
+  1. **The persistence test must not use the training g².** After a real spike, the training gradient stays high
+     *because the weights were damaged*, which would set c → 0 in exactly the damaging cases. Instead, use the
+     gradient of a **fresh probe batch** at the current w (disjoint from the Δ-eval batches), or the W2 regression on
+     probe gradients, or an outlier score of the *flagged batch's* loss under the current model.
+  2. "Exact" means **exact in moment space for the realized gradient sequence** (open loop). The gap to the skip fork
+     is the closed-loop error.
+  3. REC does not remove the spike step's *own* update (the direct effect) unless it acts at step s. It targets the
+     indirect share. Combine it with CWB for a full retroactive skip.
 
 ### A2 · QV: Quarantined moments (two-phase commit)
 - **Why not just quarantine v.** Dropping the spike's excess from v while it stays in m makes m/√v explode. In
@@ -113,6 +143,13 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
   - Committing on a level shift costs ≤ L steps of slower adaptation.
 - **CPU test.** Commit equals the plain Adam trajectory's moments at t′, exactly, given the same later gradients.
 - **Closest prior work:** SPAM's clip (g → sign·√(θ v)); AdaGC; robust M-estimators (TAdam).
+- **Reviewer fixes (adopted):**
+  1. **Default imputation is g̃ = 0 into m** (a per-coordinate skip-step; m only decays) **and g̃² = v̂ into v** (the
+     scale is kept). Imputing g̃ = m̂ is *ballistic*: constant velocity for L steps, which overshoots near minima.
+     Keep it only as an ablation.
+  2. Use one consistent scale: either the raw m_{t−1}, or m_{t−1}/(1−β1^{t−1}). State which.
+  3. The CPU test claims the **moments**, not the trajectory, because w moved with the imputed updates.
+  4. Memory is O(|F|·L) pending entries, so cap L.
 
 ### A3 · BiH-Adam: Bipower–Huber Adam (a new optimizer)
 - **Robust scale.** s_t = β2 s_{t−1} + (1−β2)·(π/2)·|g_t|·|g_{t−1}| (bipower; ≈ σ² for independent Gaussian noise).
@@ -136,6 +173,14 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
   - The spike-step update is bounded by c(1−β1)/√(1−β2).
 - **Closest prior work:** TAdam (Student-t), AdaTerm, AdaShift (shifted v), SPAM. No ML use of bipower variation was
   found (12_factcheck_novelty N6).
+- **Reviewer fixes (adopted):**
+  1. **Biased under signal.** With a persistent mean μ, (π/2)|g_t||g_{t−1}| → (π/2)μ² (a 1.57× over-estimate). That
+     is a silent per-coordinate LR change of up to 0.80×. Re-tune the LR per optimizer (pre-registered), and report
+     s/v by SNR bin.
+  2. **"No v-stall" over-claims.** The jump enters two products, each ≈ Gḡ. At G/ḡ = 100 and β2 = 0.95, the stall
+     factor is ≈ 4.1 vs Adam's ≈ 22. Wording: "stall reduced from O(G²) to O(Gḡ)".
+  3. The Huber clip is SPAM's clip: cite it, and claim only the bipower/MedRV second moment.
+  4. Memory: +1 full tensor (bipower) or +2 (MedV). Report it next to the per-row variants.
 
 ### A4 · SAMS: Spike-Aware Migration Scheduler (policy)
 - **Rule.** Given the lag τ between the flag and the decision:
@@ -164,6 +209,9 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
 - **CPU test.** On a quadratic with gradients fixed in advance, CWB equals the exact skip-step trajectory.
 - **Closest prior work:** Amnesiac ML (stored per-batch weight updates; no optimizer echo); DeltaGrad (L-BFGS);
   Unlearning-at-Scale (replay); SWIFT (one step).
+- **Reviewer fix (adopted): two CPU tests, replacing the contradictory one.**
+  - **(a) Identity:** with an *exogenous* gradient sequence, CWB equals the skip trajectory exactly.
+  - **(b) Error growth:** on a quadratic (closed loop), CWB is approximate, with error O(η‖H‖·‖A‖). Check that bound.
 
 ### A6 · LRA: Linear-Response Autopsy (fork-free factorial)
 - **Shares.** With δX = X^{B0}(t1) − X^{B\*}(t1) for X ∈ {w, m, v}, compute
@@ -176,6 +224,10 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
 - **CPU test.** On a quadratic model, LRA equals the exact factorial.
 - **Closest prior work:** Guo 2026 (optimizer-aware derivatives through AdamW state); Liu & Li 2026 (linearized
   response operator).
+- **Reviewer verdict: TAKEN as a method.** Liu & Li linearize AdamW with (θ, m, v) into "a signed response operator
+  that maps a localized gradient perturbation to its future loss effects". So LRA is **not claimed**. It runs as a
+  named fork-free *baseline estimator*, "Liu & Li's response operator", scored against our bitwise factorial.
+- **Implementation note:** include the global-clip Jacobian (piecewise), which is active at the spike.
 
 ### A7 · MomentABFT: algorithm-based fault tolerance for optimizer state
 - **Checksums** (fp64), for each 2-D state tensor:
@@ -191,7 +243,19 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
 - **CPU test.** Inject one flip into m or v and check that it is located and corrected; no false alarms over 10⁴
   clean steps.
 - **Closest prior work:** ABFT for GEMM (Huang & Abraham 1984); ATTNChecker (attention); LayerCheck (per-layer
-  restore). No ABFT for optimizer state was found yet; to be kill-searched.
+  restore); V-ABFT 2602.08043; DRS ABFT 2307.10244. The reviewer found no ABFT for optimizer state in 2 searches.
+- **Reviewer fixes (adopted):**
+  1. **v's harm is relative, but checksums are absolute.** A down-flip of a *small* v_ij (rare-token rows) makes
+     m/√v explode, yet it falls below the √n·eps·‖v‖ tolerance. **Pair the checksums with elementwise checks:** the
+     honest-Adam invariant |m_ij| ≤ C√v_ij catches v down-flips wherever m_ij isn't tiny, and a tracked floor
+     β2^k·min(v) catches the rest.
+  2. **Narrow the claim.** A calibrated ABFT on bf16 GEMM caught 76% of exponent flips and 0% of low-mantissa flips
+     (2610.02240). Pre-register: "detects every flip whose induced error exceeds τ_round; undetected flips are bounded
+     by τ_round in m, and by the invariant in v".
+  3. **Scope: memory faults in stored state between steps.** A corrupted *g* (`sdc_grad`) updates the checksums
+     consistently, so it is invisible; that is undo/CWB's job. A flip in m that sits K steps before the check has
+     already moved w, so pair the correction with CWB.
+  4. Use deterministic fp64 reductions for g·1 and 1ᵀg. Run the cheap NaN/sign check on v first.
 
 ### A8 · SCR: Stability-Certified Restoration (two-sided)
 - **Inputs.** Support S with signs σ, from the localizer. Target T: v̄, or fresh mean g² over K micro-batches at the
@@ -218,7 +282,14 @@ about 1/(1−r) ≈ 13 steps. Part A is a family of ways to act in that window, 
   doesn't bound it.
 - **Per-row variant** to save memory.
 - **Prediction.** It caps the indirect share at ≈ κ× normal drift, with ≤ 1% clean-loss cost [A].
-- **Closest prior work:** StableAdamW; PID optimizers; integrator anti-windup in control. To be kill-searched.
+- **Closest prior work:** StableAdamW; SPI-Optimizer 1812.11305 (integral separation, a classic anti-windup
+  technique); PID optimizers (An et al. 2018; Dai 2023).
+- **Reviewer verdict: PARTIAL and technically weak, so it moves to the backlog.**
+  - The ≈ 5.84η echo is *smaller* than a high-SNR coordinate's ordinary ≈ 13η drift over the same window, so a
+    per-coordinate cap can't separate them.
+  - Spike harm is **collective**: many coordinates move in an aligned direction. So measure echo harm as the drift's
+    **projection onto ∇L or Bai's top-Ĥ directions**, not per-coordinate |Δw|. This also changes how H10/K7 are
+    measured (PLAN_V8).
 
 ### A11–A16 (short specs)
 - **A11 GT-Oracle.**
