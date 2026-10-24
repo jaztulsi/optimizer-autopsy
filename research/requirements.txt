@@ -1,7 +1,7 @@
 # Pinned to Kaggle's default GPU image. Single source of truth: research.harness.preflight.check_env()
 # parses this file and asserts installed == pinned. To reconcile with a new Kaggle image, run
 # check_env() there and paste the versions it reports as mismatched.
-torch==2.10.0
+torch==2.13.0
 numpy==2.0.2
 scipy==1.16.3
 safetensors==0.7.0
