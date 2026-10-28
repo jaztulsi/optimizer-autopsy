@@ -303,9 +303,11 @@ def _selfcheck() -> None:
         vocab = 32
         np.tile(np.arange(vocab, dtype=np.uint16), 4000).tofile(f"{d}/train.bin")
         np.tile(np.arange(vocab, dtype=np.uint16), 100).tofile(f"{d}/val.bin")
+        import yaml
+
         cfg_path = os.path.join(d, "cfg.yaml")
         with open(cfg_path, "w") as fp:
-            json.dump(  # JSON is valid YAML
+            yaml.safe_dump(  # not json.dump: YAML 1.1 reads json's `1e-08` back as a string, and AdamW rejects it
                 {
                     "seed": 0,
                     "model": {
