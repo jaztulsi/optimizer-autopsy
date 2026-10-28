@@ -67,7 +67,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
   <div class="meter"><b>~10%</b><span>Overall toward a strong P1, measured by evidence, not lines of code</span><div class="bar"><i style="width:10%"></i></div></div>
 </section>
 
-<nav aria-label="Sections"><a href="#order">Run order</a><a href="#people">Contributors</a><a href="#map">Dependency map</a><a href="#ledgers">Done and backlog</a></nav>
+<nav aria-label="Sections"><a href="#order">Run order</a><a href="#people">Contributors</a><a href="#work">Work left</a><a href="#map">Dependency map</a><a href="#ledgers">Done and backlog</a></nav>
 
 <section id="order">
 <h2>Run order for the next MI300X session</h2>
@@ -128,7 +128,27 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <td><b>Stage 7</b>, after PR #15's fixes pass CI</td></tr>
 </table>
 </div>
-<p class="sub">Git also shows one commit by <code>Orange-neon</code> (“Task 8: qualify corrupt-batch onset under V6 policy”). Confirm whose account that is.</p>
+</section>
+
+<section id="work">
+<h2>Where the work is: 52 items, with today's 10 upgrades added</h2>
+<figure>
+<div class="scroll">
+<svg viewBox="0 0 1000 260" role="img" aria-label="Of 52 work items, 14 are validated, 10 are written but unproven, and 28 are not started. Every GPU experiment beyond the pilot and all of the writing are still ahead.">
+<g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
+<g stroke-width="1">
+<rect class="ok" x="210" y="20" width="266" height="30"/><rect class="todo" x="476" y="20" width="38" height="30"/>
+<rect class="ok" x="210" y="64" width="190" height="30"/><rect class="wip" x="400" y="64" width="304" height="30"/><rect class="todo" x="704" y="64" width="114" height="30"/>
+<rect class="ok" x="210" y="108" width="76" height="30"/><rect class="todo" x="286" y="108" width="456" height="30"/>
+<rect class="wip" x="210" y="152" width="38" height="30"/><rect class="todo" x="248" y="152" width="228" height="30"/>
+<rect class="wip" x="210" y="196" width="38" height="30"/><rect class="todo" x="248" y="196" width="228" height="30"/></g>
+<g text-anchor="end"><text x="198" y="40">Foundation (harness)</text><text x="198" y="84">Instruments</text><text x="198" y="128">GPU experiments</text><text x="198" y="172">Theory and tools</text><text x="198" y="216">Writing (P1–P3)</text></g>
+<g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="11"><text x="526" y="40">7 of 8 validated</text><text x="830" y="84">5 of 16 validated</text><text x="754" y="128">2 of 14 · U1–U10 added</text><text x="488" y="172">0 of 7</text><text x="488" y="216">0 of 7</text></g>
+<text x="210" y="250" font-size="11">each block = one work item ·  green = validated on a GPU or in CI · yellow = written, unproven · red = not started</text>
+</g></svg>
+</div>
+<figcaption><b>14 of 52 items are validated (27%).</b> The 38 left include every GPU experiment after the pilot, the scale-up to 124M and Pythia, the theory, and all of the writing. They are the heaviest items, so by effort the project is about 10% done. Today's research pass added ten upgrades (U1–U10): the forgetting threshold, chaos-calibrated stats, the v-cooldown test, rollback and prevention baselines, 124M + Pythia-160M/410M, a bit-flip map of m and v, OPEN-1B natural spikes, a prediction law, a damage atlas and a fork-free predictor.</figcaption>
+</figure>
 </section>
 
 <figure id="map">
