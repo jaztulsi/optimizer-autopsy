@@ -1,0 +1,8 @@
+Wed Oct 28 04:39:20 UTC 2026
+selfcheck rc=1
+prime rc=0
+forks a,b (concurrent) done
+fork c (solo) rc=0
+compare rc=0
+capture selfcheck rc=0
+Wed Oct 28 04:40:17 UTC 2026
