@@ -34,6 +34,120 @@ Confirmatory tests for P1 are only the 4 in PLAN_V8 §7.0. **Everything here is 
 
 ---
 
+## Part A0 · Measurement innovations: identifying Adam's damage response (the P1 novelty core)
+
+*Reviewed and slotted 2026-10-23 (PLAN_V8 §2.5; reviewer verdicts in `master-research/output/13_reviewer_plan.md`
+§11).*
+
+**Slots:**
+- **C-1** = M1;
+- **C-2** = the undo-arm sign test, with M3 *supporting* only;
+- **C-3** = M4;
+- **C-4** = RML.
+
+M2 is exploratory (with its own figure). M5 → P2 (dose metric pre-registered). M6 → P1-stretch. M7 → P2. M8 is
+exploratory.
+
+**Review fixes (adopted; they override the specs below where they differ):**
+- **M1:** use the log grid τ ∈ {0, 1, 2, 4, 8, 16, 32, 64}, not 12 linear lags. Cumulative D(τ) with CIs is
+  primary. k(τ) is "the lasting damage added by letting the memory act one more step, given the closed-loop path".
+- **M2:** **clip-match the ±G arms.** Apply the +G arm's clip factor to both, or inject post-clip at the accumulated
+  (not per-micro) gradient. "≫" means |Δ_odd| ≤ 0.2·Δ_even.
+- **M3:** restrict or weight P to the dominated coordinates, and size P above the placebo spread. Loss-level χ ≠
+  update-level χ. M3 is supporting evidence for C-2, not an independent test of its sign.
+- **M4:** Δt ∈ {2, 8, 32}. Pre-registered: **I_opp(Δt) < I_same(Δt) for Δt ≤ 1/(1−r) ≈ 13**. It equals the
+  second-order kernel only for small G.
+- **M5:** the dose metric is pre-registered now: x̄ = Σ_i |u_i(s)|·x_i / Σ_i |u_i(s)|.
+- **M6:** the bitwise DiD is the exact interaction contrast. The EMA uses the β in effect at each step, and the bias
+  correction is 1 − Π_t β_t.
+- **M7:** runs on the AMD host or in CI, never the Mac.
+
+**The idea.** Treat a spike's lasting held-out damage as a *functional* of the perturbation sequence. Then identify
+its kernels with bitwise forks, the way one identifies a physical system. Each M below is a measurement no rival in
+our corpus reports. Each has a closed-form prediction from the Adam algebra [I], so the data can falsify it.
+
+**Notation:**
+- x = (1−β2)G²/ḡ² is the v-excess dose on a coordinate;
+- r = β1/√β2;
+- D(τ) is Δ at the end of schedule when the spike window's remaining m/v echo is removed at lag τ (keep w; use
+  RML/undo).
+
+### M1 · Damage-writing kernel (P1, C-1)
+- **Design.**
+  - Arms: D(τ) for τ ∈ {0, 1, 2, 3, 5, 7, 10, 14, 20, 30, 45, 60}, plus B0 (≡ D(∞)) and B\*.
+  - The undo channels {m, v, m+v} come at the coarse lags {0, 10, 30}.
+- **Readouts:**
+  - k(τ) = D(τ+1) − D(τ), interpolated on the grid: damage written per post-spike step.
+  - Δ_direct = D(0) and Δ_indirect = Δ_B0 − D(0). The telescoping identity holds exactly, because every D(τ) is a
+    real fork.
+  - Action window τ½: the lag where retroactive repair keeps half its benefit.
+- **Predictions:**
+  - k(τ) has an m-echo part ∝ r^τ and an opposite-sign v-stall part over ≈ ln x/(−ln β2) steps;
+  - τ½ ≈ ln 2/(−ln r) ≈ 8.7 at (0.9, 0.95);
+  - the β1 arms reorder τ½.
+- **Cost:** 12–15 forks per instance at the proxy (≈ 2–3 min at 10 s per fork [A]).
+- **CPU test:** on a quadratic with an exogenous gradient spike, Σ k(τ) equals Δ_B0 − Δ_direct to rounding.
+
+### M2 · Gradient-parity split, "anti-spike" (P1 exploratory, a candidate confirmatory)
+- **Design.** Planted in gradient space via `grad_hook`: G = g_corrupt − g_clean, captured once. Arms are g_clean + G
+  and g_clean − G (the "anti-spike"), each with B\*.
+- **Readouts:**
+  - Δ_odd = ½[Δ(+G) − Δ(−G)]: first-order, direction-dependent damage;
+  - Δ_even = ½[Δ(+G) + Δ(−G)]: curvature (½δᵀHδ) plus the v-stall.
+- **Interpretation caveat.** Odd/even ≠ m/v. The m-echo's quadratic loss term is even. Cross-validate with the 2×2
+  undo arms.
+- **Prediction:** Δ_even ≫ |Δ_odd| for large spikes at end of schedule. Lasting spike damage is mostly *sign-even*,
+  which is why sign-agnostic fixes (clip, v edits) work at all.
+- **Cost:** 2 forks per instance (+2 with undo).
+- **Validity check:** −G is an unphysical gradient. Report it as an intervention, like `v_inflate`, and confirm on
+  data-driven pairs where possible.
+
+### M3 · Adam's refractory period, a phase-response curve (P1, the second test of C-2)
+- **Design.** Spike at s. A small probe perturbation P (e.g. 0.1× the spike, the same direction, or a random
+  direction) at s + Δt for Δt ∈ {1, 3, 10, 30, 100}. Also P alone.
+- **Readout:** susceptibility χ(Δt) = [Δ(spike + P@Δt) − Δ(spike)] / Δ(P alone).
+- **Prediction** (on the spiked coordinates): χ(Δt) ≈ 1/√(1 + x·β2^{Δt}). It recovers at ≈ ln x/(−ln β2) steps
+  (≈ 31 at G/ḡ = 10, β2 = .95).
+- **The undo-v arm removes the refractory window.** That is a second, independent test of "poisoned v is
+  protective" (C-2).
+- **Cost:** 6 forks per instance.
+
+### M4 · Spike interference, the second-order cross-kernel (P1 exploratory)
+- **Design.** Two spikes at separation Δt ∈ {1, 3, 10, 30, 100}, with same sign (+G, +G) and opposite sign (+G, −G).
+- **Readout:** I(Δt) = Δ(both) − Δ(first) − Δ(second).
+- **Predictions:**
+  - same sign: sub-additive (I < 0), with |I| decaying like β2^{Δt} (refractory) plus an r^{Δt} cross-echo term;
+  - opposite sign: the m-echoes cancel, so I changes sign. That separates the channels.
+- **Cost:** 3 forks per (Δt, sign) per instance.
+
+### M5 · Universal collapse across scale (P2, figure for P1)
+- **Readout:** the indirect share vs the update-weighted dose x̄ = E_u[x], per rung (proxy, mid, 124M, Pythia).
+- **Prediction (L0):** one master curve f(x̄; β1, β2), independent of model size.
+- **Cost:** none beyond M1 at each rung.
+
+### M6 · Mediator-dynamics intervention, difference-in-differences (P1 exploratory)
+- **Design.** Change β1 (or β2) only in the echo window [s, s+k], k ∈ {10, 30}, in both B0 and B\*.
+- **Readout:** Δ_DiD = [Δ(B0,β-win) − Δ(B0)] − [Δ(B\*,β-win) − Δ(B\*)].
+- **Prediction:** sign and size follow the r change. This is causal evidence that the memory *dynamics*, not the
+  spike's immediate effect, set the lasting damage. It answers #36730's onset-time "timescale mismatch" for the
+  post-onset period.
+- **Cost:** 4 forks per instance per β setting.
+
+### M7 · Dead time in natural spike trains (P2, CPU only)
+- **Data:** K2-V2 W&B logs; our stress-preset runs.
+- **Readout:** the inter-spike-interval hazard right after a spike.
+- **Prediction:** suppressed hazard (dead time) ∝ 1/(1−β2), via the refractory mechanism. It is distinct from Tang's
+  spike *period*.
+- **Cost:** CPU only.
+
+### M8 · Staged repair (an RML operator; P1 C-4 arm)
+- **Design.** Undo the m-echo at detection, and keep v's excess (its protection) until ≈ stall/2, then restore v.
+  Compare against simultaneous undo-m+v and undo-m alone.
+- **Prediction (ambiguous by theory):** staged wins only if the direct displacement left the run in a sharp region
+  (Bai's decay stage), where the refractory window protects. The result tells which regime spikes are in.
+
+---
+
 ## Part A · New algorithms
 
 **Status: write-and-wait.** The user re-confirmed (2026-10-23): "dont test anythin on cuda or my mac … once i give u
@@ -76,7 +190,7 @@ sixteen names.**
 |---|---|---|---|
 | A1 | REC: Reversible Echo Cancellation | RML · delete-later | PARTIAL, leaning NEW |
 | A2 | QV: Quarantined moments | RML · insert-later (default impute g̃ = 0) | PARTIAL |
-| A3 | BiH-Adam | its own optimizer | bipower v NEW (low confidence); clip TAKEN |
+| A3 | BiH-Adam | its own optimizer | bipower/MedRV v NEW (low confidence); clip TAKEN (SPAM). **Cite AdamMAD** (mean-absolute-deviation second moment; Data Sci. Eng. 2026, doi 10.1007/s41019-025-00341-7) |
 | A4 | SAMS lag policy | RML · policy | PARTIAL (composition) |
 | A5 | CWB weight back-projection | RML · weight side | PARTIAL |
 | A6 | LRA | instrument (Liu & Li operator) | TAKEN as a method |
@@ -85,7 +199,7 @@ sixteen names.**
 | A9 | PAR | repair variant | PARTIAL; depends on Biswas [UNV] |
 | A10 | IAW-Adam | backlog | PARTIAL; technically weak |
 | A11 | GT-Oracle | instrument | PARTIAL |
-| A12 | FTA | instrument | PARTIAL |
+| A12 | FTA | backlog (privacy note only) | **TAKEN** ("Training-Data Leakage from Optimizer State in Resumable Checkpoints", seU1LYAiwm; Melis 2019) |
 | A13 | DT-Gate | RML · detector | PARTIAL |
 | A14 | Sketch-REC | backlog | near TAKEN (Spring et al.) |
 | A15 | β1 drop | RML · ablation | PARTIAL |
@@ -338,7 +452,7 @@ The prediction, where one exists, is in the question or the readout.
 | ID | Question | Factors × levels | Readout | Cost | Paper | Pri |
 |---|---|---|---|---|---|---|
 | **E10** (C-1) | How much damage does the memory write after the spike? | undo **channel** {m, v, m+v} × lag τ ∈ {0, 1, 3, 10, 30, 100} × {corrupt_batch, repeat_ngram (width ≥ 3), lr_bump, sdc_grad} × dose G/ḡ × 10 seeds | indirect share Δ_ind/Δ_B0 (Shapley over m and v) | 18 per instance | P1 | 1 |
-| **E10b** (C-2) | Is poisoned v protective? | undo-v-only vs B0 vs undo-m+v, at τ ∈ {0, 3, 10} | Δ(undo-v-only) ≥ Δ_B0 > Δ(undo-m+v)? Also the instability rate | ⊂ E10 | P1 | 1 |
+| **E10b** (C-2) | Is poisoned v protective? It tests whether history coverage ("Newer Is Not Always Better", anonymous ICLR 2027 #17880; abstract-verified, no spikes in it) predicts the asymmetry for spike-poisoned states. Boundary condition: Asadi 2023's v-only reset works when m carries no spike | undo-v-only vs B0 vs undo-m+v vs REBUILD_M, at τ ∈ {0, 3, 10} | Δ(undo-v-only) ≥ Δ_B0 > Δ(undo-m+v)? Also the instability rate | ⊂ E10 | P1 | 1 |
 | E11 | Does β1 order the indirect share? | (β1, β2) ∈ {(.8,.95), (.9,.95), (.95,.95), (.9,.99), (.9,.999)} | monotone in β1 (pre-registered direction only); the value vs r reported | E10 × 5 | P1 | 1 |
 | E11b | How long is the v-stall? | dose G/ḡ ∈ {3, 10, 30, 100} | lost progress on the spiked coordinates vs ln((1−β2)G²/ḡ²)/(−ln β2) | ⊂ E10 | P1 | 2 |
 | E12 | w/m/v share curve | 2³ hybrids × τ ∈ {1, 10, 30, 60, 150, 400} | Shapley shares φ_w, φ_m, φ_v | 6 per τ | P1 | 1 |
@@ -361,7 +475,7 @@ The prediction, where one exists, is in the question or the readout.
 | ID | Question | Factors × levels | Readout | Cost | Paper | Pri |
 |---|---|---|---|---|---|---|
 | E30 | How cheap and stable is the oracle? | GT-Oracle (A11) vs exhaustive per-tensor at the proxy | forks used; Jaccard across placebo seeds | 5–40 per instance | P1 | 2 |
-| **E31** (C-3: signed − magnitude-only ≥ 0.05 AUROC vs the oracle, paired; absolute AUROC is exploratory) | Which localizer wins? | AtP-state, two-sided NIS, λ-decomposition, shadow-v J (A16), windup prior, magnitude-only, Fisher mismatch, Lanczos mass, Hutchinson diagonal, random | AUROC / AUPRC / P@k vs the oracle and vs planted truth with decoys | 0 forks (scores) + oracle | P1 | 2 |
+| **E31** (exploratory, formerly C-3: signed predictor vs **one** comparator, the better of {magnitude-only, tail-entrant selector} chosen on seed 0, vs the oracle, paired) | Which localizer wins? | AtP-state, two-sided NIS, λ-decomposition, shadow-v J (A16), windup prior, magnitude-only, **new-tail-entrant selector (pAjrfibDB9: coordinates newly crossing \|u\| > 1)**, Fisher mismatch, Lanczos mass, Hutchinson diagonal, random | AUROC / AUPRC / P@k vs the oracle and vs planted truth with decoys | 0 forks (scores) + oracle | P1 | 2 |
 | E32 | Granularity | tensor / row / head / coordinate | AUROC; repair-top-k | 0 | P1 | 2 |
 | E33 | Reference | B\* / v̄ / fresh g² | AUROC | 0 | P1 | 2 |
 | E34 | Forensic tokens | FTA (A12), tied vs untied × rare/frequent tokens | recall@k of batch tokens | 0 (CPU on snapshots) | BL/P3 | 3 |
@@ -373,7 +487,7 @@ The prediction, where one exists, is in the question or the readout.
 
 | ID | Question | Factors × levels | Readout | Cost | Paper | Pri |
 |---|---|---|---|---|---|---|
-| **E40** (C-4) | Repair bake-off | **ours:** undo (offline), REC (A1), QV (A2), CWB (A5), SCR (A8), PAR (A9), IAW (A10), selective β1 drop (A15), SAMS (A4). **Baselines:** band-clamp, Adam-MR, bias-correct Bg, Bg, Bvreset, Bvbar, SPAM, ZClip, AdaGC, StableAdamW, GradientStabilizer, OLMo 6σ skip, skip-step (oracle + detector), rollback-and-skip, Br, B0 | gap closed G at end of schedule; TOST vs the best baseline. **C-4:** state-only undo at a *detector-timed* lag must be non-inferior to the best non-oracle baseline **and** beat the OLMo 6σ skip-step on the same spikes. The niche spikes are sub-threshold multi-step `repeat_ngram` (width ≥ 3) and loss-detected spikes | ≈ 25 per instance | P1 | 2 |
+| **E40** (C-4) | Repair bake-off | **ours:** undo (offline), REC (A1), QV (A2), CWB (A5), SCR (A8), PAR (A9), IAW (A10), selective β1 drop (A15), SAMS (A4). **Baselines:** band-clamp, Adam-MR, bias-correct Bg, Bg, Bvreset, Bvbar, **REBUILD_M** (P0oFJZXAh8), **tail-entrant limiting** (pAjrfibDB9), SPAM, ZClip, AdaGC, StableAdamW, GradientStabilizer, OLMo 6σ skip, skip-step (oracle + detector), rollback-and-skip, Br, B0 | gap closed G at end of schedule; TOST vs the best baseline. **C-4:** state-only undo at a *detector-timed* lag must be non-inferior to the best non-oracle baseline **and** beat the OLMo 6σ skip-step on the same spikes. The niche spikes are sub-threshold multi-step `repeat_ngram` (width ≥ 3) and loss-detected spikes | ≈ 25 per instance | P1 | 2 |
 | E41 | Pareto curves | edit fraction × G; GPU-seconds × G | the Pareto frontier | 0 (re-score) | P1 | 2 |
 | E42 | Lag robustness | operators × τ ∈ {0, 3, 10, 30, 100} | G vs τ; SAMS vs fixed | 5 per operator | P1 | 2 |
 | E43 | Window misspecification | exact / detector-timed / ±2 steps | G loss | 3 | P1 | 3 |
@@ -486,6 +600,8 @@ These run as moderators of E10/E12/E40. Each cell runs the mediation sweep (6 fo
 ### B.14 Benchmark (P3)
 - **E140:** SpikeState v0. All P1 instances with (w, m, v, v̄), clean twins and oracle maps, plus Croissant + RAI
   metadata.
+  - **Privacy constraint:** optimizer state leaks the tokens it was trained on (seU1LYAiwm). Release only states
+    from public-data runs, and document the risk in the datasheet.
 - **E141:** a leaderboard protocol: localizer AUROC vs the oracle and repair-AUC on held-out instances.
 - **E142:** baseline submissions (every E31 localizer and every E40 repair).
 

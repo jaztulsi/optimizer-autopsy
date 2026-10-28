@@ -148,6 +148,81 @@ not as a claimed contribution.
 - **Order of AMD work for P1:** T0 gate → MVE with the 2×2 undo arms at τ ∈ {0, 10, 30} on `corrupt_batch` +
   `repeat_ngram` (width 3) + `v_inflate` → β1 arms → localization → C-4 battery.
 
+## 7 · Systematic OpenReview + OpenAlex pass (2026-10-23, second round)
+
+**Method.**
+- **OpenReview:** API v2 full-text search (`api2.openreview.net/notes/search`) on 10 queries, plus exact-title lookups.
+- **OpenAlex:** `title_and_abstract.search` since 2024 on 5 queries. This used the shared anonymous budget; no API key
+  was requested, because getting one means sending the user's email.
+- Titles were read first, then the abstracts of every plausible threat.
+- Still not exhaustive, because full texts weren't read.
+
+### 7.1 New threats (all public since 2026-09, so they count as prior work for ICML 2027)
+
+| Paper | Venue | What it does | Hits | Severity |
+|---|---|---|---|---|
+| **"Newer Is Not Always Better: The Joint Role of AdamW Moment Histories"** (OpenReview `P0oFJZXAh8`) | ICLR 2027 submission | Controlled AdamW moment transplants from 34M to 7B. A *newer m with an older v* is far more disruptive than an older coherent pair. Explained by **history coverage**: when v covers the gradients in m, a weighted Cauchy–Schwarz bound controls m/√v. Proposes REBUILD_M (keep v, re-accumulate m from zero); "1B/7B recovery with the original batches, schedules, and data cursors" | **C-2** (protective v is their coverage mechanism); K3 (transplants); K1 (aligned-cursor recovery at 1B/7B); the hybrid feasibility bound (#10) | **HIGH** |
+| **"Understanding and Mitigating AdamW Loss Spikes"** (OpenReview `pAjrfibDB9`) | ICLR 2027 submission | GPT-2 355M, **19 captured spike-onset states** with replay. The fraction of coordinates newly crossing \|u\| > 1 is 170× higher at onsets. **Selectively limiting new tail entrants beats global shrinking at equal norm.** "Replay favors **sustained over onset-only** control." The method (coordinate clip + tensor-relative growth constraint) gives zero post-warmup spikes at 774M | **C-1** (sustained > onset-only is a control-side version of "damage is written after the spike"); **C-3** (selective coordinates beat global at equal norm); RML; the spike-state capture instrument | **HIGH** |
+| **"Training-Data Leakage from Optimizer State in Resumable Checkpoints"** (OpenReview `seU1LYAiwm`) | ICLR 2027 submission | One checkpoint's optimizer state reveals which tokens or classes were trained on; the persistence is called "privacy memory". Two adjacent checkpoints → signed state differencing recovers the gradient, which enables gradient inversion | **A12 FTA / R3: TAKEN.** **SpikeState (K8) release risk:** releasing (w, m, v) snapshot pairs leaks training data | **HIGH** for A12; a **release-policy blocker** for P3 |
+| "Transport Instability Coordinates" (TIC; OpenReview `6BWFYVa5E3`) | ICML 2026 workshop poster | Ghost AdamW transitions from a frozen optimizer state as early-warning features; PolyPythias-410M audit | H9 detector baseline (already cited) | medium |
+| "Adam Moment Routing and Protection Strength in Continual Language Modeling" (OpenReview `mn75U33Dj6`) | ACL ARR Oct 2026 | Applies gradient protection to both moments vs m only vs the final update; m-only reduces forgetting ≈ 4% | Routing edits through m vs v (C-2 framing) | low |
+| "Arnold's Bifurcation Principle Applied to AdamW Training: … Early Warning of Second-Moment Collapse Preceding Loss Spikes" | 2026 (OpenAlex only; not on OpenReview) | Early warning of v collapse before spikes | H9 lower-tail detector | unread, so check before claiming H9 |
+| AdamMAD (Data Sci. Eng. 2026, doi 10.1007/s41019-025-00341-7) | journal | Second moment from the **mean absolute deviation** instead of g² | **BiH-Adam (A3):** a robust-scale v exists. Bipower/MedRV specifically is still not found | medium for A3 |
+
+### 7.2 What changes
+- **C-2 is no longer a novel mechanism.** "Newer Is Not Always Better" owns the coverage explanation and the
+  asymmetry. Reframe C-2 as an **out-of-sample test of the coverage theory on spike-poisoned states**: undo-v-only
+  creates exactly a "newer m, older v" pair. That is still confirmatory and still worth running, but say
+  "replicates and extends to spikes". Asadi 2306.17833 §4.3 (deep RL, β2 = 0.999) found a **v-only reset "quite
+  effective"**. That doesn't contradict us, because their m carried no spike, so coverage holds there. Cite it as the
+  boundary condition.
+- **C-1 must be positioned against "Understanding and Mitigating AdamW Loss Spikes".** Their claim is about
+  **immediate** loss and control effectiveness. Ours is the causal decomposition of **lasting held-out** damage into
+  the direct effect and the memory-written effect, with β1 identification. Use their "sustained > onset-only" result
+  as converging evidence.
+- **C-3's relative test** (signed > magnitude-only) remains distinct from their "tail entrants > global". Add their
+  tail-entrant selector as a **named baseline localizer**.
+- **A12 FTA → TAKEN.** Drop it as a contribution.
+- **SpikeState release:** publishing adjacent (m, v) snapshots enables gradient inversion on the training batches.
+  Release only snapshots from public-data runs (our nanoGPT stream; Pythia/Pile; OPEN-1B's public set), state the
+  privacy-memory risk in the datasheet, and never release states from private data.
+
+### 7.3 Asadi and SPAM (re-read)
+- **Asadi, Fakoor & Sabach, "Resetting the Optimizer in Deep RL: An Empirical Study", arXiv 2306.17833** [V].
+  - Alg. 1 resets i = 0, m = 0, v = 0.
+  - §4.3 / Fig. 5: m-only "is not effective"; v-only "is quite effective"; both is best (β2 = 0.999).
+- **SPAM 2501.06842** [V]: resets **both** m and v periodically; it has **no m-only or v-only ablation**. App. F says
+  resetting all moments beats keeping overlapping ones. Warmup is used "to mitigate potential instability caused by
+  momentum reset".
+
+Sources (added): [Newer Is Not Always Better](https://openreview.net/forum?id=P0oFJZXAh8) ·
+[Understanding and Mitigating AdamW Loss Spikes](https://openreview.net/forum?id=pAjrfibDB9) ·
+[Training-Data Leakage from Optimizer State](https://openreview.net/forum?id=seU1LYAiwm) ·
+[TIC](https://openreview.net/forum?id=6BWFYVa5E3) · [Adam Moment Routing](https://openreview.net/forum?id=mn75U33Dj6) ·
+[AdamMAD](https://doi.org/10.1007/s41019-025-00341-7) · [Asadi et al.](https://arxiv.org/html/2306.17833) ·
+[SPAM](https://arxiv.org/html/2501.06842)
+
+## 8 · Kill-search of the system-identification framing (M1–M4), 2026-10-23
+
+**Searches:**
+- 3 extended web searches: system ID / impulse-response of training; Adam "refractory" suppression after a large
+  gradient; two-spike interference.
+- 7 OpenReview API queries: impulse response of training; damage kernel; refractory optimizer; two-spike
+  interaction; antithetic gradient perturbation; intervention timing after a spike; rollback recovery window.
+
+| Idea | Verdict | Nearest work | Note |
+|---|---|---|---|
+| **M1 damage-writing kernel k(τ)** (undo-lag sweep, writing time) | **NEW** (medium confidence) | Liu & Li 2608.19762: a linearized *observation-time* response; #36730: "sustained over onset-only control"; #17880: "effects that outlast inherited moment differences" | No paper measures *when* lasting damage is written by sweeping the lag of a state-only undo. The closest are coarser or linearized |
+| **M3 refractory curve χ(Δt)** | **NEW as an instrument** (medium confidence); the qualitative effect is TAKEN | AdamMAD and folklore: large g² inflates v → smaller effective LR (stall); SPAM: spikes have a "prolonged" effect on moments | Measuring a phase-response curve with probe perturbations and checking it against 1/√(1 + x·β2^Δt) was not found |
+| **M4 two-spike interference** (same- vs opposite-sign) | **NEW** (medium confidence) | SPAM: spikes "accumulate" in momentum; Tang 2609.18314: the β1/β2 boundary for spiking | Nothing on the interaction term I(Δt) or on sign-dependent cancellation |
+| **M2 parity split** | **NEW in context** (low-medium confidence) | antithetic sampling and central differences (generic); Liu & Li (first-order signed response) | The technique is generic. The novelty is measuring the even (nonlinear) share of spike damage |
+| — | (related work, not a collision) | **"Spiking, Fast and Slow: The Anatomy of Loss Spikes in Language Model Pretraining"** (ICLR 2027 submission, OpenReview `ptNmbmCdj3`; record saved in `raw/openreview/spiking_fast_slow.json`) | Fast vs "time-bomb" spikes driven by LM-head logit growth × Adam's preconditioner under finite precision; mitigations act by reducing LM-head quantization error. That's a **cause** story (like Marin). Cite it in the cause-vs-carrier paragraph; our claim stays "carried and written by state" |
+| — | (related) | "Simulating Training Spikes of Deep Neural Networks by Layer-wise Random Feature Models" (arXiv 2610.13524) | A spike-simulation model. Unread; cite if relevant |
+
+**Bottom line.** The new P1 framing survives the kill-search. M1, M3 and M4 have no direct precedent in the
+corpus or in this pass. The labels stay "NEW (medium confidence, bounded search)", and the claim must rest on the
+measurement, not on the closed forms, which are credited to Patitucci & Mokhtari.
+
 Sources: [OPEN-1B](https://arxiv.org/html/2609.17380) · [Patitucci & Mokhtari](https://arxiv.org/html/2602.10204) ·
 [Ibrahim et al.](https://arxiv.org/html/2403.08763) · [Pythia](https://arxiv.org/html/2304.01373) ·
 [Wen et al.](https://arxiv.org/html/2410.05192) · [LayerCheck](https://arxiv.org/abs/2609.27193) ·

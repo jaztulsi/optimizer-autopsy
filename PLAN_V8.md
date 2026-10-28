@@ -132,31 +132,100 @@
 
 ## 2 · The project in one paragraph
 
-LLM pretraining loss spikes leave lasting damage. Today's fixes (clip, skip, reset, roll back) treat the optimizer
-as a black box, so nobody knows **how much of a spike's lasting damage is carried by the weights and how much by
-Adam's m and v, or for how long**. Using a bitwise-deterministic counterfactual fork harness (C1, built), we:
-- **measure** that split over time as a *damage-migration curve*;
-- **localize** the carrying coordinates with a causal group-testing oracle and cheap signed predictors (C2);
-- **repair** only those coordinates with a state-only retroactive deletion (the undo log) and a stability-certified
-  restoration (C3).
+LLM pretraining loss spikes leave lasting damage, and every standard fix (clip, skip, reset, roll back) acts at or
+before the spike step. We ask **who writes that damage**. Is it the spike step itself, or Adam's *memory* of the
+spike over the next ~1/(1−β) steps?
+- the **m-echo**, an extra push;
+- the **v-stall**, lost progress, though also protective.
 
-Then we test whether the measured laws transfer up a scale ladder to real released trunks.
+With a bitwise-deterministic counterfactual fork harness (C1, built), we identify Adam's **damage response** the
+way one identifies a physical system. We measure how much damage the memory writes at each lag, what part depends on
+the spike's sign, the refractory window a spike opens, and how two spikes interfere (§2.5). We then:
+- **localize** the coordinates that carry the memory-written damage (C2);
+- **undo** it retroactively with a reversible moment log, in the niche that step-time skip and clip cannot reach
+  (C3).
 
-**Headline claim (P1, to be tested):** most of a loss spike's lasting damage is written *after* the spike step, by
-Adam's memory of it. If that is false (direct ≫ indirect), it is a clean negative result: clip or skip at the spike
-step is enough.
+**Headline claim (P1, to be tested):** most of a loss spike's lasting damage is written *after* the spike step by
+Adam's memory of it, at a share ordered by β1.
 
-**Working titles (P1):**
-- *Most of a Loss Spike's Damage Is Done After the Spike: A Causal Mediation Autopsy of Adam* (the reviewer's
-  wording);
+**The null is still a result:** if direct ≫ indirect, acting at the spike step (clip or skip) is enough, and a
+retroactive state repair has no niche. We would report exactly that.
 
-**P1 reads as one story:** mediation (C-1, C-2) → where it sits (C-3) → how to undo it in the niche skip-step misses
-(C-4). Everything else goes to the appendix, P2 or P3. The invented algorithms and the full test matrix are in
-[`docs/EXPERIMENT_CATALOG.md`](docs/EXPERIMENT_CATALOG.md).
-- *Where Does a Loss Spike Live? …* (the earlier title).
+**Title (P1, adopted):** *The Afterlife of a Loss Spike: System Identification of How Adam's Memory Writes Lasting
+Damage*. The earlier "Where Does a Loss Spike Live?" is dropped.
 
-**Pivot built in:** if the state-carried share is ≈ 0 after about 50 steps, the paper reports "spike damage is
-weight-carried after k steps; state repair helps only inside the window". That is still a measured, useful result.
+**P1 reads as one story:** who wrote the damage (C-1, C-2) → how the two memory channels interact (C-3) → how to undo it in the niche
+skip-step misses (C-4). Everything else goes to the appendix, P2 or P3. The invented algorithms and the full test
+matrix are in [`docs/EXPERIMENT_CATALOG.md`](docs/EXPERIMENT_CATALOG.md).
+
+### 2.5 · Novelty core: identifying Adam's damage response (reviewed and slotted 2026-10-23)
+The mediation share stops being a single number. It becomes one readout of three quotable objects that bitwise forks
+make measurable: a **damage-writing kernel**, a **refractory period** and **spike interference**. Specs are in the
+catalog, Part A0; the reviewer's verdicts are in `13_reviewer_plan.md` §11. Novelty is judged against our corpus: no
+hard collisions.
+
+| ID | Measurement | Slot | Novelty vs the corpus, and the distinction to write | Key fix from the review |
+|---|---|---|---|---|
+| **M1** | Damage-writing kernel: cumulative D(τ), plus k(τ) = D(τ+1) − D(τ), "the lasting damage added by letting the memory act one more step, given the closed-loop path" | **C-1** | NEW. Liu & Li give when an effect is *observed* (output time, linearized); k(τ) gives when lasting damage is *written* (mediator time, exact). Cite #36730's "sustained > onset-only control" as a coarse precedent for τ½, and #17880 as converging evidence | Log grid τ ∈ {0, 1, 2, 4, 8, 16, 32, 64}. Cumulative D(τ) with CIs is primary. Pre-register the k(τ) family a·r^τ − (stall term) |
+| **M2** | Gradient-parity split (±G): Δ_odd vs Δ_even | exploratory, with its own figure | NEW as an instrument. It measures exactly where Liu & Li's linear signed operator fails (Δ_even) | **Clip-match the arms**: apply the +G arm's clip factor to both, or inject post-clip at the accumulated gradient. Pre-register "≫" as \|Δ_odd\| ≤ 0.2·Δ_even |
+| **M3** | Refractory period χ(Δt) from small probes | **supporting evidence for C-2** (not independent) | NEW as an instrument. The effect of inflated v is known qualitatively (Wortsman, SPAM) | Restrict or weight the probe to the dominated coordinates. Size P above the placebo spread. Loss-level χ ≠ update-level χ |
+| **M4** | Spike interference I(Δt), same vs opposite sign | **C-3** | NEW (nothing like it in the corpus) | Δt ∈ {2, 8, 32}. Pre-registered: I_opp < I_same for Δt ≤ 1/(1−r) ≈ 13. It equals the second-order kernel only for small G |
+| **M5** | Universal collapse vs the dose x̄ | **P2** | NEW (claim). Loss also needs scale-free curvature | **The dose metric is pre-registered now**: x̄ = Σ_i \|u_i(s)\|·x_i / Σ_i \|u_i(s)\|, the spike-step-update-weighted mean of x_i = (1−β2)G_i²/v̄_i. No metric shopping |
+| **M6** | Mediator-dynamics DiD (β changed only in the echo window) | **P1-stretch** | PARTIAL (A15; Tang is onset) | With bitwise forks the DiD *is* the exact interaction contrast, with no parallel-trends assumption. Bias-correction convention: the EMA uses the β in effect at each step, and the correction is 1 − Π_t β_t over the β's actually used |
+| **M7** | Dead time in natural spike trains | **P2** | PARTIAL (Tang's period; Bai's cycle) | Run it on the AMD host or in CI, never the Mac. Few natural spikes, so a weak hazard estimate |
+| **M8** | Staged repair (RML operator) | **exploratory** | PARTIAL | — |
+
+**Fork budget for P1-core** [A] (reviewer's count, converted by the builder at the 10× P100 scenario: ≈ 10 s per
+end-of-schedule proxy fork; 124M as in §8):
+- **Per instance:** ≈ 32 forks (M1 10 + C-2 4 + M3 4 + M4 12 + M2 2).
+- **Totals:**
+  - 30 core instances ≈ 960 forks;
+  - β1 arms ≈ 300;
+  - repair battery ≈ 360;
+  - ≈ 1,600 proxy forks ≈ 4.5 h.
+- **Plus:** 124M (n = 5 × 5 forks + its trunk) ≈ 6–7 h; T0 bring-up 3–5 h; proxy trunks < 0.5 h.
+- **Total ≈ 12–19 MI300X-h**, inside the ≤ 20 h core line.
+- **At the pessimistic 2× scenario** the proxy part is ≈ 5× more expensive. Then, in order: cut M3 to 2 Δt values, M4
+  to Δt ∈ {2, 8}, and 124M to n = 3. `step_timer` on day 1 decides.
+
+### 2.6 · Paper skeleton (P1), written backwards (drafted by the reviewer session)
+
+**Title:** *The Afterlife of a Loss Spike: System Identification of How Adam's Memory Writes Lasting Damage*
+
+**Placeholder abstract** (fill the brackets from Tab 2):
+> Loss spikes in LLM pretraining are handled at the spike step: clip it, skip it, or roll back. We ask who writes a
+> spike's *lasting* damage, the spike step or Adam's memory of it, and answer with system identification on a
+> bitwise-deterministic counterfactual fork harness. Undoing the spike's remaining contribution to Adam's moments at
+> increasing lags identifies a damage-writing kernel: [X]% [CI] of end-of-schedule held-out damage is written
+> *after* the spike step, within an action window of τ½ ≈ [Y] steps, and this share rises with β1 as a closed-form
+> echo law predicts. The two memory channels pull in opposite directions. The first moment's echo pushes the weights
+> further. The inflated second moment stalls learning (a refractory period of ≈ [Z] steps, measured directly with
+> probe perturbations) and also bounds the echo, so cleaning the second moment alone makes damage *worse*
+> ([W] vs [V] nats). Pairs of spikes interfere exactly as this channel structure predicts. Acting inside the window,
+> a reversible moment log recovers [R]% of the oracle while editing [E]% of coordinates, and beats skip-step on
+> multi-step data spikes that per-step rules miss. Results hold from 11M to 124M parameters and on a Pythia-160M
+> trunk. All thresholds were pre-registered.
+
+**Null version** (if C-1 fails, direct ≫ indirect): "…we find that [X]% of lasting damage is written at the spike
+step itself; Adam's memory adds little after τ ≈ [Y]. Spike handling therefore belongs at the spike step, and we
+quantify the window in which retroactive repair still helps." **Both versions stay in the repo**, so the result can't
+steer the framing.
+
+| # | Element | Shows | Experiment (forks per instance) | Gate / test |
+|---|---|---|---|---|
+| **Fig 1** | Damage-writing kernel: cumulative D(τ) with CIs, and the fitted k(τ), split into direct / m-echo / v-stall, per spike type | the C-1 headline; τ½ | M1, undo-m+v at τ ∈ {0, 1, 2, 4, 8, 16, 32, 64}, plus B0 and B\* (10) | G2; **C-1** |
+| **Fig 2** | Theory vs measurement across the β1 arms (0.8 / 0.9 / 0.95) and the G/ḡ doses | "the theory predicts the ordering before the run" | M1 on the β1 arms; κ doses | C-1 (ordering) |
+| **Fig 3** | Protective v: none / undo-m / undo-v / undo-m+v at τ ∈ {0, 10}; inset: refractory χ(Δt) vs its prediction | the C-2 sign; the v time course | undo arms at 2 τ (4); M3 at Δt ∈ {2, 8, 32} + P alone (4) | **C-2**; M3 supporting |
+| **Fig 4** | Spike interference I_same vs I_opp for Δt ∈ {2, 8, 32} | the channel structure, with no state patching | M4 (12) | **C-3** |
+| **Fig 5** | Repair Pareto (gap closed vs edit fraction vs GPU-s): RML vs OLMo 6σ skip, REBUILD_M, tail-entrant limiting, ZClip, AdaGC, SPAM, Adam-MR, band-clamp, on niche spikes | C-4 | repair battery (≈ 12) | **C-4** |
+| **Fig 6** | Scale: indirect share at proxy → mid → 124M (n = 5), plus Pythia-160M | external validity | M1 subset τ ∈ {0, 8, 64} (5) | G6 |
+| Tab 1 | Instrument validity: AMD noop Δ (in-process and cross-process, through spike windows), placebo spread, hybrid violations | credibility | T0/T1 | G0, G1, G3 |
+| Tab 2 | C-1…C-4 with CIs, Holm-adjusted, per spike type, never pooled | — | all | — |
+| App. | M2 parity (clip-matched); localization vs the oracle (exploratory); the pre-registration text and tag | exploratory | M2 (2) | BH |
+
+**Writing order** (it can start before the GPU; jaz to approve): related work (corpus 02–13) → method (harness,
+estimands, the M1/M3/M4 definitions) → pre-registration appendix → intro around the placeholder abstract. Results get
+filled in as gates pass. Reviewer simulation at week 8.
 
 ---
 
@@ -166,7 +235,7 @@ weight-carried after k steps; state repair helps only inside the window". That i
 |---|---|---|
 | C1 determinism and the fork `Δ==0` gate | ✅ CUDA-verified (T4 proxy; P100 124M at grad_accum = 40). **AMD untested** | `results/task4_*.json`, `task7_fork_gate.json`, `research/kaggle/step_timer_results.md` |
 | AMD MI300X | Provided by Avneh. **Not yet handed over to the build; nothing has run on it** | user, 2026-10 |
-| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` (`repeat_ngram`, `v_inflate`) and `test_spike_pipeline.py` are written but **uncommitted on local `main`** | `git status` |
+| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` (`repeat_ngram`, `v_inflate`) and `test_spike_pipeline.py` are written and **committed on local branch `plan-v8`** (826b03c; not pushed, never run) | `git log plan-v8` |
 | Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; never run on a GPU | `research/baselines/` |
 | Kill-test (Task 9) | Built and logic-tested. **Four instrument defects found** (§9.3); never run | `docs/improvement.md` A1–A8 |
 | Localizer (C2), repair (C3), theory | ⬜ unbuilt. The output contract is now defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
@@ -178,12 +247,28 @@ weight-carried after k steps; state repair helps only inside the window". That i
 
 | Paper | Venue (dates [UNV] until CFPs are out) | Core claim | Compute tier | Status |
 |---|---|---|---|---|
-| **P1** | **ICML 2027** (abstract ≈ Jan 16, paper ≈ Jan 22, 2027 [UNV]) | Damage migration across w/m/v with the β-identified law; causal oracle plus a signed localizer; undo log plus certified restoration beating strong baselines; 124M n = 5 and the Pythia-160M borrowed trunk | Tiers 0–2 (≈ 50–90 h) | planned |
+| **P1** | **ICML 2027** (abstract ≈ Jan 16, paper ≈ Jan 22, 2027 [UNV]) | Who wrote the damage. **C-1** mediation (the M1 kernel; β1-ordered indirect share); **C-2** protective v (2×2 undo arms + the M3 refractory curve); **C-3** spike interference (M4: I_opp < I_same for Δt ≤ 13, no state patching); **C-4** retroactive RML undo at detector lag vs the best baseline and the OLMo skip-step on niche spikes; 124M n = 5 on C-1 | P1-core ≤ 20 MI300X-h [A]; stretch +30–60 h | planned |
 | **P2** | **NeurIPS 2027 main** (≈ mid-May 2027 [UNV]) | *Scaling laws of optimizer-state damage*: out-of-sample predicted rungs; Pythia ladder to 2.8B–6.9B; μP/CompleteP collapse; natural spikes at ≥ 410M; SDC/bit-flip reliability; Muon / Adafactor / Adam-mini / AdEMAMix generality; RL fine-tuning and ViT transfer | Tier 3 (+ Tier 4) | planned |
-| **P3** | **NeurIPS 2027 datasets/benchmarks track** (the 2026 track wants Croissant + RAI metadata [V-snippet; being checked]) | **SpikeState**: ≥ 200 spike instances with (w, m, v, v̄) snapshots, clean twins, oracle maps and a leaderboard; plus the open autopsy toolkit (fork engine, undo-log wrapper, integrity scanner) | Tier 3 (reuse) | planned |
+| **P3** | **NeurIPS 2027 datasets/benchmarks track** (the 2026 track was "Evaluations & Datasets", with Croissant + RAI metadata [V]) | **SpikeState**: ≥ 200 spike instances with (w, m, v, v̄) snapshots, clean twins, oracle maps and a leaderboard; plus the open autopsy toolkit (fork engine, undo-log wrapper, integrity scanner). **Privacy:** optimizer state leaks training tokens (seU1LYAiwm), so release only public-data runs and document the risk | Tier 3 (reuse) | planned |
 | fallbacks | TMLR (rolling); ICLR 2027 / ICML 2027 workshops | any subset that is complete | any | — |
 
-**Rule:** P1 must be submittable on Tier 2 alone. P2 and P3 reuse P1's harness and every instance P1 produces.
+**Rule:** P1 must be submittable on **P1-core alone**: ≤ 20 MI300X-h [A]. That fits the 15 h ask and Avneh's
+~10 h comment. P2 and P3 reuse P1's harness and every instance P1 produces.
+- **P1-core:**
+  - T0/T1 validity;
+  - 2×2 undo × τ ∈ {0, 10, 30} × 3 spike types × n = 10, plus the M1 kernel on a subset;
+  - 3 β1 arms;
+  - the oracle + **no-HVP** localizers;
+  - RML + baselines;
+  - 124M n = 5 on C-1.
+- **P1-stretch (+30–60 h):**
+  - HVP-based pieces (λ-decomposition, SCR), the biggest engineering risk and needed by no confirmatory test;
+  - M2–M4;
+  - Pythia-160M.
+- **→ P2:** everything else.
+
+**GPU-delay rule:** each week of delay drops one stretch row, and the core is protected. If the GPU arrives after
+Dec 1, P1 moves to NeurIPS 2027, plus an ICML-workshop paper on C-1.
 
 ---
 
@@ -201,7 +286,13 @@ OpenAlex are still to query (open issue §13).
 > - deletion from optimizer memory (Stewart 2026 for L-BFGS; SWIFT's one-step Adam inversion);
 > - selective v clearing (Biswas 2026, toy setting);
 > - the single-spike Adam response (Patitucci & Mokhtari 2026);
-> - forking from released optimizer states (the Pythia paper).
+> - forking from released optimizer states (the Pythia paper);
+> - joint m/v history effects and aligned recovery up to 7B ("Newer Is Not Always Better", ICLR 2027 submission
+>   P0oFJZXAh8);
+> - spike-onset state capture and replay at 355M, and selective coordinate limiting beating global shrinking at
+>   equal norm, which is prior art for the selectivity premise of RML and the exploratory localizer ("Understanding and Mitigating AdamW Loss
+>   Spikes", pAjrfibDB9);
+> - optimizer-state data leakage (seU1LYAiwm).
 >
 > **What is new is the study and what it finds:**
 > - the first time-resolved, causal (w, m, v) decomposition of *LLM loss-spike* damage, with a bitwise counterfactual
@@ -215,8 +306,8 @@ OpenAlex are still to query (open issue §13).
 | # | Claim | Verdict | Closest prior work (most damaging first) | What we may safely claim |
 |---|---|---|---|---|
 | K1 | Counterfactual fork instrument on optimizer state (aligned B\*, bitwise gate) | PARTIAL | Pythia [2304.01373](https://arxiv.org/abs/2304.01373) §3.1 (resume from "a checkpoint and optimizer state" on "the exact same data" with an intervention: **the precedent for an aligned B\***); Megatron Core bitwise determinism (2026); OPEN-1B [2609.17380](https://arxiv.org/abs/2609.17380); Liu & Li paired forks [2608.19762](https://arxiv.org/abs/2608.19762); Gemini §3 replay | Interventions that edit stored m/v on real spikes, checked through spike windows. Claim the instrument's *use*, not determinism |
-| **K2** | **Mediation of spike damage over time** (direct vs memory-written; m-echo vs v-stall), with the w/m/v share curve as support | **PARTIAL** (the headline delta is the loss-space mediation on LLM spikes) | Patitucci & Mokhtari [2602.10204](https://arxiv.org/abs/2602.10204) Thm 3.3 (single-spike m/v dynamics; the r-law follows; they also run GPT-2 124M); Xu [2608.20442](https://arxiv.org/abs/2608.20442) (transplants); Chimera [2607.06628](https://arxiv.org/abs/2607.06628); Guo [2608.24593](https://arxiv.org/abs/2608.24593); Stewart [2605.17590](https://arxiv.org/abs/2605.17590); Ibrahim 2024 [2403.08763](https://arxiv.org/abs/2403.08763) App. A.4 (continual pretraining at a dataset switch, not spikes: inherited moments "quickly decay to 0", < 0.0044% after 1,000 steps); Tang [2609.18314](https://arxiv.org/abs/2609.18314) (β phase diagram for *onset*; ours is carry-over) | "The first causal, time-resolved mediation of LLM loss-spike damage into direct, m-echo and v-stall channels, with a bitwise instrument and β1-ordered predictions." **Ibrahim's decay is the null C-1 must beat** |
-| K3 | Poisoned-state transplant with dose-response | PARTIAL (near TAKEN for "state alone causes damage") | Xu 2026: m alone, with weights unchanged at the cut, carries the effect | "The first dose–response of spike-poisoned (m, v) on clean weights in pretraining" |
+| **K2** | **Mediation of spike damage over time** (direct vs memory-written; m-echo vs v-stall), with the w/m/v share curve as support | **PARTIAL** (the headline delta is the loss-space mediation on LLM spikes) | **Nearest to the headline itself:** #17880 P0oFJZXAh8 ("effects that outlast inherited moment differences", for transplants) and #36730 pAjrfibDB9 ("replay favors sustained over onset-only control"; timescale mismatch at onset), both [V-abstract]. Then: Patitucci & Mokhtari [2602.10204](https://arxiv.org/abs/2602.10204) Thm 3.3 (single-spike m/v dynamics; the r-law follows; they also run GPT-2 124M); Xu [2608.20442](https://arxiv.org/abs/2608.20442) (transplants); Chimera [2607.06628](https://arxiv.org/abs/2607.06628); Guo [2608.24593](https://arxiv.org/abs/2608.24593); Stewart [2605.17590](https://arxiv.org/abs/2605.17590); Ibrahim 2024 [2403.08763](https://arxiv.org/abs/2403.08763) App. A.4 (continual pretraining at a dataset switch, not spikes: inherited moments "quickly decay to 0", < 0.0044% after 1,000 steps); Tang [2609.18314](https://arxiv.org/abs/2609.18314) (β phase diagram for *onset*; ours is carry-over) | "The first causal, time-resolved mediation of LLM loss-spike damage into direct, m-echo and v-stall channels, with a bitwise instrument and β1-ordered predictions." **Ibrahim's decay is the null C-1 must beat** |
+| K3 | Poisoned-state transplant with dose-response | PARTIAL (near TAKEN for "state alone causes damage") | Xu 2026: m alone, with weights unchanged at the cut, carries the effect. P0oFJZXAh8: moment transplants across checkpoint ages, 34M–7B | "The first dose–response of *spike-poisoned* (m, v) on clean weights in pretraining" |
 | K4 | State-only retroactive deletion (undo log) and the direct/indirect split; plus its weight-side extension (counterfactual weight back-projection) | PARTIAL | SWIFT [2302.06173](https://arxiv.org/abs/2302.06173) (one step, weights included); Amnesiac ML [2010.10981](https://arxiv.org/abs/2010.10981) (subtract stored per-batch updates); DeltaGrad [2006.14755](https://arxiv.org/abs/2006.14755); Stewart 2026 (memory-only vs parameter-only deletion, L-BFGS) | "Closed-form Adam-moment window deletion as a mediation probe and repair." The weight side is **"echo-aware amnesiac subtraction for Adam"**: the batch's contribution includes its m/v-mediated future updates, and its open-loop error is measured against a bitwise skip fork |
 | K5 | Signed, support-limited localization vs a causal group-testing oracle | PARTIAL | SPAM (one-sided g²/v > θ); Guo 2026 (gradients through AdamW state); AtP\* [2403.00745](https://arxiv.org/abs/2403.00745); ACDC [2304.14997](https://arxiv.org/abs/2304.14997); Zhang–Bengio–Singer [1902.01996](https://arxiv.org/abs/1902.01996) (per-layer reset oracle) | The composite: a causal oracle over *optimizer-state* groups, with cheap signed predictors scored against it |
 | K6 | Stability-certified restoration | PARTIAL | Biswas 2026 (clearing excess v on the affected rows ≈ full reset; toy); GI-Adam [2406.09405](https://arxiv.org/abs/2406.09405) (edits v at init to lower preconditioned sharpness); Fong & Yang [2608.20638](https://arxiv.org/abs/2608.20638) | A post-spike, support-limited, signed v edit with a logged certificate. The threshold is **2/η for Bai's normalized Ĥ** (which absorbs (1−β1)/(1+β1)); raw D⁻¹H is 38/η (Cohen 2022). State which matrix every time |
@@ -226,7 +317,9 @@ OpenAlex are still to query (open issue §13).
 | K10 | Scale transfer of state damage (held-out-rung prediction) | PARTIAL | Wortsman 2023 small-scale proxies [2309.14322](https://arxiv.org/abs/2309.14322); Everett 2024; CompleteP 2025 | "A pre-registered held-out-rung prediction of spike damage shares". Don't call it a "scaling law" with fewer than 5 rungs |
 | — | Forking from released Pythia states | **TAKEN (a setting)** | Pythia [2304.01373](https://arxiv.org/abs/2304.01373) §3.1 | "We use Pythia's released states." Not a contribution |
 | — | Jump-robust shadow v | PARTIAL (estimator use looks new) | TAdam, AdaTerm, AdaShift (robust moments) | "The first bipower-variation jump share for Adam-state localization" |
-| — | Optimizer-state forensics (tokens from Δv) | PARTIAL (near TAKEN) | Melis 2019 [1805.04049](https://arxiv.org/abs/1805.04049) (embedding-row leakage from snapshot diffs); FILM; AEGIS 2026 | An optimizer-state channel. **Tied embeddings make every row non-zero via lm_head**: use the untied variant or a sparsity-robust contrast |
+| — | Optimizer-state forensics (tokens from Δv) | **TAKEN** | **"Training-Data Leakage from Optimizer State in Resumable Checkpoints"** (ICLR 2027 submission, OpenReview seU1LYAiwm, [V-abstract]): a single checkpoint's state reveals the tokens trained on, and differencing adjacent checkpoints recovers gradients. Also Melis 2019 [1805.04049](https://arxiv.org/abs/1805.04049); FILM; AEGIS 2026 | Not a contribution. **SpikeState release constraint:** release states only from public-data runs, and put the leakage risk in the datasheet |
+| — | Joint m/v history mismatch (newer m, older v) | **TAKEN** (mechanism) | "Newer Is Not Always Better" (P0oFJZXAh8, [V-abstract]) | Cite it; C-2 tests it out of sample on spikes |
+| — | Spike-onset coordinate tail entrants; selective limiting | **TAKEN** (for immediate control) | "Understanding and Mitigating AdamW Loss Spikes" (pAjrfibDB9, [V-abstract]) | An exploratory-localization and C-4 baseline; our delta is the lasting-damage mediation |
 | — | Integrity scan of `optimizer.pt` | PARTIAL (the invariant is stated in Patitucci & Mokhtari Remark 3.1) | — | A cheap *necessary* check. Not a defense against an adaptive adversary (our own v-reset baselines fail it legitimately) |
 | — | Spike phase × cooldown | PARTIAL | Wen 2024 [2410.05192](https://arxiv.org/abs/2410.05192) ("decaying near a loss spike can lead to a significant performance loss") | The causal w/m/v decomposition vs schedule phase |
 | — | "Spikes are availability attacks on state" | framing only | Altenbernd; Bai; Xu; Shumailov 2021 | A taxonomy for the discussion section. Claim no novelty |
@@ -407,8 +500,17 @@ It passes if the observations fall inside the 95% prediction interval.
   - **`Bg` and `Bvreset` keep Adam's step counter.** Their first post-reset updates are therefore about 4.5× too
     large at β2 = 0.95 (documented in reset.py). V8 adds **Adam-MR** (also reset `state["step"]`) and a
     **bias-correct `Bg`** as the fair versions.
-  - **Still to write (baselines owner):** Adam-MR / bias-correct Bg; band-clamp; step-counter-only control; `Br`
-    (matched in support and energy); StableAdamW; GradientStabilizer; OLMo 6σ skip; rollback-and-skip.
+  - **Still to write (baselines owner):**
+    - Adam-MR / bias-correct Bg;
+    - band-clamp;
+    - step-counter-only control;
+    - `Br` (matched in support and energy);
+    - StableAdamW;
+    - GradientStabilizer;
+    - OLMo 6σ skip;
+    - rollback-and-skip;
+    - **REBUILD_M** (keep v, re-accumulate m from 0; P0oFJZXAh8);
+    - **new-tail-entrant limiting** (pAjrfibDB9).
   - **Muon caveat:** `zero_moments` silently skips params with no `exp_avg`, so Bg would do nothing on Muon's
     `momentum_buffer` (T3).
 
@@ -456,10 +558,48 @@ among themselves:
 
 | ID | Confirmatory test | Prediction | Refuted if |
 |---|---|---|---|
-| **C-1 mediation** | Indirect (post-spike, state-written) share of end-of-schedule held-out Δ. It subsumes H1: if the state wrote damage after the spike, the state carried it | CI excludes 0 for ≥ 1 data-driven spike type, **and** the share rises monotonically across the β1 arms (0.8 < 0.9 < 0.95) | CI ∋ 0 for all types, or a non-monotone order |
-| **C-2 protective v** | Undo-v-only vs B0 vs undo-m+v | Δ(undo-v-only) ≥ Δ_B0 (cleaning v while m's echo stays is *worse* than nothing), while Δ(undo-m+v) < Δ_B0 | Δ(undo-v-only) < Δ_B0 |
-| **C-3 localization (relative)** | Signed predictor vs the magnitude-only control, AUROC against the causal oracle, paired over instances | Δ AUROC ≥ 0.05 | CI ∋ 0 |
-| **C-4 retroactive repair** | State-only undo at a **realistic, detector-timed lag** vs (a) the best non-oracle baseline and (b) the OLMo 6σ skip-step **on the same spikes** | Non-inferior to (a); better than (b) | Either fails |
+| **C-1 mediation, via the M1 damage-writing curve** | Cumulative D(τ) on the log grid τ ∈ {0, 1, 2, 4, 8, 16, 32, 64}. Its integral Δ_B0 − D(0) is the indirect (memory-written) share of end-of-schedule held-out Δ. Pre-registered family for k(τ): a·r^τ (m-echo) minus a v-stall term | Indirect share CI excludes 0 for ≥ 1 data-driven spike type, **and** it rises monotonically across the β1 arms (0.8 < 0.9 < 0.95). The τ½ ordering is secondary | CI ∋ 0 for all types, or a non-monotone order |
+| **C-2 protective v.** An out-of-sample test of history coverage (anonymous ICLR 2027 #17880, P0oFJZXAh8) on spike-poisoned states, a perturbation class its abstract doesn't cover | Undo-v-only vs B0 vs undo-m+v (the sign test). M3's refractory curve is **supporting evidence only**: it measures the v-channel's time course (stall cost), not the sign of the protection benefit | Δ(undo-v-only) ≥ Δ_B0 (cleaning v while m's echo stays is *worse* than nothing), while Δ(undo-m+v) < Δ_B0 | Δ(undo-v-only) < Δ_B0 |
+| **C-3 interference (M4), channel split without state patching** | Two planted spikes at Δt ∈ {2, 8, 32}, same sign (+G, +G) vs opposite sign (+G, −G). I(Δt) = Δ(both) − Δ(first) − Δ(second). No state is patched, so it is immune to the off-manifold / coverage critique of the undo arms | Derived from the r-law: the m-echo writes most of the drift, and opposite-sign pairs cancel echoes while v adds. So **I_opp(Δt) < I_same(Δt) for Δt ≤ 1/(1−r) ≈ 13** | I_opp ≈ I_same (stall-dominated), or the order reverses |
+| **C-4 retroactive repair** | State-only undo (RML) at a **realistic, detector-timed lag** vs (a) the best non-oracle baseline (including pAjrfibDB9's tail-entrant limiting and P0oFJZXAh8's REBUILD_M) and (b) the OLMo 6σ skip-step **on the same spikes** | Non-inferior to (a); better than (b) | Either fails |
+
+**Localization (formerly C-3) is now exploratory.** It has the weakest remaining novelty and the heaviest engineering
+(the oracle), and no confirmatory test depends on it. The single-comparator rule still applies, for its exploratory
+report.
+
+**Prior work that reshapes C-1 and C-2** (three ICLR 2027 submissions, public since Sept 2026, so prior work for ICML
+2027).
+- **Status:** [V-abstract]. The OpenReview API records (title, abstract, TLDR, keywords, submission numbers #17880
+  and #36730) are saved in `master-research/raw/openreview/*.json` (git-excluded), and both sessions read them.
+- **Full texts are blocked** by OpenReview's browser check, so **jaz must read them in a browser** (§13).
+- **Two abstract lines that sit close to us:**
+  - P0oFJZXAh8: "extended continuations reveal effects that outlast inherited moment differences". We read that as
+    memory-written lasting damage, but for checkpoint transplants, not spikes [I].
+  - pAjrfibDB9: "Mismatched first- and second-moment time scales can let momentum outpace its normalization,
+    amplifying the adaptive update".
+    - Their cause, the β1-vs-β2 timescale mismatch, is the same quantity as our r = β1/√β2. A reviewer will say our
+      β1 ordering is anticipated.
+    - **Answer:** their mismatch concerns spike *onset* and immediate loss. Our β1 ordering predicts the post-spike,
+      memory-written share of *lasting* Δ.
+- **Our delta stays** the causal decomposition of a spike's *lasting* held-out damage into direct, m-echo and
+  v-stall, with β1 ordering.
+- **"Newer Is Not Always Better: The Joint Role of AdamW Moment Histories"** (OpenReview P0oFJZXAh8).
+  - **What it shows:** moment transplants from 34M to 7B. A newer m with an older v is far more disruptive, explained
+    by **history coverage** (v must cover m's gradients; a weighted Cauchy–Schwarz bound on m/√v). REBUILD_M keeps v
+    and re-accumulates m. Aligned recovery at 1B/7B with "the original batches, schedules, and data cursors".
+  - **What it means for us:** C-2's mechanism is theirs. Undo-v-only creates exactly their newer-m/older-v pair, so
+    C-2 is **an out-of-sample test of their mechanism on spike-poisoned states**. Also cite them for K1 (aligned
+    recovery), K3 (transplants) and the feasibility bound.
+- **"Understanding and Mitigating AdamW Loss Spikes"** (pAjrfibDB9).
+  - **What it shows:** GPT-2 355M, 19 captured spike-onset states plus replay. Coordinates newly crossing |u| > 1 are
+    170× more frequent at onsets. Selectively limiting new tail entrants beats global shrinking at equal norm.
+    "Replay favors sustained over onset-only control".
+  - **What it means for us:** for C-1, theirs is *immediate* loss and control effectiveness; ours is the causal
+    direct/memory decomposition of *lasting* held-out Δ, with β1 identification. Their sustained > onset result is
+    converging evidence. Their selector is an exploratory-localization baseline, and their method a C-4 baseline.
+- **Asadi 2023** (2306.17833, deep RL, β2 = 0.999). m-only reset "not effective", v-only "quite effective", both
+  best. It doesn't contradict C-2: their m carried no spike, so coverage held. Cite it as the **boundary condition**.
+  SPAM has no m-only or v-only ablation.
 
 **C-4's niche must actually be in the spike menu.** If a grad-norm skip-step at the spike step catches every spike,
 damage never enters the state and a retroactive tool has no job. So the menu includes:
@@ -481,7 +621,7 @@ experiment.
 | H6 undo asymmetry | Undo fixes data-driven spikes, not LR-driven ones | ≥ 0.7 of oracle recovery on `corrupt_batch` (lag ≤ 5); < 0.2 on `lr_bump` | either reverses |
 | **H7 PRIMARY** | Selective repair matches or beats the best baseline while editing little | Non-inferior; G ≥ 0.5; ≤ 10% of coordinates edited | TOST fails |
 | H8 scale | The H1 sign holds up the ladder | mid rung CI > 0; same sign at 124M (n = 5) | sign flips |
-| H9 detector | The lower-tail NIS gives lead time on decay-stage spikes | median lead ≥ 1 step at conformal FP ≤ 0.05 | no lead |
+| H9 detector | The lower-tail NIS gives lead time on decay-stage spikes. **Threat:** "Arnold's Bifurcation Principle … Early Warning of Second-Moment Collapse Preceding Loss Spikes" (2026, OpenAlex only, unread); read it before claiming anything | median lead ≥ 1 step at conformal FP ≤ 0.05 | no lead |
 | **H10** anti-windup | Post-spike drift on dominated coordinates saturates at D(β1, β2)·η once G/ḡ ≫ 1/√(1−β2), so it is clip-invariant in that regime. **Harm is collective**, so measure it as the drift's projection onto ∇L_val and Bai's top-Ĥ directions, not per-coordinate \|Δw\| (reviewer) | per-coordinate drift within ±20% of 5.84η / 10.47η / 31.8η; projected harm saturates with G | no saturation |
 | **H11** SDC split | Undo fixes `sdc_grad`. The parity residual flags `v_bitflip`. v *up*-flips cause no loss spike; v *down*-flips do | ≥ 0.8 / ≥ 0.95 / ≥ 90% silent (up-flips) | any reverses |
 | **H12** protection | The integrated v-excess on written rows predicts self-recovery time (R20; read Biswas in full first) | Spearman ≥ 0.5 | ρ ≤ 0 |
@@ -558,7 +698,7 @@ Costs are MI300X-hours. The working assumptions [A] are:
 | G1 harness sanity | T1 | `v_inflate`: v main effect ≥ 0.8 of Δ at τ = 1; violations ≈ 0 | fix the harness first |
 | G2 headline | T1 | H1 CI excludes 0 for ≥ 1 data-driven type at τ = 10 | negative-result framing (§2 pivot); keep building |
 | G3 placebo | T1 | placebo spread ≤ ½ the median \|Δ_B0\| | raise K; lengthen the horizon |
-| G4 localizer | week 5 | AUROC vs S\* ≥ 0.7 | λ-decomposition or jump share leads |
+| G4 interference sanity (replaces the old localizer gate, which is now exploratory and non-gating) | week 5 | I_same(Δt = 2) < 0 on ≥ 1 spike type | check the M4 harness before reading C-3. The localizer AUROC ≥ 0.7 is reported, not gating |
 | G5 repair | week 7 | H7 non-inferiority | measurement-led P1 |
 | G6 scale | week 8 | mid-rung sign matches | narrow the claim |
 | G7 held-out law | week 9 | H13 inside the PI | report the exponent as the finding |
@@ -702,7 +842,7 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 | 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B | spike (jaztulsi) + harness |
 | 2 | Nov 2 | T1 MVE → G1–G3 | spike |
 | 3–4 | Nov 9–20 | Realistic proxy + mid rung; QK-Norm / untied; β cross; SDC recipes; stress re-search | spike + baselines (Eddie) |
-| 5–6 | Nov 23–Dec 4 | Oracle + localizers → G4; Pythia converter + census (G8) | C2 owner [TBD] |
+| 5–6 | Nov 23–Dec 4 | M4 interference + M3 refractory forks → G4; oracle/localizers only if ahead (exploratory); Pythia converter + census (G8) | C2 owner [TBD] |
 | 7–8 | Dec 7–18 | Repairs + full baseline battery → G5; E1 scaling-law fit | C3 owner [TBD] + Eddie |
 | 9 | Dec 21 | 124M n = 5; Pythia-160M; G6/G7 | spike |
 | 10 | Dec 28 | Buffer, reruns, figures | all |
@@ -725,9 +865,46 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 | Concurrent work | Re-run the kill-searches monthly; the ~2026-11-22 concurrent-work cutoff from wave 1 [I] |
 | Bus factor 1 (spike role) | Assign C2/C3 owners in week 1 |
 
+### 12.5 · Anticipated objections and where the paper answers them (drafted by the reviewer session)
+
+| # | Objection | Answer (where) |
+|---|---|---|
+| 1 | "Proxy scale; spikes are induced" | Fig 6 (124M n = 5; Pythia-160M). `repeat_ngram` is a data-driven, OLMo-class cause. Scope is stated in the limitations |
+| 2 | "Concurrent work did this" (#17880, #36730; Liu & Li) | #36730 = onset / immediate loss / control; #17880 = checkpoint-recovery coverage; Liu & Li = a linearized *observation-time* response. Ours = the exact *writing-time* kernel of *lasting* spike damage, with β1 predictions and channel interference |
+| 3 | "The kernel is a tautology (telescoping)" | The identity only guarantees the total. The claims are about the *shape* (r^τ echo minus a stall term), the β1 ordering and τ½, all pre-registered before data (Fig 1, Fig 2) |
+| 4 | "The undo arms create off-manifold states (the coverage critique)" | Hybrid violation rates are reported (Tab 1). Undo-m+v removes both channels coherently. **C-3 (interference) uses no state patching** and tests the same channel structure independently (Fig 4) |
+| 5 | "±G injection is unphysical" | +G is the measured corrupt-batch gradient delta (data-derived). −G is its planted mirror, a probe for mechanism, not a claim of prevalence. Both arms are clip-matched |
+| 6 | "The effect is chaos, not causation" | Placebo replicates (1-ulp); effects must exceed the placebo spread (Tab 1, G3) |
+| 7 | "Is determinism on AMD real?" | G0: cross-process noop Δ through spike windows, or the pre-registered tolerance measured *in* spike windows (Tab 1) |
+| 8 | "Why not just skip-step?" | C-4 tests exactly this on spikes that per-step rules miss (multi-step, loss-detected), same instances (Fig 5) |
+| 9 | "The theory is trivial EMA algebra" | The closed form is credited (Patitucci & Mokhtari Thm 3.3). The contribution is the *loss-space* test of its predictions: ordering across β1, refractory recovery time, interference sign |
+| 10 | "Loss ≠ weight drift, so the r-law prediction is loose" | Pre-registered as a *direction* (ordering), not a value. Measured vs predicted is plotted honestly (Fig 2) |
+| 11 | "Cost vs rollback" | Fig 5's GPU-s axis; RML is O(\|flagged\|) memory and FLOPs |
+| 12 | "Thresholds chosen after the fact" | Git tag `prereg-v1` before T1 (+ OSF if jaz approves); the null-version abstract is kept in the repo |
+| 13 | "Small n" | n is locked from a pilot SD (n = max(10, ⌈8.6(σ̂/δ)²⌉)); data-order seeds; a mixed model; never pooled across types |
+| 14 | "Results depend on the horizon" | Primary = end of schedule; Δ(h) curves in the appendix |
+
 ---
 
 ## 13 · Open issues and sign-offs
+- **MUST-READ for jaz, in a browser** (both Claude sessions are blocked by OpenReview's browser check). Save each
+  PDF into `master-research/raw/openreview/`.
+  1. **pAjrfibDB9**, "Understanding and Mitigating AdamW Loss Spikes" (#36730). Do the replay sections measure
+     *lasting* held-out Δ per spike? If yes, C-1 must be re-scoped. The abstract only scores "immediate loss".
+  2. **P0oFJZXAh8**, "Newer Is Not Always Better" (#17880). Does it include any spike-poisoned states? If yes, C-2
+     becomes a pure replication.
+  3. **seU1LYAiwm**, the optimizer-state leakage paper. What is the threat model? It sets the SpikeState release
+     policy.
+  4. **Biswas**, NeurIPS 2026 OPT workshop (OpenReview VJFfO4tLMB): the exact protection law (H12, A9).
+  5. **"Arnold's Bifurcation Principle … Early Warning of Second-Moment Collapse Preceding Loss Spikes"** (2026,
+     found on OpenAlex). Check it before claiming H9.
+- **Jaz decides (the agents wait):**
+  - **(a) Build the code now?** The critical path, all writable and CI-testable before the GPU, never run locally:
+    eval.val_loss → RML/undo → mve driver → stats → oracle → localizers.
+  - **(b) Pre-registration:** a git tag `prereg-v1` on §7.0/§7.2 before T1, plus an OSF/AsPredicted entry (an
+    external action).
+  - **(c) Owners** for C2/C3, stats and writing.
+  - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6).
 - **Team sign-off** on §7.2 thresholds, §9.4 changes and C2/C3 owners.
 - **Read in full before writing:**
   - Xu 2026 and Xie 2026 (abstract-level only so far);
@@ -814,7 +991,7 @@ kill-searched.
 | #3 | Decoy-augmented planted benchmark | NEW | Core |
 | W1 | Jump/continuous split of v (bipower shadow v; jump share) | NEW | Core |
 | W3 | Windup score prior (+ band-clamp baseline) | PARTIAL | Core |
-| R3 | Forensic recovery of offending tokens from Δlog v of wte rows | NEW for spikes | Core |
+| R3 | Forensic recovery of offending tokens from Δlog v of wte rows | TAKEN (seU1LYAiwm; Melis 2019) | BL (privacy note only) |
 | R5 | Frequency-calibrated reference v for embedding rows | PARTIAL | Core |
 | R16 | Universal poison sites across seeds and rungs | PARTIAL | Scale |
 | R29 | Streaming Count-Sketch localization | NEW | Scale |

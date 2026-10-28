@@ -27,7 +27,7 @@
 
 <header><div class="wrap">
   <div class="eyebrow">Research plan · PLAN V8 · 2026-10-22 · AMD MI300X · ICML 2027 → NeurIPS 2027</div>
-  <h1>Where does a loss spike live? Measure it, localize it, undo it.</h1>
+  <h1>The afterlife of a loss spike: how Adam's memory writes lasting damage, and how to undo it.</h1>
   <p class="sub">When an LLM's loss spikes, every standard fix (clip, skip, reset, roll back) treats the optimizer as a black box. <strong>Optimizer Autopsy</strong> measures how much of a spike's <strong>lasting</strong> damage is carried by the weights versus Adam's <strong>m</strong> and <strong>v</strong>, and how fast it migrates between them. It then finds the coordinates that carry it and repairs only those. Every claim is checked against a <strong>bit-identical counterfactual replay</strong>.</p>
   <div class="hero-meta">
     <span class="chip">Instrument <b>built · CUDA-verified Δ = 0</b></span>
@@ -109,7 +109,9 @@
   <div class="tbl-scroll"><table>
     <tr><th>Claim</th><th>Verdict</th><th>Closest prior work</th></tr>
     <tr><td>Damage-migration curve for spikes (w/m/v shares vs time, β-identified)</td><td class="pct mid">PARTIAL · headline</td><td>Xu 2026 (state transplants) · Chimera 2026 · Guo 2026 · Ibrahim 2024 ("state washes out" at β2 = 0.95, which we pre-register as the null to beat)</td></tr>
-    <tr><td>Dose–response of spike-poisoned state on clean weights</td><td class="pct mid">PARTIAL</td><td>Xu 2026 (m alone carries a trait)</td></tr>
+    <tr><td>Dose–response of spike-poisoned state on clean weights</td><td class="pct mid">PARTIAL</td><td>Xu 2026 (m alone carries a trait) · "Newer Is Not Always Better" (ICLR 2027 submission: moment transplants and history coverage, 34M–7B)</td></tr>
+    <tr><td>"Poisoned v is protective" (cleaning v alone is worse than nothing)</td><td class="pct mid">out-of-sample test</td><td>History-coverage theory in "Newer Is Not Always Better"; boundary condition from Asadi 2023</td></tr>
+    <tr><td>Lasting-damage mediation (vs immediate spike control)</td><td class="pct mid">PARTIAL</td><td>"Understanding and Mitigating AdamW Loss Spikes" (ICLR 2027 submission: onset capture and replay, 355M)</td></tr>
     <tr><td>Signed localization in m/v vs a causal group-testing oracle</td><td class="pct mid">PARTIAL</td><td>SPAM (one-sided g²/v test) · AtP* · ACDC · per-layer reset oracles</td></tr>
     <tr><td>Stability-certified restoration of v</td><td class="pct mid">PARTIAL</td><td>Biswas 2026 (toy task: clearing excess v on affected rows ≈ full reset) · GI-Adam (v at init)</td></tr>
     <tr><td>Window deletion from Adam's moments (undo log)</td><td class="pct mid">PARTIAL</td><td>SWIFT, TPDS 2024 (one-step inversion) · Stewart 2026 (memory-only deletion, L-BFGS)</td></tr>

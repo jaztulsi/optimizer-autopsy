@@ -2,7 +2,8 @@
 
 # Optimizer Autopsy
 
-**Where does a loss spike live? Rewind the run, measure where the damage sits, localize it, undo it, prove it.**
+**The afterlife of a loss spike: system identification of how Adam's memory writes lasting damage, and how to undo
+it.**
 
 A causal autopsy of Adam's optimizer state at the moment an LLM's training loss spikes. Bit-identical
 counterfactual replay is the standard of proof. The instrument is built and was GPU-verified on CUDA. The science
@@ -42,10 +43,16 @@ memory of it.
   drift. This follows from Patitucci & Mokhtari's 2026 single-spike analysis.
 - **The stall:** the inflated v also *stalls* ordinary learning for tens of steps.
 - **The sharp prediction:** that same inflated v is *protective*, because it keeps the echo bounded. So cleaning v
-  alone should make things worse than doing nothing.
+  alone should make things worse than doing nothing. This is an out-of-sample test, on spikes, of the
+  "history-coverage" account in a concurrent ICLR 2027 submission.
 
-We measure the real shares by undoing the spike's contribution to m, v or both at increasing lags. If the indirect
-share is small, clipping or skipping at the spike step is enough, and that is worth knowing too.
+We measure this as one would identify a physical system:
+- a **damage-writing kernel** (how much lasting damage the memory writes at each lag after the spike);
+- a **refractory period** (how a spike blunts the effect of what comes next);
+- **spike interference** (two spikes of the same vs opposite sign).
+
+If the memory-written share is small, clipping or skipping at the spike step is enough, and that is worth knowing
+too.
 
 1. **Where does the damage live?** We fork a spiked run (B0) and its data-aligned clean twin (B\*) from the same
    snapshot. At a cut time after the spike, we build all 2³ cross-world hybrids `(w, m, v) ∈ {B0, B*}³` and train
@@ -103,7 +110,8 @@ Localizers are scored against a causal oracle, and repairs must beat the stronge
 | Ours (the study's claims) | Precedent we build on and cite |
 |---|---|
 | Time-resolved w/m/v damage shares for LLM spikes, β1×β2-identified | State transplants (Xu 2026; Chimera 2026; Guo 2026); "state washes out" (Ibrahim 2024) |
-| Dose–response of spike-poisoned (m, v) on clean weights | m alone carries a trait (Xu 2026) |
+| Dose–response of spike-poisoned (m, v) on clean weights | m alone carries a trait (Xu 2026); moment transplants and history coverage, 34M–7B ("Newer Is Not Always Better", ICLR 2027 submission) |
+| Lasting-damage mediation, as opposed to immediate control | Spike-onset capture and replay; selective tail-entrant limiting at 355M ("Understanding and Mitigating AdamW Loss Spikes", ICLR 2027 submission) |
 | Localization inside stored m/v scored against a causal group-testing oracle | SPAM's g²/v test; AtP\*; ACDC; per-layer reset oracles |
 | Post-spike stability-certified restoration of v, with both poison signs | Selective-v clearing, toy task (Biswas 2026); v edits at init (GI-Adam) |
 | Window deletion from Adam's moments as a mediation probe and repair | One-step Adam inversion (SWIFT, TPDS 2024); memory-only deletion for L-BFGS (Stewart 2026) |
