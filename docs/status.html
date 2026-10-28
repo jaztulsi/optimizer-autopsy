@@ -41,6 +41,13 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-top:6px}
 .d-ok{background:var(--ok)} .d-wip{background:var(--wip)} .d-todo{background:var(--todo)}
 .key{display:flex;gap:16px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+nav{display:flex;gap:14px;flex-wrap:wrap;font-size:.9rem} nav a{color:var(--fg)}
+.people{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 14px}
+.people table{min-width:860px} .people th{text-align:left;font-size:.8rem;color:var(--muted);padding:8px 8px 6px 0;letter-spacing:.03em;text-transform:uppercase}
+.people td{padding:10px 10px 10px 0} .people td:first-child{width:auto;min-width:110px}
+.pill{display:inline-block;font:600 .75rem var(--mono);padding:1px 7px;border-radius:10px;white-space:nowrap}
+.p-ok{background:var(--ok-bg);color:var(--ok)} .p-wip{background:var(--wip-bg);color:var(--wip)} .p-todo{background:var(--todo-bg);color:var(--todo)}
+ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -52,14 +59,99 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 </header>
 
 <section class="strip" aria-label="Progress summary (estimates)">
-  <div class="meter"><b>~60%</b><span>Code needed for P1</span><div class="bar"><i style="width:60%"></i></div></div>
+  <div class="meter"><b>0 / 4</b><span>Confirmatory claims with evidence (C-1…C-4); one exploratory hint</span><div class="bar"><i style="width:0%"></i></div></div>
+  <div class="meter"><b>~6 / 25</b><span>Modules validated on a GPU (most code is written but unproven)</span><div class="bar"><i style="width:24%"></i></div></div>
   <div class="meter"><b>T0 ✓ · T1 pilot ✓</b><span>GPU ladder (T0–T4)</span><div class="bar"><i style="width:20%"></i></div></div>
   <div class="meter"><b>~3 / 60 h</b><span>GPU-hours toward P1 (T0–T2)</span><div class="bar"><i style="width:5%"></i></div></div>
   <div class="meter"><b>0%</b><span>Paper writing</span><div class="bar"><i style="width:0%"></i></div></div>
-  <div class="meter"><b>~25%</b><span>Overall toward P1 (estimate)</span><div class="bar"><i style="width:25%"></i></div></div>
+  <div class="meter"><b>~10%</b><span>Overall toward a strong P1, measured by evidence, not lines of code</span><div class="bar"><i style="width:10%"></i></div></div>
 </section>
 
+<nav aria-label="Sections"><a href="#order">Run order</a><a href="#people">Contributors</a><a href="#work">Work left</a><a href="#map">Dependency map</a><a href="#ledgers">Done and backlog</a></nav>
+
+<section id="order">
+<h2>Run order for the next MI300X session</h2>
 <figure>
+<div class="scroll">
+<svg viewBox="0 0 1080 300" role="img" aria-label="Eight stages run in order, each gated by the previous one: environment, model sanity, instrument checks, Eddie's baselines, the placebo floor, the prereg-v2 main run, the repair battery, then Avyank's HVP check once his PR is fixed.">
+<defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>
+<g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
+<g stroke-width="1.5">
+<rect class="wip" x="10" y="20" width="240" height="96" rx="6"/><rect class="ok" x="280" y="20" width="240" height="96" rx="6"/>
+<rect class="wip" x="550" y="20" width="240" height="96" rx="6"/><rect class="ok" x="820" y="20" width="250" height="96" rx="6"/>
+<rect class="ok" x="10" y="180" width="240" height="96" rx="6"/><rect class="wip" x="280" y="180" width="240" height="96" rx="6"/>
+<rect class="ok" x="550" y="180" width="240" height="96" rx="6"/><rect class="todo" x="820" y="180" width="250" height="96" rx="6"/></g>
+<g font-weight="700"><text x="22" y="42">0 · Environment · 5 min</text><text x="292" y="42">1 · Model sanity · 5 min</text>
+<text x="562" y="42">2 · Instrument · 10 min</text><text x="832" y="42">3 · Eddie's baselines · 10 min</text>
+<text x="22" y="202">4 · Chaos floor · 15 min</text><text x="292" y="202">5 · prereg-v2 main · ~80 min</text>
+<text x="562" y="202">6 · Repair battery · ~25 min</text><text x="832" y="202">7 · Avyank's HVP · 5 min</text></g>
+<text x="22" y="64">GPU visible; pinned torch 2.10</text><text x="22" y="82">container or bump the pins</text><text x="22" y="104" font-size="11">needs: your decision on pins</text>
+<text x="292" y="64">trunk trains (loss falls);</text><text x="292" y="82">fork self-check + proxy gate</text><text x="292" y="104" font-size="11">ready</text>
+<text x="562" y="64">cross-process gate; capture</text><text x="562" y="82">self-check (after eps fix)</text><text x="562" y="104" font-size="11">needs: 1-line fix in capture.py</text>
+<text x="832" y="64">SPAM, ZClip, AdaGC, skip-step</text><text x="832" y="82">run + replay bitwise</text><text x="832" y="104" font-size="11">ready (never GPU-run yet)</text>
+<text x="22" y="224">K = 8 placebos, w and g</text><text x="22" y="242">channels → σ_chaos (gate G3)</text><text x="22" y="264" font-size="11">ready (a7's code, CI green)</text>
+<text x="292" y="224">dose × undo arms × 3 phases</text><text x="292" y="242">+ cooldown + β1 arms</text><text x="292" y="264" font-size="11">needs: prereg-v2 tag</text>
+<text x="562" y="224">RML-full / -cool / -sel vs</text><text x="562" y="242">Eddie's baselines (H-E, H-F)</text><text x="562" y="264" font-size="11">ready; runs on doses with d ≥ 2</text>
+<text x="832" y="224">HVP determinism under</text><text x="832" y="242">math-SDPA (T0 leftover)</text><text x="832" y="264" font-size="11">blocked: PR #15 needs changes</text>
+<g stroke="currentColor" stroke-width="1.3" marker-end="url(#ar2)"><line x1="250" y1="68" x2="278" y2="68"/><line x1="520" y1="68" x2="548" y2="68"/><line x1="790" y1="68" x2="818" y2="68"/>
+<path d="M945,116 C945,150 130,146 130,178" fill="none"/><line x1="250" y1="228" x2="278" y2="228"/><line x1="520" y1="228" x2="548" y2="228"/></g>
+<line x1="790" y1="228" x2="818" y2="228" stroke="currentColor" stroke-width="1.3" stroke-dasharray="4 4"/>
+<text x="400" y="150" font-size="11">stop if any gate fails (Δ ≠ 0, a crash, or σ_chaos too large)</text>
+</g></svg>
+</div>
+<figcaption>Each stage gates the next. Green = code ready. Yellow = one small fix or decision first. Red = blocked. Stages 0–4 take about 45 minutes and must pass before the main run spends GPU time. Stage 7 is optional and can run whenever PR #15 lands.</figcaption>
+</figure>
+</section>
+
+<section id="people">
+<h2>Contributors: what each person built, and where it stands</h2>
+<div class="people">
+<table>
+<tr><th>Person</th><th>What they built</th><th>What's good</th><th>What needs work</th><th>Tested?</th><th>GPU test when</th></tr>
+<tr><td><b>Jasraj</b><br><code>jaztulsi · 64 commits</code></td>
+<td><ul class="tight"><li>Fork harness: determinism, snapshot, trunk, fork, Δ=0 gate</li><li>nanoGPT model, data pipeline</li><li>Spike pipeline: recipes, detector, capture, natural spikes, K2</li><li>Plan V8, research corpus, docs, site</li><li>With Claude sessions: autopsy code, cross-process gate, status page</li></ul></td>
+<td><ul class="tight"><li>Determinism verified on T4, P100 and MI300X</li><li>First AMD pilot: 120 / 120 branches, no crashes</li><li>Clean CI: 62 tests pass</li></ul></td>
+<td><ul class="tight"><li><code>capture.py</code> self-check crash (eps read as text)</li><li>LR schedule is a constant-rate stub</li><li>torch 2.14 on the box vs 2.10 pin</li><li>Pilot lacked placebo arms and τ = 10</li><li>PR #18 is large and unreviewed</li><li>Bus factor 1 on the spike role</li></ul></td>
+<td><span class="pill p-ok">GPU ✓</span><br><span class="pill p-ok">CI ✓</span></td>
+<td>Stages 0–2, 4–6</td></tr>
+<tr><td><b>Eddie</b><br><code>Eddiegah · 4 commits · PR #14</code></td>
+<td><ul class="tight"><li>Baselines: SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, Bvbar</li><li><code>pre_opt_step</code> hook in trunk / fork</li><li>CI workflow, <code>test_baselines.py</code></li></ul></td>
+<td><ul class="tight"><li>SPAM and AdaGC reimplemented to respect licenses</li><li>Addressed review: forks at inject_step, stateful hooks deep-copied</li><li>Approved and merged</li></ul></td>
+<td><ul class="tight"><li>Never run on a GPU, so AMD numerics are untested</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
+<td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-ok">CI ✓</span></td>
+<td><b>Stage 3</b> next session, then as comparators in stage 6</td></tr>
+<tr><td><b>Avyank</b><br><code>avyankvanamali-star · 4 commits · PR #15</code></td>
+<td><ul class="tight"><li>Toy Hessian-vector product (double-backward) with a finite-difference check</li></ul></td>
+<td><ul class="tight"><li>Math is right (Pearlmutter)</li><li>Independent float64 check is the right kind of test</li><li>Becomes the cross-check for the planned jvp HVP</li></ul></td>
+<td><ul class="tight"><li>Pushed straight to main and turned CI red (main was reset)</li><li><code>verify.py</code> prints FAIL and still exits 0, so it is not a test</li><li>Seeds torch at import time, which breaks Δ=0 replay</li><li>Flat vectors, toy MSE loss and wrong folder instead of name-keyed GPT in <code>curvature.py</code></li><li>Stray <code>.DS_Store</code></li></ul></td>
+<td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-wip">CI pending</span></td>
+<td><b>Stage 7</b>, after PR #15's fixes pass CI</td></tr>
+</table>
+</div>
+</section>
+
+<section id="work">
+<h2>Where the work is: 52 items, with today's 10 upgrades added</h2>
+<figure>
+<div class="scroll">
+<svg viewBox="0 0 1000 260" role="img" aria-label="Of 52 work items, 14 are validated, 10 are written but unproven, and 28 are not started. Every GPU experiment beyond the pilot and all of the writing are still ahead.">
+<g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
+<g stroke-width="1">
+<rect class="ok" x="210" y="20" width="266" height="30"/><rect class="todo" x="476" y="20" width="38" height="30"/>
+<rect class="ok" x="210" y="64" width="190" height="30"/><rect class="wip" x="400" y="64" width="304" height="30"/><rect class="todo" x="704" y="64" width="114" height="30"/>
+<rect class="ok" x="210" y="108" width="76" height="30"/><rect class="todo" x="286" y="108" width="456" height="30"/>
+<rect class="wip" x="210" y="152" width="38" height="30"/><rect class="todo" x="248" y="152" width="228" height="30"/>
+<rect class="wip" x="210" y="196" width="38" height="30"/><rect class="todo" x="248" y="196" width="228" height="30"/></g>
+<g text-anchor="end"><text x="198" y="40">Foundation (harness)</text><text x="198" y="84">Instruments</text><text x="198" y="128">GPU experiments</text><text x="198" y="172">Theory and tools</text><text x="198" y="216">Writing (P1–P3)</text></g>
+<g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="11"><text x="526" y="40">7 of 8 validated</text><text x="830" y="84">5 of 16 validated</text><text x="754" y="128">2 of 14 · U1–U10 added</text><text x="488" y="172">0 of 7</text><text x="488" y="216">0 of 7</text></g>
+<text x="210" y="250" font-size="11">each block = one work item ·  green = validated on a GPU or in CI · yellow = written, unproven · red = not started</text>
+</g></svg>
+</div>
+<figcaption><b>14 of 52 items are validated (27%).</b> The 38 left include every GPU experiment after the pilot, the scale-up to 124M and Pythia, the theory, and all of the writing. They are the heaviest items, so by effort the project is about 10% done. Today's research pass added ten upgrades (U1–U10): the forgetting threshold, chaos-calibrated stats, the v-cooldown test, rollback and prevention baselines, 124M + Pythia-160M/410M, a bit-flip map of m and v, OPEN-1B natural spikes, a prediction law, a damage atlas and a fork-free predictor.</figcaption>
+</figure>
+</section>
+
+<figure id="map">
 <div class="scroll">
 <svg viewBox="0 0 1080 640" role="img" aria-label="Dependency map: the foundation and most instruments are built; the T1 pilot is running; the placebo arm, factorial/oracle code, pre-registration and the T2 core run stand between tonight's pilot and the P1 paper.">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>
@@ -141,7 +233,7 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 
 <div class="key"><span><i class="dot d-ok"></i> done</span><span><i class="dot d-wip"></i> in progress / unvalidated</span><span><i class="dot d-todo"></i> pending</span></div>
 
-<section class="ledgers">
+<section class="ledgers" id="ledgers">
 <div class="ledger">
 <h2>1 · Completed work</h2>
 <table>
