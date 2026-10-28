@@ -48,13 +48,13 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 <main>
 <header>
   <h1>Optimizer Autopsy: where the project stands</h1>
-  <p class="sub">Audit of branch <code>plan-v8</code> on 27 Oct 2026, the first night on the AMD MI300X. Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (submission ~18 Jan).</p>
+  <p class="sub">Audit of branch <code>plan-v8</code> on 27 Oct 2026, updated after the first MI300X night (T0 passed, T1 pilot complete). Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (submission ~18 Jan).</p>
 </header>
 
 <section class="strip" aria-label="Progress summary (estimates)">
   <div class="meter"><b>~60%</b><span>Code needed for P1</span><div class="bar"><i style="width:60%"></i></div></div>
-  <div class="meter"><b>T0 ✓ · T1 ½</b><span>GPU ladder (T0–T4)</span><div class="bar"><i style="width:15%"></i></div></div>
-  <div class="meter"><b>~2 / 60 h</b><span>GPU-hours toward P1 (T0–T2)</span><div class="bar"><i style="width:4%"></i></div></div>
+  <div class="meter"><b>T0 ✓ · T1 pilot ✓</b><span>GPU ladder (T0–T4)</span><div class="bar"><i style="width:20%"></i></div></div>
+  <div class="meter"><b>~3 / 60 h</b><span>GPU-hours toward P1 (T0–T2)</span><div class="bar"><i style="width:5%"></i></div></div>
   <div class="meter"><b>0%</b><span>Paper writing</span><div class="bar"><i style="width:0%"></i></div></div>
   <div class="meter"><b>~25%</b><span>Overall toward P1 (estimate)</span><div class="bar"><i style="width:25%"></i></div></div>
 </section>
@@ -84,19 +84,19 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 <rect class="ok" x="235" y="150" width="185" height="36" rx="5"/><rect class="ok" x="235" y="200" width="185" height="36" rx="5"/>
 <rect class="wip" x="235" y="250" width="185" height="36" rx="5"/><rect class="wip" x="235" y="300" width="185" height="36" rx="5"/>
 <rect class="wip" x="235" y="350" width="185" height="36" rx="5"/><rect class="wip" x="235" y="400" width="185" height="36" rx="5"/>
-<rect class="todo" x="235" y="450" width="185" height="36" rx="5"/><rect class="todo" x="235" y="500" width="185" height="36" rx="5"/>
-<rect class="todo" x="235" y="550" width="185" height="36" rx="5"/></g>
+<rect class="wip" x="235" y="450" width="185" height="36" rx="5"/><rect class="todo" x="235" y="500" width="185" height="36" rx="5"/>
+<rect class="wip" x="235" y="550" width="185" height="36" rx="5"/></g>
 <text x="247" y="73">Spike recipes + detector</text><text x="247" y="123">Spike capture (v̄)</text><text x="247" y="173">Baselines ×7</text>
 <text x="247" y="223">Held-out eval</text><text x="247" y="273">Stats (TOST, Holm…)</text><text x="247" y="323">Undo / RML core</text>
-<text x="247" y="373">MVE driver</text><text x="247" y="423">Report (sealed)</text><text x="247" y="473">Placebo arm</text>
-<text x="247" y="523">Factorial / oracle / faults</text><text x="247" y="573">Pre-reg tag prereg-v1</text>
+<text x="247" y="373">MVE driver</text><text x="247" y="423">Report (sealed)</text><text x="247" y="473">Placebo arms + dose (a7)</text>
+<text x="247" y="523">Factorial / oracle / faults</text><text x="247" y="573">prereg-v2 (drafted)</text>
 
 <!-- column 3 -->
 <g stroke-width="1.5">
 <rect class="ok" x="450" y="50" width="185" height="36" rx="5"/><rect class="wip" x="450" y="120" width="185" height="36" rx="5"/>
 <rect class="todo" x="450" y="190" width="185" height="36" rx="5"/><rect class="todo" x="450" y="260" width="185" height="36" rx="5"/>
 <rect class="todo" x="450" y="330" width="185" height="36" rx="5"/></g>
-<text x="462" y="73">T0 bring-up · G0 Δ=0</text><text x="462" y="143">T1 pilot (running)</text><text x="462" y="213">T2 core · 50–80 GPU-h</text>
+<text x="462" y="73">T0 bring-up · G0 Δ=0</text><text x="462" y="143">T1 pilot ✓ (exploratory)</text><text x="462" y="213">T2 core · 50–80 GPU-h</text>
 <text x="462" y="283">T3 scale · 200–450 h</text><text x="462" y="353">T4 moonshot · 8 GPUs</text>
 <g stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"><line x1="542" y1="86" x2="542" y2="118"/><line x1="542" y1="156" x2="542" y2="188"/><line x1="542" y1="226" x2="542" y2="258"/><line x1="542" y1="296" x2="542" y2="328"/></g>
 <text x="550" y="106" font-size="11">gate passed</text><text x="550" y="176" font-size="11">noise floor, n</text>
@@ -104,11 +104,11 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 <!-- column 4 -->
 <g stroke-width="1.5">
 <rect class="wip" x="665" y="50" width="185" height="36" rx="5"/><rect class="wip" x="665" y="100" width="185" height="36" rx="5"/>
-<rect class="wip" x="665" y="150" width="185" height="36" rx="5"/><rect class="todo" x="665" y="200" width="185" height="36" rx="5"/>
+<rect class="wip" x="665" y="150" width="185" height="36" rx="5"/><rect class="wip" x="665" y="200" width="185" height="36" rx="5"/>
 <rect class="todo" x="665" y="250" width="185" height="36" rx="5"/><rect class="todo" x="665" y="300" width="185" height="36" rx="5"/>
 <rect class="todo" x="665" y="350" width="185" height="36" rx="5"/></g>
 <text x="677" y="73">C-1 damage kernel</text><text x="677" y="123">C-2 protective v</text><text x="677" y="173">C-3 interference</text>
-<text x="677" y="223">C-4 RML repair battery</text><text x="677" y="273">C2 localizer (exploratory)</text><text x="677" y="323">Theory (ψ_k, AR(2))</text><text x="677" y="373">Figures 1–6</text>
+<text x="677" y="223">C-4 triage + RML surgery</text><text x="677" y="273">C2 localizer (exploratory)</text><text x="677" y="323">Theory (ψ_k, AR(2))</text><text x="677" y="373">Figures 1–6</text>
 
 <!-- column 5 -->
 <g stroke-width="1.5">
@@ -131,7 +131,7 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 <path d="M205,418 C330,620 520,620 540,298"/>
 </g>
 <text x="222" y="350" font-size="11">forks</text><text x="215" y="262" font-size="11">edits m, v</text>
-<text x="430" y="255" font-size="11">running now</text><text x="372" y="606" font-size="11" fill="var(--todo)">needed before T2</text>
+<text x="430" y="255" font-size="11">120/120 done</text><text x="372" y="606" font-size="11" fill="var(--todo)">needed before T2</text>
 <text x="300" y="630" font-size="11" fill="var(--todo)">Pythia trunks feed T3</text>
 </g>
 </svg>
@@ -156,19 +156,20 @@ td:first-child{width:22px} code{font:.8rem var(--mono);color:var(--muted);word-b
 <tr><td><i class="dot d-ok"></i></td><td><b>Baselines</b>: skip, clip, reset, skip-step, SPAM, ZClip, AdaGC (CI-tested).<br><code>research/baselines/*.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Held-out eval</b>: val_loss on slots disjoint from the probe slots.<br><code>research/analysis/eval.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>CPU test suite</b>: 56 pass in the box container.<br><code>research/tests/*.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>T1 pilot (exploratory)</b>: 120 / 120 branches, 0 crashes. Spikes at this size mostly wash out to the 1-ulp chaos floor (≤ 0.003 nats). In the one clear run (β1 = 0.8), undoing m+v removed 98% of the damage and undoing v alone made it worse.<br><code>results/mi300x_2026-10-27/ · tag prereg-pilot-2026-10-27</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>GPU numbers</b>: about 33 ms/step per deterministic fork at batch 64; packing 2 forks on the GPU gives ~1.3× throughput.<br><code>/shared-docker/runs/t0_xproc</code></td></tr>
 </table>
 </div>
 <div class="ledger">
 <h2>2 · Backlog</h2>
 <table>
-<tr><td><i class="dot d-wip"></i></td><td><b>T1 pilot running</b>: 3 spike kinds + β1 = 0.8 / 0.95 arms; ~90 / 120 branches done. Effects stay sealed.<br><code>research/autopsy/mve.py · undo.py · probes.py · report.py</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Next GPU session (~100 branches, ~90 min)</b>: chaos-floor dose sweep + Spike Triage + retroactive RML surgery (RML-full / -cool / -sel) against skip-step, SPAM, ZClip, AdaGC. Being built by a7.<br><code>research/autopsy/mve.py · undo.py · probes.py · report.py</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>prereg-v2</b>: hypotheses H-A…H-F drafted; needs jaz's sign-off and the tag before the run.<br><code>docs/prereg_v2.md</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>LR schedule</b>: minimal stub (constant LR). Needs warmup + cosine for T2.<br><code>research/autopsy/schedule.py</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Spike capture</b>: self-check crashes. JSON writes eps as 1e-08 and YAML reads it back as a string; fix: yaml.safe_dump.<br><code>research/spikes/capture.py:307</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Version pins</b>: box has torch 2.14, repo pins 2.10. Pinned container being pulled, or bump the pins.<br><code>research/requirements.txt</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Stats / attribution</b>: partial, with TODOs.<br><code>research/analysis/stats.py · attribution.py</code></td></tr>
-<tr><td><i class="dot d-todo"></i></td><td><b>Placebo arm</b>: rounding chaos reaches ~0.003 nats, so effects need a measured floor (gate G3).<br><code>mve.py (new branch)</code></td></tr>
-<tr><td><i class="dot d-todo"></i></td><td><b>Pre-registration tag</b> before reading effects.<br><code>git tag prereg-v1 (PLAN_V8 §13b)</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Placebo arms (K = 8, w and g channels) + planted dose c ∈ {1,3,10,30} + cooldown arm</b>: in progress (a7). Rounding chaos reaches ~0.003 nats, so effects are reported as d = Δ / σ_chaos.<br><code>research/autopsy/ · research/tests/test_autopsy.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Factorial, oracle, localize, faults</b> modules.<br><code>research/autopsy/{factorial,oracle,localize,faults}.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Localizer (C2)</b>: SNR, curvature, poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Repair operator (C3)</b>: stub. The RML undo in autopsy covers part of it.<br><code>research/repair/operator.py</code></td></tr>
