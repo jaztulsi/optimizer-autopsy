@@ -19,8 +19,14 @@ or both at a chosen lag and leave the weights untouched. Damage is the held-out 
 chaos floor from 1-ulp placebo forks. Four tests: the memory-written share (ordered by β1), protective v,
 interference between two spikes, and RML repair vs skip-step and other baselines.
 
-**What's new.** Every component has precedent: state transplants, bitwise replay, single-spike Adam math. The new
-part is the causal, time-resolved split of a spike's lasting damage into direct, m-echo and v-stall parts.
+**Tactics.**
+- Undo at lags 0…64 traces when memory writes the damage.
+- Re-planting the measured spike gradient gives dose, ±sign, two-spike and refractory probes.
+- A w/m/v swap factorial and a β1 × β2 cross separate the channels.
+- An effect counts only at \|Δ/σ_chaos\| ≥ 2; thresholds are fixed before data.
+
+**What's new.** Every component has precedent. The new part is the causal, time-resolved split of a spike's lasting
+damage into direct, m-echo and v-stall parts.
 
 **Built and run (2026-10-29).**
 - Harness: Δ = 0 on CUDA and on an AMD MI300X, in-process and across processes.
