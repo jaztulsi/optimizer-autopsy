@@ -1,0 +1,680 @@
+{
+ "corrupt_batch_w1_inj160_seed0_b0.9-0.95_core": {
+  "209": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "309": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "659": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "1999": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  }
+ },
+ "lr_bump_w1_inj160_seed0_b0.9-0.95_core": {
+  "209": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "309": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "659": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "1999": {
+   "D_B0": null,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": null,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  }
+ },
+ "repeat_ngram_w1_inj160_seed0_b0.9-0.95_core": {
+  "209": {
+   "D_B0": 0.004534416198731073,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": 0.004534416198731073,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": 0.004534416198731073,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "309": {
+   "D_B0": 0.003203840255737056,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": 0.003203840255737056,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": 0.003203840255737056,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "659": {
+   "D_B0": 0.0006762218475344639,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": 0.0006762218475344639,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": 0.0006762218475344639,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  },
+  "1999": {
+   "D_B0": 0.002819738388061488,
+   "kernel": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "removed_share": {
+    "0": null,
+    "1": null,
+    "2": null,
+    "4": null,
+    "8": null,
+    "16": null,
+    "32": null,
+    "64": null
+   },
+   "c2": {
+    "0": {
+     "none": 0.002819738388061488,
+     "m": null,
+     "v": null,
+     "mv": null
+    },
+    "10": {
+     "none": 0.002819738388061488,
+     "m": null,
+     "v": null,
+     "mv": null
+    }
+   },
+   "interference": {
+    "2": {
+     "same": null,
+     "opp": null
+    },
+    "8": {
+     "same": null,
+     "opp": null
+    },
+    "32": {
+     "same": null,
+     "opp": null
+    }
+   },
+   "chi": {
+    "2": null,
+    "8": null,
+    "32": null
+   }
+  }
+ }
+}

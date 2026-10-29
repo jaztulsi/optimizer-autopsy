@@ -1,5 +1,7 @@
 # UPDATE — where the project is, in plain English
 
+> **Archived (Oct 2026).** Historical status snapshot; do not treat as current. Current plan: [`PLAN_V8.md`](../../PLAN_V8.md). Doc map: [`docs/README.md`](../README.md).
+
 This is your simple status page. No jargon. It answers three questions: **what's done**, **what's
 changing**, and **what's next**. (The nerdy task-by-task checklist is at the very bottom.)
 

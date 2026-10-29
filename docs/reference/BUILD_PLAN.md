@@ -1,4 +1,6 @@
 # OPTIMIZER AUTOPSY — Build Plan
+
+> **Superseded where it differs:** the governing plan is [`PLAN_V8.md`](../../PLAN_V8.md) (2026-10-22). Kept as long-form reference.
 **Fork training at the moment of failure, find where the poison lives, repair it.**
 Solo-friendly execution guide. Companion to the research plan at
 <https://jaztulsi.github.io/optimizer-autopsy/>. Every task below is a **ready-to-paste Claude

@@ -79,6 +79,17 @@ SPEC = {
         "min_lead": 0,
         "allow_at_peak": True,
     },
+    # repeat_ngram (PLAN V7 §4.2 candidate): OLMo 2's documented production spike cause. Its junk rows land
+    # high loss on the injection step itself, so it is pre-declared under the onset policy -- a later peak is
+    # still measured and reported, but it never earns an early-warning claim. Round 1 is calibration.
+    "repeat_ngram": {
+        "inject": 160,
+        "width": 1,
+        "params": {"n": 8, "frac": 0.25},
+        "peak_offset": 0,
+        "min_lead": 0,
+        "allow_at_peak": True,
+    },
 }
 
 
@@ -89,7 +100,8 @@ def _run_recipe(kind: str, data_dir: str, seed: int, device: str) -> dict:
 
     spec = SPEC[kind]
     cfg = load_config("research/experiments/proxy/config.yaml", {"train.batch_size": BATCH, "seed": seed})
-    recipe = induce(kind, cfg, inject_step=spec["inject"], width=spec["width"], **spec["params"])
+    params = {**spec["params"], **({"data_dir": data_dir, "seed": seed} if kind == "repeat_ngram" else {})}
+    recipe = induce(kind, cfg, inject_step=spec["inject"], width=spec["width"], **params)
 
     losses, grads = [], []
 
@@ -114,7 +126,6 @@ def main() -> None:
     import torch
 
     from research.data.prepare import PRESETS, prepare, resolve_data_dir
-    from research.spikes.induce import RECIPES
     from research.spikes.tune_detector import DetectorParams, dod_check, score_spike, spike_occurred, tune
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -127,7 +138,7 @@ def main() -> None:
         data_dir = prepare(PRESETS["proxy"])  # pinned-revision TinyStories shard
 
     tune_runs, test_runs, per_recipe = [], [], {}
-    for kind in RECIPES:
+    for kind in SPEC:  # the DoD set; planted-poison recipes (v_inflate) are not spike recipes
         r0 = _run_recipe(kind, data_dir, seed=0, device=device)
         torch.cuda.empty_cache()
         r1 = _run_recipe(kind, data_dir, seed=1, device=device)

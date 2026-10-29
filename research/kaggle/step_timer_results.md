@@ -1,6 +1,6 @@
 # Step-timer results — measured GPU seconds/step (Exea Labs compute justification)
 
-These are the *measured* per-step throughput numbers that every GPU-hour estimate in `PLAN_V6.md`
+These are the *measured* per-step throughput numbers that every GPU-hour estimate in `docs/reference/PLAN_V6.md`
 ultimately depends on ("measured seconds-per-step at proxy scale and at the larger scale"). They come
 from `research/kaggle/step_timer.py` — the timed unit is exactly what a fork branch repeats:
 `forward + backward + grad-clip + AdamW opt.step`, 10 warmup steps (unmeasured), 100 timed steps with
@@ -37,7 +37,7 @@ measured scaling is super-linear. Labeled EXTRAPOLATED, not measured (batch-64 f
 
 ### Proxy number A — fork-replay attribution battery
 
-Formula (from `step_timer.py` / `PLAN_V6.md` §6 back-solve):
+Formula (from `step_timer.py` / `docs/reference/PLAN_V6.md` §6 back-solve):
 
 ```
 GPU-hours = recipes × (branches/site) × (seeds/branch) × (fork_length steps) × (sec/step) ÷ 3600
@@ -125,7 +125,7 @@ Proof in `research/harness/trunk.py::train_forward`:
 
 ### Real GPU-hour range (single answer, optimizer-step basis)
 
-Using ≈ 64–68 s/optimizer-step (upper bound) and BUILD_PLAN.md's **500–2000 steps/run**:
+Using ≈ 64–68 s/optimizer-step (upper bound) and docs/reference/BUILD_PLAN.md's **500–2000 steps/run**:
 
 - **(a) one trunk-to-spike run** (500–2000 optimizer steps):
   500 × 64 … 2000 × 68 ÷ 3600 = **≈ 9 – 38 GPU-hours**.
@@ -134,7 +134,7 @@ Using ≈ 64–68 s/optimizer-step (upper bound) and BUILD_PLAN.md's **500–200
 
 Kept separate from the proxy's §1 numbers — different model scale, do not merge.
 
-> **⚠ This contradicts BUILD_PLAN.md line 29's "~1–3 h each" estimate by 1–2 orders of magnitude.**
+> **⚠ This contradicts docs/reference/BUILD_PLAN.md line 29's "~1–3 h each" estimate by 1–2 orders of magnitude.**
 > The measurement is not ambiguous: forks advance in optimizer steps at grad_accum=40 (proven above),
 > so a single 8-branch battery is ~71–302 GPU-h, not 1–3 h. The plan's estimate is simply an
 > under-budget (the 124M config is marked "TODO: fill in real values"). The only way back to ~1–3 h is a

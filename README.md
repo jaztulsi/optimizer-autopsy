@@ -2,217 +2,243 @@
 
 # Optimizer Autopsy
 
-**Rewind the run. Localize the poison. Repair the state. Prove it.**
+**The afterlife of a loss spike: system identification of how Adam's memory writes lasting damage, and how to undo
+it.**
 
-Causal localization and repair of optimizer state at the moment a training run's loss spikes, with bit-identical replay as the standard of proof. The instrument was built and GPU-verified on free Kaggle CUDA; the project is now restarting on a dedicated AMD MI300X budget under [PLAN&nbsp;V6](PLAN_V6.md).
+A causal autopsy of Adam's optimizer state at the moment an LLM's training loss spikes. Bit-identical
+counterfactual replay is the standard of proof. The instrument is built and GPU-verified on CUDA and on the AMD
+MI300X, where the first exploratory pilot ran on 2026-10-27. The science runs under [PLAN&nbsp;V8](PLAN_V8.md).
+One-page summary: [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
 [![CI](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml/badge.svg)](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776ab.svg)](research/requirements.txt)
-[![Compute: CUDA T4 to AMD MI300X](https://img.shields.io/badge/compute-CUDA%20T4%20%E2%86%92%20AMD%20MI300X-20beff.svg)](#compute)
-[![Replay](https://img.shields.io/badge/replay-CUDA%20verified%20%7CΔ%7C%3D0%20·%20AMD%20pending-2ea44f.svg)](#the-determinism-gate)
+[![Compute: AMD MI300X](https://img.shields.io/badge/compute-AMD%20MI300X-ed1c24.svg)](#program-and-compute)
+[![Replay](https://img.shields.io/badge/replay-CUDA%20%2B%20AMD%20verified%20%7CΔ%7C%3D0-2ea44f.svg)](#the-determinism-gate)
 
 [Website](https://jaztulsi.github.io/optimizer-autopsy/) ·
-[Problem](#the-problem) ·
-[Method](#how-it-works) ·
-[Determinism gate](#the-determinism-gate) ·
-[Results](#results) ·
-[Plan](#plan-and-budget) ·
+[Question](#the-question) ·
+[Method](#method) ·
+[What's new](#whats-new-and-whats-not) ·
+[Gate](#the-determinism-gate) ·
+[Program](#program-and-compute) ·
+[Status](#status) ·
 [Layout](#repository-layout) ·
-[Install](#installation) ·
-[Quick start](#quick-start) ·
-[Status](#status)
+[Docs](#docs)
 
 </div>
 
 ---
 
-Optimizer Autopsy treats a training-loss spike like a crime scene. When a large model's loss suddenly jumps, today's remedies are blunt: clip the gradient, skip the batch, or roll back and hope. None of them answer the question that matters: *which part of the optimizer state actually got poisoned, and would repairing only that part recover the run?* This project answers it, and holds every answer to a hard evidentiary bar: a repaired run must be compared against a **byte-for-byte identical replay**, so the measured recovery is attributable to the repair and nothing else.
+When a large model's loss suddenly jumps, today's fixes are blunt: clip the gradient, skip the batch, reset the
+optimizer, or roll back and hope. All of them treat the optimizer as a black box. Nobody knows **how much of a
+spike's lasting damage is carried by the weights and how much by Adam's moments `m` and `v`, or for how long**.
+Optimizer Autopsy measures that split with a causal experiment. It then localizes the carrying coordinates and
+repairs only those, and every claim is checked against a byte-for-byte identical replay.
 
-## The problem
+## The question
 
-A spike damages the optimizer's internal state: the Adam moments `(m, v)` and the weights `w`, in ways that persist for thousands of steps. The standard interventions operate globally and blindly. Optimizer Autopsy instead:
+**Headline (to be tested):** most of a loss spike's lasting damage may be written *after* the spike step, by Adam's
+memory of it.
+- **The echo:** on a large spike-dominated coordinate, the momentum echo writes a fraction β1/√β2 ≈ 92% of the total
+  drift. This follows from Patitucci & Mokhtari's 2026 single-spike analysis.
+- **The stall:** the inflated v also *stalls* ordinary learning for tens of steps.
+- **The sharp prediction:** that same inflated v is *protective*, because it keeps the echo bounded. So cleaning v
+  alone should make things worse than doing nothing. This is an out-of-sample test, on spikes, of the
+  "history-coverage" account in a concurrent ICLR 2027 submission.
 
-1. **Rewinds** training to the exact step the spike began, from a saved snapshot.
-2. **Localizes** the damage by scoring every parameter's optimizer state with a signal-to-noise and curvature instrument, producing a *poison score*.
-3. **Repairs** only the localized state, then **forks** the run to compare the repaired trajectory against an unedited replay, isolating the causal effect of the edit.
+We measure this as one would identify a physical system:
+- a **damage-writing kernel** (how much lasting damage the memory writes at each lag after the spike);
+- a **refractory period** (how a spike blunts the effect of what comes next);
+- **spike interference** (two spikes of the same vs opposite sign).
 
-## How it works
+If the memory-written share is small, clipping or skipping at the spike step is enough, and that is worth knowing
+too.
+
+1. **Where does the damage live?** We fork a spiked run (B0) and its data-aligned clean twin (B\*) from the same
+   snapshot. At a cut time after the spike, we build all 2³ cross-world hybrids `(w, m, v) ∈ {B0, B*}³` and train
+   each to the end of the schedule. Their held-out losses decompose the lasting damage into weight-, m- and
+   v-carried shares. Repeating this at several cut times gives a **damage-migration curve**: how fast damage moves
+   from optimizer state into the weights.
+2. **Which coordinates carry it?**
+   - A causal group-testing oracle finds the minimal state support whose repair recovers the run.
+   - Cheap signed predictors try to match it without forks: attribution patching over `(m, v)`, two-sided innovation
+     tests, and a jump-robust "shadow v".
+3. **Can we undo it, surgically?**
+   - A **state-only retroactive deletion** (the undo log) removes the spike window's direct contribution from `m`
+     and `v` and leaves the weights alone.
+   - A **stability-certified restoration** makes the smallest move of `v` on the localized support that brings the
+     preconditioned sharpness back under 2/η.
+   - Both are compared with a strong baseline set on held-out loss.
+
+If optimizer state turns out to carry almost nothing beyond a few dozen steps, that is a result too: "spike damage
+is weight-carried after k steps".
+
+## Method
 
 ```mermaid
 flowchart LR
-  A[Trunk training run] --> B{Loss spike<br/>detected}
-  B -->|rewind| C[Snapshot<br/>w, m, v + RNG<br/>at step t]
-  C --> D[Localizer<br/>SNR + curvature<br/>to poison score]
-  D --> E[Repair operator<br/>edit only the<br/>localized state]
-  C --> F[Control fork<br/>replay, no edit]
-  E --> G[Repaired fork<br/>replay with edit]
-  F --> H{Compare Δ}
-  G --> H
-  H --> I[Attribution<br/>did the edit<br/>cause recovery?]
-  I -.baseline.-> J[skip · clip · SPAM<br/>ZClip · AdaGC · reset]
-  J -.same fork protocol.-> H
+  T[Trunk<br/>warmup+cosine<br/>ring snapshots + v̄] --> F[Fork point<br/>≤ spike start]
+  F --> B0[B0: spike on]
+  F --> BS[B*: spike off<br/>data-aligned]
+  B0 --> C{Cut at t1}
+  BS --> C
+  C --> H[2³ hybrids w/m/v<br/>+ feasibility check<br/>+ placebo replicates]
+  H --> D[Damage-migration<br/>curve]
+  C --> O[Causal oracle<br/>group testing]
+  C --> L[Signed localizer<br/>AtP-state · NIS · shadow v]
+  O --> S[Score localizer<br/>vs oracle]
+  L --> R[Repair<br/>undo log · certified restore]
+  R --> E[Δ held-out, gap closed<br/>vs strong baselines]
 ```
 
-Every intervention (ours and each baseline) is applied as a fork off the *same* snapshot, so the only difference between two trajectories is the edit under test.
+Every branch (ours and every baseline) forks from the same snapshot, so two trajectories differ only by the edit
+under test. Predictions are pre-registered before any AMD data exists ([PLAN V8 §7](PLAN_V8.md)). Several come in
+closed form:
+- a spike-dominated coordinate's total drift *saturates* at ≈ 5.84·η (β = 0.9/0.95) as the spike grows, so
+  clipping a large spike barely changes its damage;
+- honest Adam states satisfy |m| ≤ 1.165·√v (a known invariant; we use it as a hybrid-feasibility check);
+- a planted v-poison of κ = 10⁴ halves its stall after ≈ 158 steps.
+
+## What's new, and what's not
+
+An adversarial fact-check found that **every component has precedent**. Only the SpikeState dataset is rated NEW,
+and that verdict is low-confidence. What is new is the *study*: the first time-resolved causal (w, m, v)
+decomposition of LLM loss-spike damage, with a bitwise counterfactual instrument and pre-registered predictions.
+Localizers are scored against a causal oracle, and repairs must beat the strongest baselines. See
+[PLAN V8 §5](PLAN_V8.md) and [`master-research/output/12_*`](master-research/output/).
+
+| Ours (the study's claims) | Precedent we build on and cite |
+|---|---|
+| Time-resolved w/m/v damage shares for LLM spikes, β1×β2-identified | State transplants (Xu 2026; Chimera 2026; Guo 2026); "state washes out" (Ibrahim 2024) |
+| Dose–response of spike-poisoned (m, v) on clean weights | m alone carries a trait (Xu 2026); moment transplants and history coverage, 34M–7B ("Newer Is Not Always Better", ICLR 2027 submission) |
+| Lasting-damage mediation, as opposed to immediate control | Spike-onset capture and replay; selective tail-entrant limiting at 355M ("Understanding and Mitigating AdamW Loss Spikes", ICLR 2027 submission) |
+| Localization inside stored m/v scored against a causal group-testing oracle | SPAM's g²/v test; AtP\*; ACDC; per-layer reset oracles |
+| Post-spike stability-certified restoration of v, with both poison signs | Selective-v clearing, toy task (Biswas 2026); v edits at init (GI-Adam) |
+| Window deletion from Adam's moments as a mediation probe and repair | One-step Adam inversion (SWIFT, TPDS 2024); memory-only deletion for L-BFGS (Stewart 2026) |
+| Direct fault injection into m/v; repair instead of rollback | Gradient SDC drives v→∞ (Altenbernd 2026); per-layer restore (LayerCheck 2026) |
+| Pre-registered held-out-rung prediction of damage shares | Small-scale proxies (Wortsman 2023); μP/CompleteP |
+| **SpikeState** (NEW, low confidence) | Pythia / OPEN-1B released states (no spike curation) |
+
+The spike mechanism (Bai et al., ICML 2026), bitwise replay (Megatron, OPEN-1B) and forking from released Pythia
+states are cited, never claimed.
 
 ## The determinism gate
 
-The whole method rests on one property: replaying training from a snapshot must produce identical numbers, or a fork's Δ would be measuring nondeterminism instead of the intervention. This gate is built and verified on both CPU and a real Kaggle T4 (CUDA). It is **being re-earned, not assumed, on AMD**: the ROCm math libraries are a different implementation with no exact `CUBLAS_WORKSPACE_CONFIG` analog, so PLAN V6 runs a cheap go/no-go smoke test on MI300X before spending the full determinism budget.
+Replaying from a snapshot must produce identical numbers, or a fork's Δ measures nondeterminism instead of the
+intervention.
+- **CUDA:** the gate is built and verified (T4 proxy; P100 124M): `max|Δ| = 0` noop-vs-noop.
+- **AMD MI300X (2026-10-27): passed at proxy scale.** The gates gave `max|Δ| = 0`:
+  - in-process;
+  - **across 3 processes, two of them sharing the GPU**, for the noop, `lr_bump` and `corrupt_batch` recipes,
+    through the spike window.
 
-```mermaid
-sequenceDiagram
-    participant S as Snapshot (w, m, v, RNG)
-    participant A as Fork A
-    participant B as Fork B
-    S->>A: restore state + seed
-    S->>B: restore state + seed
-    A->>A: 50 steps, deterministic kernels
-    B->>B: 50 steps, deterministic kernels
-    A-->>B: tensor-wise compare
-    Note over A,B: max|Δ| = 0, replay is trustworthy
+  See [`results/mi300x_2026-10-27/`](results/mi300x_2026-10-27/).
+- **Still to earn on AMD:**
+  - The gate at 124M.
+  - HVP determinism under math-backend attention.
+  - A run under the pinned torch: the box has torch 2.14, the repo pins 2.10, and the pilot skipped preflight.
+
+  On ROCm, `use_deterministic_algorithms` doesn't reach hipBLASLt, so each new config re-runs the gate. If a gate
+  can't reach zero, the pre-registered tolerance in [`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md) §4.4
+  applies.
+
+## Program and compute
+
+| Tier | What | MI300X-h (estimates; proxy speed measured on 2026-10-27) | Paper |
+|---|---|---|---|
+| T0 ✅ | AMD bring-up, determinism gate, `step_timer` | 3–5 | all |
+| T1 · pilot ✅ | Minimal viable experiment. The exploratory pilot ran on 2026-10-27; next is the prereg-v2 dose sweep against a measured chaos floor | 1–2 | go/no-go |
+| T2 | Full proxy + mid rung + 124M (n = 5, matched tokens/step) + Pythia-160M borrowed trunk + strong baselines | 50–80 | **P1 · ICML 2027** |
+| T3 | Pythia ladder to 2.8B, μP collapse, held-out-rung prediction, OPEN-1B released states (use depends on its skip protocol), SDC, other optimizers | 200–450 | **P2 · NeurIPS 2027**, **P3 · SpikeState (datasets track)** |
+| T4 | Own instrumented 1B trunks on an 8× node; Pythia-6.9B on one 192 GB card; RL fine-tuning / ViT | 500–2,000 | follow-ups |
+
+A single MI300X (192 GB) holds fp32 weights, gradients, m and v for models up to about 7B. That lets forks stay
+single-GPU, which avoids multi-GPU reduction-order nondeterminism. Venue dates are unofficial until the CFPs are
+out.
+
+## Status
+
+*As of 2026-10-29. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
+
 ```
-
-On CUDA, `CUBLAS_WORKSPACE_CONFIG=:4096:8` is exported before torch is imported (the notebook launchers handle this); `research/harness/determinism.py` locks seeds and deterministic algorithms. The guarantee is enforced in CI on every push by `research/tests/test_determinism.py`. The ROCm equivalent of that setup routine is what PLAN V6's Phase 1 re-derives on AMD.
-
-## Results
-
-The proxy trunk (a small nanoGPT) trains on a free Kaggle T4. Its cross-entropy loss more than halved over 200 steps. The training loop learns, and the run is fully reproducible.
-
-```mermaid
-xychart-beta
-    title "Proxy trunk, 200 steps on Kaggle T4 (measured endpoints)"
-    x-axis ["step 0", "step 200"]
-    y-axis "cross-entropy loss" 0 --> 12
-    bar [10.85, 4.73]
+Instrument (C1)      ####################  built; Δ==0 on CUDA and on the AMD MI300X (in- and cross-process)
+Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); rollback (PR #20); never GPU-run
+Spike pipeline       ################----  pushed (PR #18); 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run
+P1 autopsy code      ##############------  RML undo · probes · placebo floor · dose · cooldown · driver; core battery ran
+Instrument fixes     ##############------  held-out Δ ✓ · Bs clip ✓ · lr_bump schedule and fork.py:351 open
+T1 pilot             ####################  exploratory: damage at the ~0.003-nat chaos floor; one β1 = 0.8 hint for C-2
+prereg-v2            ##########----------  drafted (dose × phase × placebo × cooldown); needs sign-off + tag
+Localizer / repair   ##------------------  C2 unbuilt; C3 partly covered by RML; output contract in PLAN V8 §6.4
+Paper (P1)           --------------------  0 of 4 confirmatory claims with evidence; writing not started
 ```
-
-Verified facts to date (CUDA / Kaggle T4, committed under [`results/`](results/)): `bitwise replay OK on cuda: 50 steps, max|Δ| = 0`; `trunk done: 200 steps, loss 10.851 -> 4.730`; and the fork gate itself reads `max|Δ| = 0` (noop-vs-noop), which is what makes the instrument (C1) trustworthy. These are CUDA-era results; AMD re-verification is the first item in PLAN V6.
-
-## Plan and budget
-
-The project is restarting on **AMD MI300X** (a dedicated grant) instead of Kaggle's quota-limited free tier, which kept running out of hours. The **audited AMD compute ask is ~15–40 GPU-hours**, not the earlier "500–600" — a bottom-up recount (measured 0.0619 s/step at proxy scale + a full code audit of GPU-bound vs engineering-time work; see [`research/kaggle/step_timer_results.md`](research/kaggle/step_timer_results.md)) found that the old figure conflated **build-effort (person-hours)** with **GPU-compute**. The ~15–40h is ~5–10h to re-earn bit-exact determinism on AMD/ROCm (the one line nothing has tested — every measurement so far ran on NVIDIA/CUDA) plus ~3–30h of proxy-scale GPU-bound science. The full reference is [PLAN&nbsp;V6](PLAN_V6.md); the essentials:
-
-- **Path B (port, don't rebuild).** The hardware-independent code (data pipeline, model, spike recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) carries over unchanged. Only the hardware-specific determinism guarantee is re-earned on ROCm.
-- **Go/no-go first.** Before the full 30-hour AMD determinism line, a ~6-hour smoke test checks bit-for-bit reproducibility of the exact ops this pipeline uses (the HVP double-backward and the Adam moment update). If it can't hit exact zero, Phase 1 pivots to a tolerance-based statistical framework rather than discovering the wall weeks in.
-- **A written cut order and three scope tiers** (Floor / Core / Stretch, measured in build-effort, not GPU-hours), so a smaller-or-larger scope doesn't force a rewrite. The GPU-compute ask (~15–40 GPU-h) is small at every tier; the [124M robustness check](research/kaggle/step_timer_results.md) (~71–302 GPU-h/battery) stays on free-tier Kaggle over multiple weeks, off the AMD ask.
-- **Pre-registered decisions** for the two places a result could be nudged: the cheap-fix kill-test and the ψ_k repair-sufficiency threshold.
-- **Timeline:** NeurIPS 2026 has passed; the honest targets are **TMLR** (no deadline, judges claim-support) and a NeurIPS 2027 cycle.
-
-> Compute status is honest: the Exea Labs AMD grant is requested, not yet confirmed, and nothing in the budget is locked until it resolves. See [PLAN V6 §5, §11](PLAN_V6.md).
 
 ## Repository layout
 
 ```
 optimizer-autopsy/
-├── research/                 All project source (Python)
-│   ├── harness/              Determinism, preflight, secrets, (w,m,v) snapshots, trunk + fork runners
-│   ├── model/                nanoGPT: proxy (1-3M) and 124M
-│   ├── data/                 Reproducible tokenize + shard of the corpus
-│   ├── localizer/            The instrument: SNR + curvature to poison score
-│   ├── repair/               The surgery: edit the localized optimizer state
-│   ├── baselines/            skip · clip · SPAM · ZClip · AdaGC · naive-reset, each as a fork intervention
-│   ├── spikes/               Induce spikes, tune the detector, build the K2 spike set
-│   ├── analysis/             Eval · stats · attribution · figures
-│   ├── theory/               Analytical backing for the localizer
-│   ├── experiments/          proxy/ (free MVP) and llm124m/ (robustness) configs + drivers
-│   ├── configs/              Shared config loading
-│   ├── tests/                Determinism + secret-hygiene gates (run in CI)
-│   └── requirements.txt      Pinned to the CUDA Kaggle image (ROCm/AMD pins land in V6 Phase 1)
-├── results/                  Committed run evidence (per-task JSON + Kaggle logs)
-├── notebooks/                Kaggle / Colab launchers (set env, clone, load secrets, expose run())
-├── index.html                GitHub Pages site (research plan)
-├── PLAN_V6.md                Governing plan: AMD restart, budget, go/no-go, cut order
-├── BUILD_PLAN.md             Per-file 26-task science detail (V6 supersedes its hardware/DoD)
-├── context-ai.md             Full technical context packet (state of record in §14)
-├── EXPLANATION.md            Plain-English guide to the whole project
-├── update.md                 Plain-English status
-└── .github/workflows/ci.yml  CPU CI gate
+├── PLAN_V8.md                Governing plan (read §0–§1 first)
+├── CLAUDE.md                 Guardrails + harness interfaces (binding for every session)
+├── index.html, styles.css    GitHub Pages site
+├── docs/                     SUMMARY (short + long), doc map, prereg_v2, p1_upgrades, catalog, improvement audit,
+│                             reference/ (V7, V6, BUILD_PLAN, context-ai), archive/
+├── master-research/          Research run: output/ (02–13), references.bib (verified only), RUN_LOG, merged skill
+├── research/                 All source (Python)
+│   ├── harness/              Determinism, preflight, secrets, (w,m,v) snapshots, trunk + fork runners, battery
+│   ├── model/                nanoGPT: proxy (11M) and 124M
+│   ├── data/                 Reproducible tokenize + shard
+│   ├── spikes/               Spike recipes, detector, capture driver, natural-spike search, K2 manifest
+│   ├── baselines/            skip · clip · resets · v̄ · SPAM · ZClip · AdaGC · skip-step
+│   ├── autopsy/              P1 code: RML undo, planted probes, placebo floor, GPU driver (mve), sealed report
+│   ├── localizer/ repair/    C2 / C3 (unbuilt; see PLAN V8 §6.4–6.5)
+│   ├── analysis/             Held-out eval, stats (partial), attribution gate
+│   ├── theory/               Closed-form predictions (to fill)
+│   ├── experiments/          proxy/ and llm124m/ configs + drivers
+│   ├── kaggle/               step_timer, cross-process gate, legacy CUDA scripts (Kaggle paused)
+│   └── tests/                CPU tests (run in GitHub CI)
+├── results/                  Committed run evidence: CUDA era, plus mi300x_2026-10-27/ (T0 + T1 pilot)
+└── notebooks/                Legacy Kaggle / Colab launchers
 ```
 
-Large generated artifacts (checkpoints, snapshots, shards, spike sets) stay outside git (see [Compute](#compute)).
+Large artifacts (checkpoints, snapshots, shards, spike sets) stay outside git, on the Hugging Face Hub.
 
-## Requirements
+## Docs
 
-- Python 3.11 (matches the Kaggle CUDA image; the AMD/ROCm pin set lands in PLAN V6 Phase 1)
-- GPU: a [Kaggle](https://www.kaggle.com/) T4 built and verified everything so far; the restart targets an AMD MI300X grant
-- Optional: [Hugging Face](https://huggingface.co/) (artifact storage) and [Weights & Biases](https://wandb.ai/) (logging) accounts (both free tier)
+For the whole project on one page, read [`docs/SUMMARY.md`](docs/SUMMARY.md). It has a short version (under 2,000
+characters) and a long one. Then read [`PLAN_V8.md`](PLAN_V8.md), and [`docs/README.md`](docs/README.md) for the
+map. The research evidence
+lives in [`master-research/output/`](master-research/output/). Citations are in
+[`master-research/references.bib`](master-research/references.bib), which holds verified entries only.
 
-No local GPU is needed or used; all compute runs on cloud GPUs.
+## Running
 
-## Installation
+Nothing runs on personal machines. The tests run in **GitHub CI** on every push and PR (CPU, no secrets, no GPU):
+determinism, secrets, baselines, kill-test logic, the spike pipeline and the autopsy code. GPU work runs only on
+the AMD MI300X, with `CUBLAS_WORKSPACE_CONFIG=:4096:8` set before Python starts. One P1 instance is run like this
+(the pilot's exact commands are in `results/mi300x_2026-10-27/t1_pilot/run.sh`):
 
 ```bash
-git clone https://github.com/jaztulsi/optimizer-autopsy.git
-cd optimizer-autopsy
-pip install -r research/requirements.txt
+pip install -r research/requirements.txt         # torch==2.10.0 (ROCm build from the pinned image)
+python -m research.kaggle.step_timer             # measured speeds
+python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/config.yaml \
+    --kind corrupt_batch --inject-step 160 --seed 0 --out results/autopsy
 ```
 
-## Quick start
+The pilot config is the proxy config with `max_steps: 2000`, which prereg-v2 also uses. The repo's
+`research/experiments/proxy/config.yaml` says 5000.
 
-The tests run anywhere (CPU, no secrets, no GPU):
+The next session's run order is on the status page (`docs/status.html`, on `main`). The prereg-v2 run waits for its
+git tag.
 
-```bash
-pytest research/tests/         # determinism gate + secret-hygiene guard
-```
-
-Real runs go on a free GPU. Open a notebook launcher, [`notebooks/kaggle_runner.ipynb`](notebooks/kaggle_runner.ipynb) or [`notebooks/colab_runner.ipynb`](notebooks/colab_runner.ipynb), which sets the determinism env var, clones this repo, loads secrets, and exposes `run(...)`:
-
-```python
-run("python -m research.experiments.proxy.smoke")        # free MVP keep/kill signal
-run("python -m research.experiments.llm124m.run trunk")  # 124M robustness (budgeted)
-```
-
-<a name="compute"></a>
-## Compute
-
-Code lives here; compute in the cloud; artifacts on the Hub. The instrument was built on free tiers, but Kaggle's 30 h/week quota kept running out mid-experiment, so the restart moves real runs to a dedicated AMD budget.
-
-| Component | Service | Role |
-| --- | --- | --- |
-| Code | GitHub | This repository |
-| Compute (target) | AMD MI300X via Exea Labs (audited ask ~15–40 GPU-h, requested) | The V6 restart: real experiments |
-| Compute (origin) | Kaggle T4 (30 h/week, headless via the Kaggle CLI) | Where C1 was built + CUDA-verified |
-| Compute (iteration) | Colab | Fast proxy-scale iteration |
-| Compute (backup) | Azure credits (in reserve) | Overflow compute + checkpoint storage |
-| Artifacts | Hugging Face Hub (`optimizer-autopsy-artifacts`) | Checkpoints, snapshots, shards, spike sets |
-| Logging | Weights & Biases | Loss curves and run metadata |
-
-### Secrets
-
-Secrets are never committed. `research/harness/secrets.py` resolves them at runtime from, in order, the process environment, Kaggle Secrets, Colab userdata, then a gitignored `.env`. A CI test (`test_no_secrets_in_git`) fails the build if any token literal reaches the tracked tree. Required keys: `HF_TOKEN`, `WANDB_API_KEY`.
-
-## Status
-
-The instrument (C1) is complete and CUDA-verified; the actual science (localizer C2, repair C3) is entirely ahead. Everything shipped so far is tested, passing, and committed with run evidence under [`results/`](results/).
-
-```
-Foundation       ####################  done (scaffold, env, fixed data, secrets)
-Instrument (C1)  ####################  done, CUDA-verified: snapshot + fork Δ==0 gate pass
-Spike induction  ####################  2 recipes qualify under V6 policy; fresh GPU confirmation pending
-Kill-test        ####----------------  battery built; not yet run to a verdict
-Localizer/repair --------------------  not started (the heart of the project)
-AMD re-verify    --------------------  go/no-go smoke test is the immediate next action
-```
-
-| Phase | Scope | State |
-| --- | --- | --- |
-| 0 · Foundation | scaffold, env check, fixed data, secrets | Complete |
-| 1 · Instrument (C1) | deterministic replay, proxy model + trunk, snapshot, fork Δ==0 gate | Complete, CUDA-verified |
-| 2 · Spikes + kill-test | induce spikes, tune detector, cheap-fix PROCEED/PIVOT | V6 two-recipe policy gate implemented; existing T4 evidence regrades 2/4 provisionally; fresh held-out run pending; kill-test not run |
-| AMD restart | re-earn determinism on MI300X (go/no-go first), then resume | Next, pending the grant |
-| 3-6 | localizer, repair + baselines, attribution, theory, scale + paper | Not started |
-
-Governing plan: [`PLAN_V6.md`](PLAN_V6.md). Plain-English status: [`update.md`](update.md) and [`EXPLANATION.md`](EXPLANATION.md). Full technical context: [`context-ai.md`](context-ai.md) (state of record in §14). Per-file task detail: [`BUILD_PLAN.md`](BUILD_PLAN.md).
+Secrets are never committed. `research/harness/secrets.py` resolves `HF_TOKEN` / `WANDB_API_KEY` at runtime, and a
+CI test fails the build if a token literal reaches the tree.
 
 ## Contributing
 
-Issues and pull requests are welcome. CI runs the determinism and secret-hygiene gates on every push and pull request to `main`; keep both green.
+Work through PRs, under your own identity. CI (ruff, sloppylint, tests, gitleaks) must be green. Don't modify
+`research/harness/determinism.py` or `preflight.py` without flagging it first. See [`CLAUDE.md`](CLAUDE.md) and
+[`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-## Credits
-
-Authored by jaztulsi. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
