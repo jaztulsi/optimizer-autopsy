@@ -2,7 +2,8 @@
 
 *2026-10-23 · written for the team (jaztulsi, Eddie, the reviewer session) · companion to [`PLAN_V8.md`](../PLAN_V8.md)*
 
-**Nothing in this file has been run.**
+**Update 2026-10-29:** only Part D steps 1–2 and an exploratory slice of step 6 have run (MI300X, 2026-10-27;
+see Part D and [`SUMMARY.md`](SUMMARY.md)). Nothing else in this file has been run.
 - Every algorithm is a design, and every prediction is a hypothesis.
 - Every novelty verdict is **pending** until the reviewer session's kill-search (`master-research/output/13_reviewer_*.md`)
   comes back.
@@ -653,10 +654,15 @@ readout: [spike_incidence, max_attn_logit, indirect_share]
 
 ## Part D · GPU day-1 queue (in order; each step gates the next)
 
-1. `python -m research.kaggle.step_timer`: measured speeds replace every [A].
-2. E01: determinism, in-process and cross-process, through a spike window (G0).
-3. `python -m research.spikes.capture --selfcheck`.
-4. E06 + E02: eval set and placebo spread.
+*Status 2026-10-29 (first MI300X session, `results/mi300x_2026-10-27/`): steps 1–2 ✅. Step 3 crashed (eps read back
+as a string); the fix is committed and needs a GPU re-run. The step-6 MVE ran as an exploratory width-1, seed-0 pilot
+without placebos. Spikes at that dose sat at the ~0.003-nat chaos floor, so E02's placebo floor and a dose sweep
+([`prereg_v2.md`](prereg_v2.md)) come next.*
+
+1. `python -m research.kaggle.step_timer`: measured speeds replace every [A]. ✅ 22.2 ms/step (proxy, batch 64).
+2. E01: determinism, in-process and cross-process, through a spike window (G0). ✅
+3. `python -m research.spikes.capture --selfcheck`. ◐ (re-run after f751e14)
+4. E06 + E02: eval set and placebo spread. E02 now uses K = 8 placebos in the w and g channels (prereg-v2).
 5. E04: planted `v_inflate` sanity (G1).
 6. **The MVE, on 12 instances:** E10 + E10b. Use the 2×2 undo arms at τ ∈ {0, 10, 30} on `corrupt_batch`,
    `repeat_ngram` (width 3) and `v_inflate` + decoys, plus E12 at τ = 10 (G2/G3). This is the reviewer's order.

@@ -26,19 +26,19 @@
 </div></nav>
 
 <header><div class="wrap">
-  <div class="eyebrow">Research plan · PLAN V8 · 2026-10-22 · AMD MI300X · ICML 2027 → NeurIPS 2027</div>
+  <div class="eyebrow">Research plan · PLAN V8 · state 2026-10-29 · AMD MI300X · ICML 2027 → NeurIPS 2027</div>
   <h1>The afterlife of a loss spike: how Adam's memory writes lasting damage, and how to undo it.</h1>
   <p class="sub">When an LLM's loss spikes, every standard fix (clip, skip, reset, roll back) treats the optimizer as a black box. <strong>Optimizer Autopsy</strong> measures how much of a spike's <strong>lasting</strong> damage is carried by the weights versus Adam's <strong>m</strong> and <strong>v</strong>, and how fast it migrates between them. It then finds the coordinates that carry it and repairs only those. Every claim is checked against a <strong>bit-identical counterfactual replay</strong>.</p>
   <div class="hero-meta">
-    <span class="chip">Instrument <b>built · CUDA-verified Δ = 0</b></span>
-    <span class="chip">Next <b>AMD determinism gate + MVE</b></span>
+    <span class="chip">Instrument <b>built · Δ = 0 on CUDA and AMD</b></span>
+    <span class="chip">Next <b>chaos floor + spike-dose sweep</b></span>
     <span class="chip">Compute <b>AMD MI300X · tiers T0–T4</b></span>
     <span class="chip">Venues <b>ICML 2027 · NeurIPS 2027</b></span>
   </div>
 
   <div class="card kill" style="margin:18px 0 4px">
     <h4>▶ Status, honestly</h4>
-    <p>The fork-and-replay instrument (C1) is built, and its noop-vs-noop <b>Δ == 0</b> gate was verified on CUDA. Baselines are merged. The spike-capture pipeline is written. <b>Nothing has run on the AMD GPU yet</b>, so every number on this page is a <b>prediction or a pre-registered proposal</b>, not a result. Full plan: <a href="https://github.com/jaztulsi/optimizer-autopsy/blob/main/PLAN_V8.md"><code>PLAN_V8.md</code></a>.</p>
+    <p>The fork-and-replay instrument (C1) is built. Its noop-vs-noop <b>Δ == 0</b> gate holds on CUDA and, since 2026-10-27, on the <b>AMD MI300X</b>, in-process and across processes, through spike windows. The first AMD pilot was <b>exploratory</b>. Width-1 spikes left 0.0003–0.0117 nats of lasting damage, about the size of the 1-ulp chaos floor (≤ 0.003). In the one clear case, undoing m+v removed ~98% of it, and undoing v alone made it worse (n = 1). The next run measures that chaos floor and raises the spike dose until damage clears it. Every other number on this page is still a <b>prediction or a pre-registered proposal</b>, not a result. Full plan: <a href="https://github.com/jaztulsi/optimizer-autopsy/blob/main/PLAN_V8.md"><code>PLAN_V8.md</code></a>.</p>
   </div>
 
   <figure class="spikefig">
@@ -257,15 +257,16 @@ restore:  v_S(α) = v_S^{1−α} · T_S^α,  largest α with λ_grad(Ĥ) ≤ (1�
   <h2>Who's building it</h2>
   <div class="tbl-scroll"><table>
     <tr><th>Area</th><th>Owner</th><th>State</th></tr>
-    <tr><td>Instrument (C1) and spike pipeline</td><td><span class="owner">jaztulsi</span></td><td>built, CUDA-verified · pipeline written, AMD pending</td></tr>
-    <tr><td>Baselines</td><td><span class="owner">Eddie</span></td><td>SPAM · ZClip · AdaGC · skip-step · v-resets merged (PR #14); strong set to add</td></tr>
-    <tr><td>Localizer (C2) · repair (C3) · theory</td><td>open roles</td><td>unbuilt; output contract defined in PLAN V8 §6.4</td></tr>
-    <tr><td>Compute</td><td>AMD MI300X (via Avneh)</td><td>T0 bring-up next</td></tr>
+    <tr><td>Instrument (C1), spike pipeline, autopsy code</td><td><span class="owner">jaztulsi</span></td><td>built; Δ = 0 on CUDA and the MI300X · 3 spike recipes and the core undo battery ran in the pilot</td></tr>
+    <tr><td>Baselines</td><td><span class="owner">Eddie</span></td><td>SPAM · ZClip · AdaGC · skip-step · v-resets merged (PR #14); rollback-and-skip in PR #20; not yet GPU-run</td></tr>
+    <tr><td>HVP (curvature)</td><td><span class="owner">Avyank</span></td><td>toy double-backward HVP in PR #15 (needs fixes)</td></tr>
+    <tr><td>Localizer (C2) · repair (C3) · theory</td><td>open roles</td><td>unbuilt (RML undo covers part of C3); output contract defined in PLAN V8 §6.4</td></tr>
+    <tr><td>Compute</td><td>AMD MI300X (via Avneh)</td><td>T0 ✓ and an exploratory T1 pilot (2026-10-27); prereg-v2 dose sweep next</td></tr>
   </table></div>
 </div></section>
 
 <footer><div class="wrap">
-  <p class="mono">OPTIMIZER AUTOPSY · PLAN V8 · where does a loss spike live? · instrument built, CUDA-verified · AMD next</p>
+  <p class="mono">OPTIMIZER AUTOPSY · PLAN V8 · the afterlife of a loss spike · instrument built, Δ = 0 on CUDA and AMD · pilot run, dose sweep next</p>
   <p style="margin-top:6px">"Measure where the damage lives before you repair it, and prove every claim against a bit-identical replay."</p>
   <p style="margin-top:12px"><a class="toplink" href="#top">↑ back to top</a></p>
 </div></footer>

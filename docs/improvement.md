@@ -7,7 +7,15 @@
 >   areas → the V8 tiers (§8).
 > - **C1 (doc sprawl) is done:** old plans are in `docs/reference/`, status files in `docs/archive/`, and the map is
 >   at `docs/README.md`.
-> - **Still open:** A5, pushing the spike pipeline through a PR.
+> - **A5 done (2026-10-27):** the spike pipeline is pushed on `plan-v8` (PR #18, open).
+>
+> **Update 2026-10-29.**
+> - **A2 (held-out loss) is fixed in the P1 driver:** `analysis/eval.py`, used by `autopsy/mve.py`.
+> - **A1 (`Bs` clip) is fixed in the P1 driver:** `mve.repair_battery` passes 0.5 × the trunk clip.
+> - **A6:** the cross-process gate passed on the MI300X (`results/mi300x_2026-10-27/`).
+> - **Still open:** B3 (`fork.py:351`) and the A8 pin choice (the box has torch 2.14; the pin is 2.10).
+>
+> Current state: [`SUMMARY.md`](SUMMARY.md) and PLAN_V8 §3 / §9.3.
 >
 > Rows below keep their original wording; where a row says "PLAN_V7 §4.7", read "PLAN_V8 §7.2".
 

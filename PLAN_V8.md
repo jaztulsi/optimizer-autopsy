@@ -1,5 +1,5 @@
 # OPTIMIZER AUTOPSY — PLAN V8
-### Current source of truth · 2026-10-22 · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
+### Current source of truth · 2026-10-22 (state updated 2026-10-29) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
 
 > **Read this first, every session.** V8 supersedes V7 ([`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md)) where
 > they differ. V7 §4's locked decisions (spike design, branch menu, ROCm tolerance, natural-spike rule, ZClip/AdaGC
@@ -24,7 +24,10 @@
 > - **[A]** an assumption, such as a cost before `step_timer`;
 > - **[UNV]** not confirmed, so it supports no claim.
 >
-> **Nothing in this plan has run on the AMD GPU yet. Every number is a prediction or a proposal.**
+> **State (2026-10-29):** T0 bring-up and an *exploratory* T1 pilot ran on the AMD MI300X on 2026-10-27 (§0.1, §3).
+> Every other number in this plan is still a prediction or a proposal. The next run is governed by
+> [`docs/prereg_v2.md`](docs/prereg_v2.md). A short (< 2,000 characters) and a long summary of the project (idea,
+> approach, implementation, results) are in [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
 ---
 
@@ -99,6 +102,31 @@
    not the constraint (user, 2026-10-22).
 10. **All ideas are kept** (Appendix A, about 140 entries with honest novelty labels). The gates in §8.3 decide what
     runs first. They never delete an idea.
+
+### 0.1 · Since V8 was written (2026-10-23 → 2026-10-29)
+1. **First MI300X session (2026-10-27)** [V: `results/mi300x_2026-10-27/`].
+   - **G0 passed:** Δ = 0 in-process, cross-process (3 processes, 2 of them concurrent) and through spike windows.
+   - **`step_timer`:** 22.2 ms/step solo at proxy batch 64; ≈ 0.012 GPU-h per end-of-schedule proxy branch when
+     forks share the GPU.
+2. **The T1 pilot is exploratory** (tag `prereg-pilot-2026-10-27`; its thresholds were frozen after the data).
+   - **Result:** 120/120 branches. Width-1 spikes at step 160 left 0.0003–0.0117 nats of held-out damage, about
+     the size of the 1-ulp chaos floor (≤ 0.0027).
+   - **One clear case** (`corrupt_batch`, β1 = 0.8): undo-m+v removed ~98%, and undo-v alone made it worse. That
+     is C-2's sign, with n = 1.
+   - **Caveat:** it ran with `--skip-preflight` (the box has torch 2.14; the pin is 2.10).
+3. **prereg-v2 drafted** ([`docs/prereg_v2.md`](docs/prereg_v2.md); needs sign-off and `git tag prereg-v2`).
+   - **Design:** planted dose c ∈ {1, 3, 10, 30} × 3 phases; K = 8 placebos in the w and g channels; a global
+     cooldown arm; RML-full / -cool / -sel at lag 3.
+   - **Effect unit:** d = Δ/σ_chaos, with \|d\| < 2 reported as "within chaos". This refines §7.2.
+4. **Ten ranked P1 upgrades** ([`docs/p1_upgrades.md`](docs/p1_upgrades.md)): U1 forgetting threshold, U2
+   chaos-calibrated stats and U3 v-as-cooldown decide whether P1 has a finding.
+5. **Code.**
+   - `research/autopsy/` (RML undo, planted probes, placebo floor, dose meter, cooldown, GPU driver, sealed report),
+     `analysis/eval.py` (held-out Δ) and `kaggle/xproc_gate.py`.
+   - Capture self-check fix (f751e14).
+   - `Brollback` in PR #20.
+
+Full state: §3 and [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
 ---
 
@@ -187,6 +215,9 @@ end-of-schedule proxy fork; 124M as in §8):
 - **Total ≈ 12–19 MI300X-h**, inside the ≤ 20 h core line.
 - **At the pessimistic 2× scenario** the proxy part is ≈ 5× more expensive. Then, in order: cut M3 to 2 Δt values, M4
   to Δt ∈ {2, 8}, and 124M to n = 3. `step_timer` on day 1 decides.
+- **Measured on 2026-10-27** [V]: ≈ 0.012 GPU-h (≈ 43 s) per end-of-schedule proxy branch when forks share the
+  GPU. That is ≈ 4× the 10 s assumed above, so ≈ 1,600 proxy forks cost ≈ 19 MI300X-h, not ≈ 4.5 h [I]. The cut
+  order above applies if the ≤ 20 h line matters. The GPU itself is not the constraint (user, 2026-10-22).
 
 ### 2.6 · Paper skeleton (P1), written backwards (drafted by the reviewer session)
 
@@ -229,17 +260,23 @@ filled in as gates pass. Reviewer simulation at week 8.
 
 ---
 
-## 3 · Verified state on 2026-10-22
+## 3 · Verified state on 2026-10-29 (first written 2026-10-22)
 
 | Piece | State | Evidence |
 |---|---|---|
-| C1 determinism and the fork `Δ==0` gate | ✅ CUDA-verified (T4 proxy; P100 124M at grad_accum = 40). **AMD untested** | `results/task4_*.json`, `task7_fork_gate.json`, `research/kaggle/step_timer_results.md` |
-| AMD MI300X | Provided by Avneh. **Not yet handed over to the build; nothing has run on it** | user, 2026-10 |
-| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` (`repeat_ngram`, `v_inflate`) and `test_spike_pipeline.py` are written and **committed on local branch `plan-v8`** (826b03c; not pushed, never run) | `git log plan-v8` |
-| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; never run on a GPU | `research/baselines/` |
-| Kill-test (Task 9) | Built and logic-tested. **Four instrument defects found** (§9.3); never run | `docs/improvement.md` A1–A8 |
-| Localizer (C2), repair (C3), theory | ⬜ unbuilt. The output contract is now defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
-| Research corpus | Waves 1–2, about 150 ideas and 2 fact-check passes | `master-research/output/` |
+| C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/kaggle/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
+| AMD MI300X | Provided by Avneh. **First session 2026-10-27:** T0 passed, T1 pilot ran. The box has torch 2.14 while the pin is 2.10, so the pilot ran with `--skip-preflight`. Pin decision open | `results/mi300x_2026-10-27/` |
+| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Pushed on `plan-v8` (**PR #18 open**, unreviewed). `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check **crashed on the MI300X** (eps read back as a string); the fix is committed (f751e14), but the GPU re-run is pending | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
+| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; **never run on a GPU**. `Brollback` (rollback-and-skip at matched compute) is in **PR #20, open** | `research/baselines/` |
+| P1 autopsy code | RML undo (m / v / m+v, top-k v, cooldown), planted probes (parity, dose, interference, refractory), 1-ulp placebo floor in the w and g channels, the GPU driver and a sealed report. CI-tested. The core battery ran in the pilot; the placebo, dose and cooldown arms have not run | `research/autopsy/`, `research/tests/test_autopsy.py` |
+| Held-out eval | `val_loss` / `horizon_probe` on slots token-disjoint from the probe slots (fixes A2 in §9.3). Ran in the pilot | `research/analysis/eval.py` |
+| T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
+| Pre-registration | `prereg-v2` drafted; **not signed off or tagged** | `docs/prereg_v2.md` |
+| Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
+| LR schedule | ⬜ constant-LR stub (warmup + cosine / WSD needed for T2) | `research/autopsy/schedule.py` |
+| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML in `autopsy/` covers part of C3. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
+| Toy HVP | PR #15 open; needs changes before merge | branch `avyank/toy-hvp` |
+| Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
 
 ---
 
@@ -247,7 +284,7 @@ filled in as gates pass. Reviewer simulation at week 8.
 
 | Paper | Venue (dates [UNV] until CFPs are out) | Core claim | Compute tier | Status |
 |---|---|---|---|---|
-| **P1** | **ICML 2027** (abstract ≈ Jan 16, paper ≈ Jan 22, 2027 [UNV]) | Who wrote the damage. **C-1** mediation (the M1 kernel; β1-ordered indirect share); **C-2** protective v (2×2 undo arms + the M3 refractory curve); **C-3** spike interference (M4: I_opp < I_same for Δt ≤ 13, no state patching); **C-4** retroactive RML undo at detector lag vs the best baseline and the OLMo skip-step on niche spikes; 124M n = 5 on C-1 | P1-core ≤ 20 MI300X-h [A]; stretch +30–60 h | planned |
+| **P1** | **ICML 2027** (abstract ≈ Jan 16, paper ≈ Jan 22, 2027 [UNV]) | Who wrote the damage. **C-1** mediation (the M1 kernel; β1-ordered indirect share); **C-2** protective v (2×2 undo arms + the M3 refractory curve); **C-3** spike interference (M4: I_opp < I_same for Δt ≤ 13, no state patching); **C-4** retroactive RML undo at detector lag vs the best baseline and the OLMo skip-step on niche spikes; 124M n = 5 on C-1 | P1-core ≤ 20 MI300X-h [A] (≈ 19 h for proxy forks alone at the measured cost, §2.5); stretch +30–60 h | T0 ✅, T1 pilot ✅ (exploratory); prereg-v2 next |
 | **P2** | **NeurIPS 2027 main** (≈ mid-May 2027 [UNV]) | *Scaling laws of optimizer-state damage*: out-of-sample predicted rungs; Pythia ladder to 2.8B–6.9B; μP/CompleteP collapse; natural spikes at ≥ 410M; SDC/bit-flip reliability; Muon / Adafactor / Adam-mini / AdEMAMix generality; RL fine-tuning and ViT transfer | Tier 3 (+ Tier 4) | planned |
 | **P3** | **NeurIPS 2027 datasets/benchmarks track** (the 2026 track was "Evaluations & Datasets", with Croissant + RAI metadata [V]) | **SpikeState**: ≥ 200 spike instances with (w, m, v, v̄) snapshots, clean twins, oracle maps and a leaderboard; plus the open autopsy toolkit (fork engine, undo-log wrapper, integrity scanner). **Privacy:** optimizer state leaks training tokens (seU1LYAiwm), so release only public-data runs and document the risk | Tier 3 (reuse) | planned |
 | fallbacks | TMLR (rolling); ICLR 2027 / ICML 2027 workshops | any subset that is complete | any | — |
@@ -400,6 +437,7 @@ OpenAlex are still to query (open issue §13).
 3. **Poisoned-state transplant.** B0's m, v or (m, v) onto B\*'s w, with doses κ ∈ {1, 10², 10⁴}. Endpoints: a
    binomial rate of "Δ > τ" plus Spearman ρ.
 4. **Placebo replicates.** K = 5 runs with a 1-ulp perturbation per branch. Any effect must exceed the placebo spread.
+   **prereg-v2 raises this to K = 8 per phase, in the w and g channels**, and reports effects as d = Δ/σ_chaos.
 5. **Free re-scored endpoints** (no extra forks):
    - per-token damage map (R6);
    - linear-mode-connectivity barrier between B0, the repair and B\* (R28);
@@ -645,6 +683,12 @@ experiment.
 - **Matched tokens:** 16,384 per step.
 - **ε policy:** pick one before running (§6.6 rule 3).
 - **ROCm tolerance:** V7 §4.4 unchanged.
+- **Since 2026-10-27:**
+  - The T1 pilot was run under tag `prereg-pilot-2026-10-27`, with thresholds frozen after the data, so it counts
+    as exploratory.
+  - The next run's thresholds are in [`docs/prereg_v2.md`](docs/prereg_v2.md): the chaos unit
+    d = Δ/σ_chaos (\|d\| < 2 = "within chaos"), K = 8 placebos and H-A…H-F. It needs sign-off and
+    `git tag prereg-v2` before its run.
 
 ---
 
@@ -655,15 +699,17 @@ Costs are MI300X-hours. The working assumptions [A] are:
 - trunk mode (bf16 autocast): ≈ 390 TFLOP/s (30% of the 1,307 TFLOP/s dense peak);
 - FLOPs ≈ 6·N·tokens.
 
-**`step_timer` replaces all of these on AMD day 1.** At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $290 and
+**`step_timer` replaces all of these on AMD day 1.** It ran on 2026-10-27: 22.2 ms/step solo for the proxy at
+batch 64, and ≈ 0.012 GPU-h per end-of-schedule proxy branch when forks share the GPU [V]. The 124M and trunk-mode
+rates are not measured yet. At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $290 and
 2,000 h ≈ $5.8k; the GPU itself is free to us.
 
 ### 8.1 Tiers (each tier is a complete, publishable unit)
 
 | Tier | Goal | Contents | GPU-h [A] | Feeds |
 |---|---|---|---|---|
-| **T0 · Bring-up** (week 1) | A trustworthy instrument on AMD | `step_timer`; fork gate in-process **and cross-process through a spike window**; math-SDPA HVP determinism; pinned image `rocm/pytorch:rocm7.14.1_…_pytorch_release_2.10.0` by digest [V: tools pass]; if Δ ≠ 0, try torch 2.13 / AOTriton 0.12b | 3–5 | all |
-| **T1 · MVE** (week 2) | Does the headline exist? | 12 proxy instances: `corrupt_batch`, `repeat_ngram` (width 3) and `v_inflate` + decoys, × 4 seeds. **2 × 2 undo arms (none / m / v / m+v) at τ ∈ {0, 10, 30}** (C-1, C-2), plus the w/m/v factorial at τ = 10 and placebos; ≈ 400 forks. Then the β1 arms → localization → the C-4 battery (reviewer's order) | 1–2 | G1–G3 |
+| **T0 · Bring-up** (week 1) ✅ 2026-10-27, except the HVP check (PR #15) | A trustworthy instrument on AMD | `step_timer`; fork gate in-process **and cross-process through a spike window**; math-SDPA HVP determinism; pinned image `rocm/pytorch:rocm7.14.1_…_pytorch_release_2.10.0` by digest [V: tools pass]; if Δ ≠ 0, try torch 2.13 / AOTriton 0.12b | 3–5 | all |
+| **T1 · MVE** (week 2) · pilot ✅ 2026-10-27 (exploratory, width 1, seed 0); prereg-v2 dose sweep next | Does the headline exist? | 12 proxy instances: `corrupt_batch`, `repeat_ngram` (width 3) and `v_inflate` + decoys, × 4 seeds. **2 × 2 undo arms (none / m / v / m+v) at τ ∈ {0, 10, 30}** (C-1, C-2), plus the w/m/v factorial at τ = 10 and placebos; ≈ 400 forks. Then the β1 arms → localization → the C-4 battery (reviewer's order) | 1–2 | G1–G3 |
 | **T2 · ICML core** (weeks 3–10) | P1 | Realistic proxy (warmup + cosine, ≥ 20 tokens/non-embedding param) plus the 6L/384 mid rung, QK-Norm and untied variants. β cross (≈ 1.7 h). Full factorial, transplant, undo and placebos over 5 types × n = 10. Localizers + oracle (3–5 h). Repairs + full baseline battery (6–10 h). SDC/bit-flip arm (≈ 1–2 h). Phase × cooldown (≈ 0.5–1 h). E1 scaling law, SP arm (1.5–2.5 h). **124M n = 5 at matched tokens (6–8 h)**. **Pythia-160M borrowed trunk (≈ 4 h)**. +30% reruns | **50–80** | P1 |
 | **T3 · NeurIPS scale-up** (Feb–May 2027) | P2 + P3 | **Pythia ladder:** 410M (≈ 10), 1B (≈ 35), 1.4B (≈ 50), 2.8B n = 5 (≈ 50). μP/CompleteP arm (+1.5). Own 350M rung, 3 seeds (bf16 trunk ≈ 10 h each + forks ≈ 12). Natural-spike program at 124M–410M with stress presets (≈ 100). Optimizer generality (≈ 15–25): **Adam-mini first** (reimplemented in about 30 lines with AdamW state keys; its default name grouping mis-groups our fused `c_attn`), then Muon + AdamW, Adafactor (no m; the lr cap clips `lr_bump`), AdEMAMix. bf16/flash-attention natural explosion at 124M (≈ 10–20). SpikeState production (≥ 200 instances, mostly reuse) | **200–450** | P2, P3 |
 | **T4 · Moonshot** (8× MI300X node, 2027) | Real-scale natural spikes, plus breadth | Own **instrumented 1B trunks** (20B tokens, bf16, 8 GPUs ≈ 85 GPU-h per seed) × 3–5 stress seeds. Natural spikes forked single-GPU (1B fits; ≈ 3.3 h per instance). **Pythia-6.9B** borrowed trunk on one 192 GB card (≈ 23 h per instance, n = 5). RL fine-tuning (PPO/GRPO) and ViT/CLIP transfer (50–100). 3B trunk stretch (≈ 770) | **500–2,000** | P2 extension, follow-ups |
@@ -761,14 +807,16 @@ run.
 - the T12 census on the Pythia shards.
 
 ### 9.3 Instrument fixes, before T1
-Each fix carries its `docs/improvement.md` ID.
-- **A1 (held-out Δ).** `_summarize` uses the last training loss [V: fork.py:306-310]. Δ must come from `val_loss` on
-  disjoint batches.
-- **A2 (cheap-fix degeneracy).** `Bs` clip = trunk clip, so `Bs` ≡ B0 for `lr_bump` and ≡ B\* for `corrupt_batch`
-  [V]. Fix: clip below the trunk clip, or a best-cheap-fix gate.
-- **A3 (pre-registration).** Commit τ and the other thresholds (§7.2).
-- **Spike role:** the `lr_bump` schedule fix (induce.py).
-- **Harness owner, flagged:** the `except Exception` at fork.py:351.
+Each fix carries its `docs/improvement.md` ID (there, A1 is the `Bs` clip and A2 is the held-out loss). Status as
+of 2026-10-29:
+- **Held-out Δ (improvement A2): ✅.** `_summarize` still uses the last training loss [V: fork.py:306-310], but the
+  autopsy driver measures Δ with `eval.horizon_probe` on token-disjoint held-out slots.
+- **Cheap-fix degeneracy (improvement A1): ✅ in the autopsy path.** `Bs` clip = trunk clip made `Bs` ≡ B0 for
+  `lr_bump` and ≡ B\* for `corrupt_batch` [V]. `autopsy.mve.repair_battery` now passes 0.5 × the trunk clip.
+- **Pre-registration (improvement A3): ◐.** The pilot was tagged after its data. prereg-v2 is drafted and untagged.
+- **Spike role: ⬜.** The `lr_bump` schedule fix (induce.py still sets an absolute LR). It is harmless at constant
+  LR, and must land with the T2 schedule.
+- **Harness owner, flagged: ⬜.** The `except Exception` at fork.py:351.
 
 ### 9.4 Changes that need sign-off (flagged; not done)
 - **ROCm env vars** (`ROCBLAS_DEFAULT_ATOMICS_MODE=0`, `ROCBLAS_USE_HIPBLASLT=0`, `preferred_blas_library`, a fixed
@@ -839,8 +887,8 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 
 | Week | Dates | Work | Owner |
 |---|---|---|---|
-| 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B | spike (jaztulsi) + harness |
-| 2 | Nov 2 | T1 MVE → G1–G3 | spike |
+| 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B. **Done:** T0/G0, an exploratory T1 pilot, the §9.3 fixes except two (§9.3), the pipeline pushed (PR #18), prereg-v2 drafted. **Not done:** EleutherAI email, OPEN-1B check | spike (jaztulsi) + harness |
+| 2 | Nov 2 | prereg-v2 sign-off and tag → chaos floor + dose sweep + repair battery (H-A…H-F) → G1–G3 | spike |
 | 3–4 | Nov 9–20 | Realistic proxy + mid rung; QK-Norm / untied; β cross; SDC recipes; stress re-search | spike + baselines (Eddie) |
 | 5–6 | Nov 23–Dec 4 | M4 interference + M3 refractory forks → G4; oracle/localizers only if ahead (exploratory); Pythia converter + census (G8) | C2 owner [TBD] |
 | 7–8 | Dec 7–18 | Repairs + full baseline battery → G5; E1 scaling-law fit | C3 owner [TBD] + Eddie |
@@ -902,7 +950,12 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
   - **(a) Build the code now?** The critical path, all writable and CI-testable before the GPU, never run locally:
     eval.val_loss → RML/undo → mve driver → stats → oracle → localizers.
   - **(b) Pre-registration:** a git tag `prereg-v1` on §7.0/§7.2 before T1, plus an OSF/AsPredicted entry (an
-    external action).
+    external action). **Now:** sign off and tag `prereg-v2` ([`docs/prereg_v2.md`](docs/prereg_v2.md)) before the
+    next MI300X run.
+  - **(b2) torch pin:** the box has torch 2.14 and `research/requirements.txt` pins 2.10. Pull the pinned container,
+    or bump the pin and re-run G0. The pilot ran with `--skip-preflight`.
+  - **(b3) Reviews:** PR #18 (`plan-v8` → `main`), PR #20 (`Brollback`; it touches `trunk.py` and `fork.py`, so it
+    needs a GPU replay check) and PR #15 (needs fixes).
   - **(c) Owners** for C2/C3, stats and writing.
   - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6).
 - **Team sign-off** on §7.2 thresholds, §9.4 changes and C2/C3 owners.
@@ -916,6 +969,13 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 ---
 
 ## 14 · Change log
+- **2026-10-29 (state update; the plan is unchanged):**
+  - Added §0.1, refreshed §3, and recorded the T0/T1 status in §4, §8 and §11.
+  - Added the measured fork cost to §2.5 and §8, the fix status to §9.3, and the prereg-v2 pointers to §6.3, §7.2
+    and §13.
+  - Added `docs/SUMMARY.md` (short and long summary).
+- **2026-10-23 → 10-28:** mediation headline and C-1…C-4 (§0, §7.0); reviewer's algorithm pass (§10); autopsy code;
+  first MI300X session; prereg-v2; P1 upgrades (`docs/p1_upgrades.md`).
 - **V8 (2026-10-22):**
   - New question (damage migration first) and a narrowed, fact-checked novelty ledger (SWIFT downgrade, naming).
   - Instrument fixes; β1 × β2 identification; Bai-Ĥ threshold; STP with matched tokens and the held-out-rung law.

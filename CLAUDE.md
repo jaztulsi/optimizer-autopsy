@@ -15,12 +15,17 @@ It also adds a fact-checked novelty ledger (§5), pre-registration thresholds (�
 and the full idea portfolio (Appendix A). `docs/reference/PLAN_V7.md` is superseded, but its §4 locked decisions
 hold unless V8 changes them. `docs/reference/PLAN_V6.md` stays the long-form math reference. The newest plan wins
 where they differ. Research evidence trail: `master-research/output/`; verified citations:
-`master-research/references.bib`; doc map: `docs/README.md`. Full details live in `research/README.md`; the banked state is
-`docs/reference/context-ai.md` §14. Don't ask the user to re-explain the project — read the repo instead.
+`master-research/references.bib`; doc map: `docs/README.md`. Code layout and per-module status are in `research/README.md`. The
+current state, as a short summary (under 2,000 characters) plus a long one, is `docs/SUMMARY.md`; keep it current
+whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
+re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts):** C1 (harness: determinism,
-snapshot, fork, `Δ==0` gate) is **built and CUDA-verified**. C2 (localizer) and C3 (repair) are
-**unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
+**Current build state (verify against code, not this line — it drifts; last checked 2026-10-29):** C1 (harness:
+determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
+in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
+RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
+exploratory T1 pilot. The next run is `docs/prereg_v2.md`, which needs sign-off and a git tag first. C2 (localizer)
+and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 
 ## 1. Non-negotiable guardrails (never violate these without explicit sign-off)
@@ -28,7 +33,8 @@ snapshot, fork, `Δ==0` gate) is **built and CUDA-verified**. C2 (localizer) and
   eigensolves, and anything GPU-bound go to the **AMD MI300X** (provided by Avneh). **Kaggle is paused**: user
   instruction, Oct 2026, "do not do anything on Kaggle". Colab is not used. This workstation is for git, reading
   and editing only. Even tests and the linter run in GitHub CI, not locally, unless the user says otherwise; the
-  "tiny" self-checks are GPU-only. Nothing runs on the MI300X until the user hands it over.
+  "tiny" self-checks are GPU-only. The MI300X was handed over for its first session on 2026-10-27; nothing runs
+  on it without the user's go-ahead for that session (§5).
 - **Do not modify `research/harness/determinism.py` or `research/harness/preflight.py` without
   explicitly flagging it first.** This code is load-bearing: `CUBLAS_WORKSPACE_CONFIG` must be set
   before `import torch`, CUDA must not be initialized before `use_deterministic_algorithms` is
@@ -174,7 +180,9 @@ on_step=None, grad_hook=None, pre_step=None, run=None) -> list[float]` (per-step
 **The determinism gate** (`harness/fork.py`): `fork_determinism_gate(cfg, data_dir, snapshot, steps,
 device=None, seed=True) -> float`. Runs two noop forks, **asserts** they are bitwise identical at every
 step, returns `max|Δ|` (0.0 on success; raises on any nonzero). Already passes at proxy (fp32, CUDA) and
-at 124M grad_accum=40 (P100) — see `research/kaggle/step_timer_results.md`.
+at 124M grad_accum=40 (P100) — see `research/kaggle/step_timer_results.md` — and on the AMD MI300X at proxy,
+in-process and across 3 processes through spike windows (`research/kaggle/xproc_gate.py`,
+`results/mi300x_2026-10-27/t0_*`).
 
 **Fork + intervention** (`harness/fork.py`): `run_fork(cfg, data_dir, snapshot, intervention=None,
 steps=None, start_step=None, device=None, on_step=None, grad_hook=None, pre_step=None, seed=True)
@@ -194,9 +202,11 @@ steps=None, start_step=None, device=None, on_step=None, grad_hook=None, pre_step
 
 ### 7.2 Dependencies + unresolved contracts (settle these before coding to a timeline)
 
-- **Update 2026-10-08:** `research/spikes/capture.py` (written, not yet run on a GPU) now keeps `v̄` and saves
-  the fork-time copy plus t0 / fork / matched-normal snapshots per spike, and `spikes/k2.py` records them in
-  the K2 manifest (`vbar_uri`, `normal_snapshot_uris`). The paragraph below describes the gap it fills.
+- **Update 2026-10-08:** `research/spikes/capture.py` now keeps `v̄` and saves the fork-time copy plus t0 / fork /
+  matched-normal snapshots per spike, and `spikes/k2.py` records them in the K2 manifest (`vbar_uri`,
+  `normal_snapshot_uris`). The paragraph below describes the gap it fills. **2026-10-29:** its `--selfcheck`
+  crashed on the MI300X (eps read back as a string). The fix (f751e14) is committed, but the GPU re-run is still
+  pending.
 - **`v̄` (pre-spike running average of `v`) does NOT exist yet.** PLAN_V6 §3.6 defines the poison score
   against a pre-spike running-average `v̄` and thresholds "derived from matched *normal* training steps."
   Nothing captures that: `snapshot.capture` grabs `v` at **one** step, proxy `config.yaml` has
@@ -214,14 +224,18 @@ steps=None, start_step=None, device=None, on_step=None, grad_hook=None, pre_step
   returns nothing. `analysis/attribution.py` only *names* `attribute(snapshot, localization, forks)` in
   a TODO. **Upside:** C2/C3 are free to define their output contract. **Obligation:** they MUST define
   it (what a "localization" is — e.g. `{param_name: score}` + a selected group set), because attribution
-  (Task 17) and `repair.as_intervention` will consume it, and it is documented nowhere today.
+  (Task 17) and `repair.as_intervention` will consume it. **Since V8 it is documented:** the `Localization`
+  schema in PLAN_V8 §6.4.
 - **Unresolved design question for C3's callback slot.** `repair/operator.py`'s TODO says
   `as_intervention(localization, mode) -> callable usable by run_fork`. Which slot depends on which
   snapshot the localizer operates on: if repair edits a **post-spike** snapshot at fork start, it's the
   once-at-start `intervention(model, opt)` slot; if it follows the Task-9 protocol (fork from a
   **pre-spike** `t0` snapshot, replay the spike forward, then fix), it must be an `as_pre_step(at_step)`
   firing after the spike window — exactly `reset.py`'s shape but **selective** on localized groups.
-  Settle pre- vs post-spike before writing the signature.
+  Settle pre- vs post-spike before writing the signature. **Precedent (2026-10-27):** the RML undo in
+  `autopsy/undo.py` already takes the pre-spike route. `mve` forks from the snapshot at `inject_step`, and
+  `as_undo_pre_step(log, at_step, channels)` fires after the window, so a selective `repair/` operator that
+  follows it is consistent with the P1 code.
 
 ### 7.3 "If you're about to work on X, read Y first"
 

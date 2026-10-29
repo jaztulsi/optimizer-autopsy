@@ -6,14 +6,15 @@
 it.**
 
 A causal autopsy of Adam's optimizer state at the moment an LLM's training loss spikes. Bit-identical
-counterfactual replay is the standard of proof. The instrument is built and was GPU-verified on CUDA. The science
-runs on an AMD MI300X under [PLAN&nbsp;V8](PLAN_V8.md).
+counterfactual replay is the standard of proof. The instrument is built and GPU-verified on CUDA and on the AMD
+MI300X, where the first exploratory pilot ran on 2026-10-27. The science runs under [PLAN&nbsp;V8](PLAN_V8.md).
+One-page summary: [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
 [![CI](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml/badge.svg)](https://github.com/jaztulsi/optimizer-autopsy/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776ab.svg)](research/requirements.txt)
 [![Compute: AMD MI300X](https://img.shields.io/badge/compute-AMD%20MI300X-ed1c24.svg)](#program-and-compute)
-[![Replay](https://img.shields.io/badge/replay-CUDA%20verified%20%7CΔ%7C%3D0%20·%20AMD%20pending-2ea44f.svg)](#the-determinism-gate)
+[![Replay](https://img.shields.io/badge/replay-CUDA%20%2B%20AMD%20verified%20%7CΔ%7C%3D0-2ea44f.svg)](#the-determinism-gate)
 
 [Website](https://jaztulsi.github.io/optimizer-autopsy/) ·
 [Question](#the-question) ·
@@ -127,19 +128,27 @@ states are cited, never claimed.
 Replaying from a snapshot must produce identical numbers, or a fork's Δ measures nondeterminism instead of the
 intervention.
 - **CUDA:** the gate is built and verified (T4 proxy; P100 124M): `max|Δ| = 0` noop-vs-noop.
-- **AMD:** it must be re-earned. On ROCm, `use_deterministic_algorithms` doesn't reach hipBLASLt, and torch 2.10's
-  AOTriton attention backward ignores the deterministic flag.
-- **The AMD day-1 gate** runs **across processes, through a spike window**. It uses a pinned
-  `rocm/pytorch` torch 2.10.0 image, ROCm env vars set in the launcher, and math-backend attention for HVPs. If it
+- **AMD MI300X (2026-10-27): passed at proxy scale.** The gates gave `max|Δ| = 0`:
+  - in-process;
+  - **across 3 processes, two of them sharing the GPU**, for the noop, `lr_bump` and `corrupt_batch` recipes,
+    through the spike window.
+
+  See [`results/mi300x_2026-10-27/`](results/mi300x_2026-10-27/).
+- **Still to earn on AMD:**
+  - The gate at 124M.
+  - HVP determinism under math-backend attention.
+  - A run under the pinned torch: the box has torch 2.14, the repo pins 2.10, and the pilot skipped preflight.
+
+  On ROCm, `use_deterministic_algorithms` doesn't reach hipBLASLt, so each new config re-runs the gate. If a gate
   can't reach zero, the pre-registered tolerance in [`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md) §4.4
   applies.
 
 ## Program and compute
 
-| Tier | What | MI300X-h (estimates until `step_timer`) | Paper |
+| Tier | What | MI300X-h (estimates; proxy speed measured on 2026-10-27) | Paper |
 |---|---|---|---|
-| T0 | AMD bring-up, determinism gate, `step_timer` | 3–5 | all |
-| T1 | Minimal viable experiment: damage migration on 12 proxy instances | 1–2 | go/no-go |
+| T0 ✅ | AMD bring-up, determinism gate, `step_timer` | 3–5 | all |
+| T1 · pilot ✅ | Minimal viable experiment. The exploratory pilot ran on 2026-10-27; next is the prereg-v2 dose sweep against a measured chaos floor | 1–2 | go/no-go |
 | T2 | Full proxy + mid rung + 124M (n = 5, matched tokens/step) + Pythia-160M borrowed trunk + strong baselines | 50–80 | **P1 · ICML 2027** |
 | T3 | Pythia ladder to 2.8B, μP collapse, held-out-rung prediction, OPEN-1B released states (use depends on its skip protocol), SDC, other optimizers | 200–450 | **P2 · NeurIPS 2027**, **P3 · SpikeState (datasets track)** |
 | T4 | Own instrumented 1B trunks on an 8× node; Pythia-6.9B on one 192 GB card; RL fine-tuning / ViT | 500–2,000 | follow-ups |
@@ -150,14 +159,18 @@ out.
 
 ## Status
 
+*As of 2026-10-29. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
+
 ```
-Instrument (C1)      ####################  built; CUDA-verified Δ==0; AMD gate pending
-Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); Adam-MR, StableAdamW… to add
-Spike pipeline       ##############------  capture · natural · K2 manifest · new recipes; written, not yet pushed or run
-Research + plan      ####################  PLAN V8, ~140-idea portfolio, two fact-check passes
-Instrument fixes     ####----------------  held-out Δ, Bs clip, lr_bump schedule, disjoint eval (PLAN V8 §9.3)
-Damage migration     --------------------  T1 MVE is the first science run on AMD
-Localizer / repair   --------------------  unbuilt (C2 / C3); output contract defined (PLAN V8 §6.4)
+Instrument (C1)      ####################  built; Δ==0 on CUDA and on the AMD MI300X (in- and cross-process)
+Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); rollback (PR #20); never GPU-run
+Spike pipeline       ################----  pushed (PR #18); 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run
+P1 autopsy code      ##############------  RML undo · probes · placebo floor · dose · cooldown · driver; core battery ran
+Instrument fixes     ##############------  held-out Δ ✓ · Bs clip ✓ · lr_bump schedule and fork.py:351 open
+T1 pilot             ####################  exploratory: damage at the ~0.003-nat chaos floor; one β1 = 0.8 hint for C-2
+prereg-v2            ##########----------  drafted (dose × phase × placebo × cooldown); needs sign-off + tag
+Localizer / repair   ##------------------  C2 unbuilt; C3 partly covered by RML; output contract in PLAN V8 §6.4
+Paper (P1)           --------------------  0 of 4 confirmatory claims with evidence; writing not started
 ```
 
 ## Repository layout
@@ -167,21 +180,23 @@ optimizer-autopsy/
 ├── PLAN_V8.md                Governing plan (read §0–§1 first)
 ├── CLAUDE.md                 Guardrails + harness interfaces (binding for every session)
 ├── index.html, styles.css    GitHub Pages site
-├── docs/                     Doc map, improvement audit, reference/ (V7, V6, BUILD_PLAN, context-ai), archive/
-├── master-research/          Research run: output/ (02–12), references.bib (verified only), RUN_LOG, merged skill
+├── docs/                     SUMMARY (short + long), doc map, prereg_v2, p1_upgrades, catalog, improvement audit,
+│                             reference/ (V7, V6, BUILD_PLAN, context-ai), archive/
+├── master-research/          Research run: output/ (02–13), references.bib (verified only), RUN_LOG, merged skill
 ├── research/                 All source (Python)
 │   ├── harness/              Determinism, preflight, secrets, (w,m,v) snapshots, trunk + fork runners, battery
 │   ├── model/                nanoGPT: proxy (11M) and 124M
 │   ├── data/                 Reproducible tokenize + shard
 │   ├── spikes/               Spike recipes, detector, capture driver, natural-spike search, K2 manifest
 │   ├── baselines/            skip · clip · resets · v̄ · SPAM · ZClip · AdaGC · skip-step
+│   ├── autopsy/              P1 code: RML undo, planted probes, placebo floor, GPU driver (mve), sealed report
 │   ├── localizer/ repair/    C2 / C3 (unbuilt; see PLAN V8 §6.4–6.5)
-│   ├── analysis/             Attribution gate; eval + stats (to fill)
+│   ├── analysis/             Held-out eval, stats (partial), attribution gate
 │   ├── theory/               Closed-form predictions (to fill)
 │   ├── experiments/          proxy/ and llm124m/ configs + drivers
-│   ├── kaggle/               Legacy CUDA run scripts (Kaggle paused) + step_timer
+│   ├── kaggle/               step_timer, cross-process gate, legacy CUDA scripts (Kaggle paused)
 │   └── tests/                CPU tests (run in GitHub CI)
-├── results/                  Committed run evidence (CUDA era)
+├── results/                  Committed run evidence: CUDA era, plus mi300x_2026-10-27/ (T0 + T1 pilot)
 └── notebooks/                Legacy Kaggle / Colab launchers
 ```
 
@@ -189,21 +204,31 @@ Large artifacts (checkpoints, snapshots, shards, spike sets) stay outside git, o
 
 ## Docs
 
-Start with [`PLAN_V8.md`](PLAN_V8.md), then [`docs/README.md`](docs/README.md) for the map. The research evidence
+For the whole project on one page, read [`docs/SUMMARY.md`](docs/SUMMARY.md). It has a short version (under 2,000
+characters) and a long one. Then read [`PLAN_V8.md`](PLAN_V8.md), and [`docs/README.md`](docs/README.md) for the
+map. The research evidence
 lives in [`master-research/output/`](master-research/output/). Citations are in
 [`master-research/references.bib`](master-research/references.bib), which holds verified entries only.
 
 ## Running
 
 Nothing runs on personal machines. The tests run in **GitHub CI** on every push and PR (CPU, no secrets, no GPU):
-determinism, secrets, baselines, kill-test logic and the spike pipeline. GPU work runs only on the AMD MI300X, in
-this order on day 1 ([PLAN V8 §8](PLAN_V8.md)):
+determinism, secrets, baselines, kill-test logic, the spike pipeline and the autopsy code. GPU work runs only on
+the AMD MI300X, with `CUBLAS_WORKSPACE_CONFIG=:4096:8` set before Python starts. One P1 instance is run like this
+(the pilot's exact commands are in `results/mi300x_2026-10-27/t1_pilot/run.sh`):
 
 ```bash
 pip install -r research/requirements.txt         # torch==2.10.0 (ROCm build from the pinned image)
-python -m research.kaggle.step_timer             # measured speeds replace every estimate
-python -m research.spikes.capture --selfcheck    # first real exercise of the capture driver
+python -m research.kaggle.step_timer             # measured speeds
+python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/config.yaml \
+    --kind corrupt_batch --inject-step 160 --seed 0 --out results/autopsy
 ```
+
+The pilot config is the proxy config with `max_steps: 2000`, which prereg-v2 also uses. The repo's
+`research/experiments/proxy/config.yaml` says 5000.
+
+The next session's run order is on the status page (`docs/status.html`, on `main`). The prereg-v2 run waits for its
+git tag.
 
 Secrets are never committed. `research/harness/secrets.py` resolves `HF_TOKEN` / `WANDB_API_KEY` at runtime, and a
 CI test fails the build if a token literal reaches the tree.
