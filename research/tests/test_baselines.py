@@ -26,7 +26,7 @@ from types import SimpleNamespace  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 
-from research.baselines import adagc, reset, skip_step, spam, zclip  # noqa: E402
+from research.baselines import adagc, reset, rollback, skip_step, spam, zclip  # noqa: E402
 from research.harness.fork import Branch, make_baseline_branches, prime_trunk, run_branch, run_fork  # noqa: E402
 from research.harness.snapshot import capture  # noqa: E402
 from research.harness.trunk import build_model_opt, run_trunk, train_forward  # noqa: E402
@@ -53,7 +53,9 @@ def _tmpdir():
 
 
 def _data_dir(d: str) -> str:
-    np.tile(np.arange(16, dtype=np.uint16), 500).tofile(f"{d}/train.bin")
+    # Seeded random tokens, NOT a repeating pattern: with np.tile(arange(16)) every step's windows hold the
+    # same tokens, so a test could not tell which data slot was read (data-shift checks would be vacuous).
+    np.random.default_rng(0).integers(0, 16, size=8000, dtype=np.uint16).tofile(f"{d}/train.bin")
     return d
 
 
@@ -503,6 +505,62 @@ def test_vbar_reset_is_strict_about_names_and_shapes():
     except ValueError:
         pass
     assert reset.set_v_to_vbar(model, opt, v_bar) == len(v_bar)
+
+
+def test_data_offset_shifts_every_microbatch():
+    # Reading step s + k's slots via ctx["data_offset"] == training at step index s + k outright, bitwise,
+    # including under grad accumulation (where a single ctx["batch"] override would be wrong).
+    cfg = {**_CFG, "train": {**_CFG["train"], "grad_accum": 2}}
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        model, opt = _fresh(cfg)
+        shifted = train_forward(model, opt, cfg, data, 3, 4, "cpu", pre_step=rollback.as_pre_step(5))
+        model2, opt2 = _fresh(cfg)
+        direct = train_forward(model2, opt2, cfg, data, 3 + 5, 4, "cpu")
+        assert shifted == direct
+        assert torch.equal(_weights(model), _weights(model2))
+
+
+def test_rollback_plan_charges_detection_lag_and_never_rereads_data():
+    assert rollback.plan(inject_step=10, detector_t0=13) == (4, 4)  # L = 3 -> L + 1 wasted, cursor continues
+    assert rollback.plan(inject_step=10, detector_t0=10) == (1, 1)  # onset detection still costs its step
+    assert rollback.plan(inject_step=10, detector_t0=13, skip=300) == (4, 300)  # PaLM-style extra skip
+    for bad in ({"detector_t0": 9}, {"detector_t0": 13, "skip": 2}):
+        try:
+            rollback.plan(inject_step=10, **bad)
+            raise AssertionError(f"accepted {bad}")
+        except ValueError:
+            pass
+
+
+def test_brollback_branch_is_matched_compute_rollback_on_unseen_data():
+    inj, t0, budget = 4, 6, 6
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        snap = prime_trunk(_CFG, data, inj, device="cpu")
+
+        def spike(step, ctx):  # a step-keyed spike; it must NOT recur after rollback
+            if inj <= step < inj + 2:
+                for g in ctx["opt"].param_groups:
+                    g["lr"] = 1.0
+
+        recipe = SimpleNamespace(pre_step=spike, inject_step=inj, width=2)
+        br = make_baseline_branches(_CFG, recipe, detector_t0=t0)["Brollback"]
+        assert br.wasted_steps == t0 - inj + 1 == 3
+        res = run_branch(data, snap, br, steps=budget, device="cpu", seed=False)
+        assert res["wasted_steps"] == 3 and len(res["losses"]) == budget - 3  # 3 charged + 3 run = budget
+
+        # Independent reconstruction: restore the fork snapshot, no spike, and train on the batches right
+        # after the 3 the trainer already consumed (slots inj+3, ...) -- no batch is read twice.
+        ref = run_fork(_CFG, data, snap, steps=budget - 3, start_step=inj + 3, device="cpu", seed=False)
+        assert res["losses"] == ref
+
+        # A budget the rollback can't fit is refused, not silently run short.
+        try:
+            run_branch(data, snap, br, steps=3, device="cpu", seed=False)
+            raise AssertionError("ran a rollback with no steps left")
+        except ValueError:
+            pass
 
 
 def test_never_firing_zclip_is_bitwise_identical_to_no_clip():

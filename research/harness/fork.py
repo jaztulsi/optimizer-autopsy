@@ -157,12 +157,15 @@ def full_fork(cfg, data_dir, snapshot, intervention=None, **kw):
 class Branch:
     """One branch: a name, a per-step `pre_step` hook (None = clean / no spike), the cfg it runs under
     (Bs runs a clip-augmented cfg; the others reuse the trunk cfg), and an optional `pre_opt_step` hook
-    on the final gradient (gradient-side baselines like SPAM; None for the Task-9 cheap branches)."""
+    on the final gradient (gradient-side baselines like SPAM; None for the Task-9 cheap branches).
+    `wasted_steps` is compute the branch is charged without running (Brollback's pre-rollback steps):
+    `run_branch` trains `steps - wasted_steps`, so every branch spends the same total compute."""
 
     name: str
     pre_step: object
     cfg: dict
     pre_opt_step: object = None
+    wasted_steps: int = 0
 
 
 def compose(*pre_steps):
@@ -248,7 +251,16 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
 
 
 def make_baseline_branches(
-    cfg, recipe, *, spam_params=None, zclip_state=None, adagc_state=None, device=None, detector_t0=None, v_bar=None
+    cfg,
+    recipe,
+    *,
+    spam_params=None,
+    zclip_state=None,
+    adagc_state=None,
+    device=None,
+    detector_t0=None,
+    v_bar=None,
+    rollback_skip=None,
 ):
     """Build `{name: Branch}` for the Task-15 published baselines, forked from the same pre-spike
     snapshot and replaying `recipe` like `B0`. Kept separate from `make_branches` so the pre-registered
@@ -269,10 +281,14 @@ def make_baseline_branches(
         detector is causal and the fork replays the trunk bitwise, so `first_trigger` on the trunk's
         logs is exactly when it would fire live in the fork. If the detector never fired, there is no
         branch: that recipe's skip-step result is B0's by definition.
+      * `detector_t0` -> Brollback: rollback-and-skip at matched compute (PaLM / OPT). Charged the
+        t0 - inject_step + 1 steps run before detection, then resumes from the fork snapshot on unseen
+        data (`rollback_skip` steps' worth of batches ahead; default: exactly where the cursor was). It
+        shifts the data order, so it is a labelled practitioner baseline, never B*. See baselines/rollback.py.
       * `v_bar` ({param name: tensor}, the spike manifest's pre-spike v average) -> Bvbar: reset ALL of
         v to v_bar (m kept) once after the window, at the same step as Bg/Bvreset. The fair global
         comparison for our selective v repair."""
-    from research.baselines import adagc, reset, skip_step, spam, zclip
+    from research.baselines import adagc, reset, rollback, skip_step, spam, zclip
 
     max_norm = _baseline_max_norm(cfg)
     inj, w = recipe.inject_step, recipe.width
@@ -281,6 +297,9 @@ def make_baseline_branches(
         optional["Bskipstep_det"] = Branch(
             "Bskipstep_det", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(detector_t0, w)
         )
+        wasted, skip = rollback.plan(inj, detector_t0, rollback_skip)
+        # No recipe hook: the spike does not recur after rollback (the favourable assumption, as PaLM saw).
+        optional["Brollback"] = Branch("Brollback", rollback.as_pre_step(skip), cfg, wasted_steps=wasted)
     if v_bar is not None:
         optional["Bvbar"] = Branch("Bvbar", compose(recipe.pre_step, reset.as_vbar_pre_step(inj + w, v_bar)), cfg)
     return {
@@ -314,19 +333,26 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
     """Run one `Branch` from `snapshot` (restore -> its cfg + pre_step -> train forward) and return a
     NaN-safe result dict. `seed=False`: the battery seeds ONCE up front (a 2nd deterministic seed
     would trip the 'CUDA already initialized' precondition). The `pre_opt_step` hook is deep-copied, so a
-    stateful one (ZClip/AdaGC) starts from the branch's initial state every run, however often it's reused."""
+    stateful one (ZClip/AdaGC) starts from the branch's initial state every run, however often it's reused.
+    A branch with `wasted_steps` trains `steps - wasted_steps` (matched compute); the result records both."""
+    run_steps = steps - branch.wasted_steps
+    if run_steps < 1:
+        raise ValueError(f"{branch.name}: {branch.wasted_steps} wasted steps leave nothing of a {steps}-step budget")
     losses = run_fork(
         branch.cfg,
         data_dir,
         snapshot,
-        steps=steps,
+        steps=run_steps,
         device=device,
         seed=seed,
         pre_step=branch.pre_step,
         on_step=on_step,
         pre_opt_step=copy.deepcopy(branch.pre_opt_step),
     )
-    return _summarize(branch.name, losses)
+    result = _summarize(branch.name, losses)
+    if branch.wasted_steps:
+        result["wasted_steps"] = branch.wasted_steps
+    return result
 
 
 def run_cheap_battery(data_dir, snapshot, branches: dict, steps, device=None, seed=True) -> dict:
