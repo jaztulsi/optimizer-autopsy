@@ -12,15 +12,18 @@ What the branch models, on a fork from the battery snapshot at `inject_step`:
   2. It rolls back to the newest clean checkpoint, the fork snapshot itself (w, m, v, Adam step at
      `inject_step`).
   3. It resumes on data it has not seen: post-rollback step s reads step s + skip's slots. The default
-     skip = L + 1 continues the data cursor exactly where it was at detection (no batch read twice);
-     pass a larger skip for PaLM-style extra skipping.
+     skip = max(L + 1, width) continues the data cursor where it was at detection (no batch read twice), or
+     past the end of the spike window if the detector fired inside it (no bad slot re-read); pass a larger
+     skip for PaLM-style extra skipping.
   4. Matched compute: it trains N - (L + 1) steps after rollback, so its total forward/backward compute
      equals the N steps every other branch gets. This is prereg-v2's cost model ("rollback cost is
      counted as L + 1 recomputed steps").
 
-The spike does NOT recur after rollback (its recipe hook is not replayed). That is the most favourable
-assumption for rollback -- PaLM found replaying from an earlier state without the skipped batches gave no
-spike -- and the right side to err on for a baseline we want to beat.
+The spike does NOT recur after rollback (its recipe hook is not replayed). For data-keyed recipes
+(corrupt_batch, repeat_ngram) that follows from the skip: no slot of the spike window is read again. For
+lr_bump it assumes a transient cause; if the bump stands for an LR that is too hot at that point of the
+schedule, rollback rewinds the step counter and the spike would come back. Either way it is the favourable
+case for rollback (PaLM saw no recurrence; OPT did), the right side to err on for a baseline we want to beat.
 
 CONFOUND, by design: rollback-and-skip changes the data order, so it is a practitioner baseline, never
 `B*` (the clean, data-aligned counterfactual). Report it labelled as data-shifting. Its train losses are
@@ -30,14 +33,14 @@ on different batches from the other branches', so compare branches on the held-o
 from __future__ import annotations
 
 
-def plan(inject_step: int, detector_t0: int, skip: int | None = None) -> tuple[int, int]:
-    """(wasted_steps, data_skip) for a rollback triggered at `detector_t0` to the snapshot at `inject_step`.
-    Raises if the detector fired before the injection (nothing to roll back) or if `skip` would re-read
-    batches the trainer already consumed."""
+def plan(inject_step: int, detector_t0: int, skip: int | None = None, width: int = 1) -> tuple[int, int]:
+    """(wasted_steps, data_skip) for a rollback triggered at `detector_t0` to the snapshot at `inject_step`,
+    for a spike window of `width` steps. Raises if the detector fired before the injection (nothing to roll
+    back) or if `skip` would re-read batches the trainer already consumed."""
     wasted = detector_t0 - inject_step + 1  # inject_step .. t0 inclusive: the step at t0 ran (its loss fired)
     if wasted < 1:
         raise ValueError(f"detector_t0={detector_t0} precedes inject_step={inject_step}: no spike to roll back")
-    skip = wasted if skip is None else skip
+    skip = max(wasted, width) if skip is None else skip  # a mid-window detection must not re-read the window
     if skip < wasted:
         raise ValueError(f"skip={skip} < {wasted} wasted steps: the trainer would re-read batches it already saw")
     return wasted, skip

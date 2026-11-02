@@ -1,6 +1,6 @@
 """GPU bitwise checks for the rollback baseline's harness pieces (PR #20). GPU-only: run on the MI300X.
 
-    python -m research.kaggle.baseline_gpu_checks --out DIR
+    python -m research.gpu.baseline_gpu_checks --out DIR
 
 Two checks, both on the real proxy model at grad_accum = 40 (the 124M config's accumulation, where a
 single ctx["batch"] override would be wrong), each must be BITWISE (max|Δ| = 0, losses equal):
@@ -80,7 +80,7 @@ def check_brollback(cfg, data, device) -> dict:
     recipe = induce("lr_bump", cfg, inject_step=INJECT, width=WIDTH, factor=50.0)
     t0 = INJECT + LAG
     branch = make_baseline_branches(cfg, recipe, detector_t0=t0, **snap["meta"]["baseline_priming"])["Brollback"]
-    wasted, skip = rollback.plan(INJECT, t0)  # whatever the default skip is, rebuild with the same one
+    wasted, skip = rollback.plan(INJECT, t0, width=WIDTH)  # whatever the default skip is, rebuild with the same one
 
     box1, on1 = _last_weights()
     run1 = run_branch(data, snap, branch, steps=BUDGET, device=device, seed=False, on_step=on1)

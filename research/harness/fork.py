@@ -283,8 +283,9 @@ def make_baseline_branches(
         branch: that recipe's skip-step result is B0's by definition.
       * `detector_t0` -> Brollback: rollback-and-skip at matched compute (PaLM / OPT). Charged the
         t0 - inject_step + 1 steps run before detection, then resumes from the fork snapshot on unseen
-        data (`rollback_skip` steps' worth of batches ahead; default: exactly where the cursor was). It
-        shifts the data order, so it is a labelled practitioner baseline, never B*. See baselines/rollback.py.
+        data (`rollback_skip` steps' worth of batches ahead; default: where the cursor was, or past the
+        spike window if the detector fired inside it). It shifts the data order, so it is a labelled
+        practitioner baseline, never B*. See baselines/rollback.py.
       * `v_bar` ({param name: tensor}, the spike manifest's pre-spike v average) -> Bvbar: reset ALL of
         v to v_bar (m kept) once after the window, at the same step as Bg/Bvreset. The fair global
         comparison for our selective v repair."""
@@ -297,7 +298,7 @@ def make_baseline_branches(
         optional["Bskipstep_det"] = Branch(
             "Bskipstep_det", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(detector_t0, w)
         )
-        wasted, skip = rollback.plan(inj, detector_t0, rollback_skip)
+        wasted, skip = rollback.plan(inj, detector_t0, rollback_skip, width=w)
         # No recipe hook: the spike does not recur after rollback (the favourable assumption, as PaLM saw).
         optional["Brollback"] = Branch("Brollback", rollback.as_pre_step(skip), cfg, wasted_steps=wasted)
     if v_bar is not None:
@@ -334,7 +335,9 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
     NaN-safe result dict. `seed=False`: the battery seeds ONCE up front (a 2nd deterministic seed
     would trip the 'CUDA already initialized' precondition). The `pre_opt_step` hook is deep-copied, so a
     stateful one (ZClip/AdaGC) starts from the branch's initial state every run, however often it's reused.
-    A branch with `wasted_steps` trains `steps - wasted_steps` (matched compute); the result records both."""
+    A branch with `wasted_steps` trains `steps - wasted_steps` (matched compute); the result records both.
+    `on_step` sees the fork's own step indices, which stop `wasted_steps` short of the other branches'; a
+    caller probing fixed horizons shifts them itself (horizon h at step h - wasted_steps, equal compute)."""
     run_steps = steps - branch.wasted_steps
     if run_steps < 1:
         raise ValueError(f"{branch.name}: {branch.wasted_steps} wasted steps leave nothing of a {steps}-step budget")

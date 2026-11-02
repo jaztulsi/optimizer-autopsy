@@ -525,6 +525,7 @@ def test_rollback_plan_charges_detection_lag_and_never_rereads_data():
     assert rollback.plan(inject_step=10, detector_t0=13) == (4, 4)  # L = 3 -> L + 1 wasted, cursor continues
     assert rollback.plan(inject_step=10, detector_t0=10) == (1, 1)  # onset detection still costs its step
     assert rollback.plan(inject_step=10, detector_t0=13, skip=300) == (4, 300)  # PaLM-style extra skip
+    assert rollback.plan(inject_step=10, detector_t0=11, width=5) == (2, 5)  # fired mid-window: skip past it
     for bad in ({"detector_t0": 9}, {"detector_t0": 13, "skip": 2}):
         try:
             rollback.plan(inject_step=10, **bad)
@@ -547,8 +548,12 @@ def test_brollback_branch_is_matched_compute_rollback_on_unseen_data():
         recipe = SimpleNamespace(pre_step=spike, inject_step=inj, width=2)
         br = make_baseline_branches(_CFG, recipe, detector_t0=t0)["Brollback"]
         assert br.wasted_steps == t0 - inj + 1 == 3
-        res = run_branch(data, snap, br, steps=budget, device="cpu", seed=False)
+        seen = []
+        res = run_branch(data, snap, br, steps=budget, device="cpu", seed=False, on_step=lambda s, i: seen.append(s))
         assert res["wasted_steps"] == 3 and len(res["losses"]) == budget - 3  # 3 charged + 3 run = budget
+        # on_step sees the fork's raw steps; the caller (autopsy mve) shifts horizons, so shifting here too would
+        # probe rollback `wasted` steps early
+        assert seen == list(range(inj, inj + budget - 3))
 
         # Independent reconstruction: restore the fork snapshot, no spike, and train on the batches right
         # after the 3 the trainer already consumed (slots inj+3, ...) -- no batch is read twice.
