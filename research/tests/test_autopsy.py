@@ -1,10 +1,13 @@
 """CPU checks for research/autopsy: the chaos-floor placebo, RML-sel / cooldown edits, branch bookkeeping, report."""
 
+import json
+
+import pytest
 import torch
 
 from research.autopsy import report, undo
 from research.autopsy.mve import expected_branches, parser
-from research.autopsy.probes import nudge_ulp
+from research.autopsy.probes import data_order, nudge_ulp, ulp_placebo
 
 
 def _model_opt():
@@ -61,8 +64,77 @@ def test_expected_branches_count_placebo_dose_and_cooldown_arms():
     extra = ["--placebo", "8", "--plant-coefs", "1,10", "--dose-taus", "0"]
     cb = expected_branches(parser().parse_args(base + ["--kind", "corrupt_batch"] + extra))
     lr = expected_branches(parser().parse_args(base + ["--kind", "lr_bump"] + extra))
-    assert len(cb) == 2 + 1 + 2 + 16 + (2 + 6) + 2 * 5 and "Px10|cool@0" in cb
-    assert len(lr) == 2 + 1 + 2 + 16  # no G for lr_bump -> no planted/dose arms
+    assert len(cb) == 2 + 1 + 2 + 1 + 16 + (2 + 6) + 2 * 5 and "Px10|cool@0" in cb and "Pl_0" in cb
+    assert len(lr) == 2 + 1 + 2 + 1 + 16  # no G for lr_bump -> no planted/dose arms
+
+
+def test_opt_placebo_moves_every_moment_one_ulp_and_keeps_v_nonnegative():
+    model, opt = _model_opt()
+    params = list(model.parameters())
+    opt.state[params[0]]["exp_avg_sq"][0, 0] = 0.0  # nudged down it would go negative
+    m0 = [opt.state[p]["exp_avg"].clone() for p in params]
+    v0 = [opt.state[p]["exp_avg_sq"].clone() for p in params]
+    w0 = [p.detach().clone() for p in params]
+    hook = ulp_placebo(3, at=7, channel="opt")
+    hook(6, {"model": model, "opt": opt})
+    assert all(torch.equal(opt.state[p]["exp_avg"], m) for p, m in zip(params, m0))  # other steps: no-op
+    hook(7, {"model": model, "opt": opt})
+    for p, m, v, w in zip(params, m0, v0, w0):
+        m1, v1 = opt.state[p]["exp_avg"], opt.state[p]["exp_avg_sq"]
+        up = torch.nextafter(m, torch.full_like(m, float("inf")))
+        down = torch.nextafter(m, torch.full_like(m, -float("inf")))
+        assert bool(((m1 == up) | (m1 == down)).all()) and torch.equal(p.detach(), w)
+        assert bool((v1 >= 0).all()) and bool((v1[v > 0] != v[v > 0]).all())
+    with pytest.raises(ValueError):
+        ulp_placebo(0, 7, "m")  # a typo must not silently fall through to the gradient channel
+
+
+def test_data_order_replays_the_same_slots_in_a_new_order(monkeypatch):
+    from research.data import prepare
+
+    monkeypatch.setattr(prepare, "get_batch", lambda split, step, batch, block, data_dir, device: step)
+    model, _ = _model_opt()
+    cfg = {"train": {"batch_size": 2, "max_steps": 20}, "model": {"block_size": 4}}
+    orders = []
+    for seed in (0, 1):
+        hook, seen = data_order(seed, 10, cfg, "unused"), []
+        for step in range(10, 20):
+            ctx = {"model": model, "batch": None}
+            hook(step, ctx)
+            seen.append(ctx["batch"])
+        orders.append(seen)
+    assert sorted(orders[0]) == list(range(10, 20)) and orders[0] != orders[1]
+    with pytest.raises(NotImplementedError):
+        data_order(0, 10, {**cfg, "train": {**cfg["train"], "grad_accum": 2}}, "unused")
+
+
+def test_chaos_battery_runs_only_bstar_zero_pert_placebos_and_data_forks():
+    argv = ["--config", "x", "--inject-step", "160", "--battery", "chaos", "--placebo", "4"]
+    names = expected_branches(parser().parse_args(argv + ["--placebo-channels", "w,g,opt", "--data-forks", "2"]))
+    assert names[:2] == ["B*", "Pl_0"] and len(names) == 2 + 3 * 4 + 2
+    assert "B0" not in names and "Pl_opt#3" in names and "Dord#1" in names
+
+
+def test_report_zero_pert_check_borrowed_floor_and_release_rows(tmp_path):
+    cfg = {"seed": 0, "optim": {"betas": [0.9, 0.95]}}
+    chaos = ["mve", "--config", "x", "--inject-step", "10", "--battery", "chaos", "--placebo", "3"]
+    spike = ["mve", "--config", "x", "--kind", "corrupt_batch", "--inject-step", "10", "--c2-taus", "0"]
+
+    def run(argv, vals):
+        branches = {n: {"val": {"99": x}, "survival": 1} for n, x in vals.items()}
+        return {"stamp": {"argv": argv, "cfg": cfg}, "horizons": [99], "branches": branches}
+
+    pl = {"B*": 2.0, "Pl_0": 2.0, "Pl_w#0": 2.1, "Pl_w#1": 1.9, "Pl_w#2": 2.0}
+    json.dump(run(chaos + ["--placebo-channels", "w"], pl), open(tmp_path / "chaos.json", "w"))
+    json.dump(run(spike, {"B*": 2.0, "B0": 2.5}), open(tmp_path / "spike.json", "w"))
+    report.main([str(tmp_path)], str(tmp_path / "out"))
+    inst = json.load(open(tmp_path / "out" / "report.json"))
+    sealed = json.load(open(tmp_path / "out" / "sealed.json"))
+    assert inst["chaos"]["zero_pert_exact"] and inst["chaos"]["sigma_unit"]["source"] == "own"
+    assert inst["spike"]["sigma_unit"]["source"] == "borrowed"  # same trunk + inject step -> chaos run's floor
+    assert abs(sealed["spike"]["_d_end"]["B0"] - 5.0) < 1e-6  # D = 0.5 over sigma = 0.1
+    rows = [json.loads(line) for line in open(tmp_path / "out" / "chaos_forks.jsonl")]
+    assert len(rows) == 4 and {r["arm"] for r in rows} == {"zero", "w"}
 
 
 def test_report_floor_and_dose_units():
@@ -99,3 +171,33 @@ def test_report_floor_and_dose_units():
     assert abs(inst["sigma_chaos"]["w"]["99"] - 0.1) < 1e-9
     dose = sealed["_dose"]["10"]
     assert abs(dose["d"]["none"] - 5.0) < 1e-6 and abs(dose["indirect_share"] - 0.8) < 1e-6 and dose["xbar"] == 0.3
+
+
+def test_with_schedule_keeps_every_branch_field():
+    # A positional Branch(...) rebuild reset fields it didn't name: rollback's wasted_steps -> 0, so rollback ran free.
+    from dataclasses import fields
+
+    from research.autopsy.mve import _with_schedule
+    from research.harness.fork import Branch
+
+    b = Branch(*[object() for _ in fields(Branch)])  # a distinct sentinel per field, so any reset shows
+    out = _with_schedule({"x": b}, {"optim": {}})["x"]
+    assert all(getattr(out, f.name) is getattr(b, f.name) for f in fields(Branch) if f.name != "pre_step")
+
+
+def test_repair_battery_times_detector_arms_at_the_rml_lag(monkeypatch):
+    # Without --detector-t0 the detector-timed baselines (skip-step, rollback) silently dropped out of C-4.
+    from types import SimpleNamespace
+
+    from research.autopsy import mve
+    from research.harness import fork
+
+    seen = {}
+    monkeypatch.setattr(fork, "make_branches", lambda cfg, recipe, **kw: {})
+    monkeypatch.setattr(fork, "make_baseline_branches", lambda cfg, recipe, **kw: seen.update(kw) or {})
+    recipe = SimpleNamespace(inject_step=160, width=1, pre_step=None)
+    cfg = {"optim": {"grad_clip": 1.0}}
+    mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3)
+    assert seen["detector_t0"] == 163 == undo.undo_step(160, 3) - 1  # RML acts at the top of 164
+    mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3, detector_t0=170)
+    assert seen["detector_t0"] == 170

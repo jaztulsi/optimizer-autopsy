@@ -3,6 +3,8 @@
     python -m research.autopsy.mve --config research/experiments/proxy/config.yaml \
         --kind corrupt_batch --inject-step 160 --out results/autopsy
     python -m research.autopsy.mve ... --battery repair --lag 3          # C-4 repair battery
+    python -m research.autopsy.mve --config ... --battery chaos --inject-step 1000 \
+        --placebo 111 --placebo-channels w,g,opt --data-forks 8      # chaos floor only (docs/chaos_floor.md)
 
 One instance = one (spike kind, inject step, width, seed, betas). Everything forks from ONE snapshot at
 `inject_step` (pre-spike, primed for ZClip/AdaGC) and runs to end of schedule; every branch gets the same
@@ -61,18 +63,38 @@ def _stamp(cfg: dict) -> dict:
 def _with_schedule(branches: dict, cfg: dict) -> dict:
     """Prepend the LR schedule to every branch (fork.make_branches' B* has pre_step=None, which would
     silently drop a cosine/WSD schedule)."""
+    from dataclasses import replace
+
     from research.autopsy import schedule
-    from research.harness.fork import Branch, compose
+    from research.harness.fork import compose
 
     sched = schedule.as_pre_step(cfg)
-    return {n: Branch(b.name, compose(sched, b.pre_step), b.cfg, b.pre_opt_step) for n, b in branches.items()}
+    # replace(), not a positional Branch(...): that silently reset every field it didn't name (e.g. a rollback
+    # branch's wasted_steps, which made rollback free)
+    return {n: replace(b, pre_step=compose(sched, b.pre_step)) for n, b in branches.items()}
 
 
-def phase_a(cfg, recipe, data_dir, taus, c2_taus, placebo=0, channels=()):
-    """{name: Branch} for the data-spike arms, plus the B0 record log (filled when B0 runs).
-    `Pl_<ch>#k`: K 1-ulp placebo forks of B* per channel (w / g) -> the chaos floor sigma_chaos(h)."""
+def placebo_branches(cfg, at, k, channels, data_dir=None, data_forks=0):
+    """{name: Branch} for the chaos floor, all forks of B* from step `at`: `Pl_0` (no nudge: must replay B*
+    exactly), `Pl_<ch>#i` K 1-ulp placebos per channel (w / g / opt -> sigma_chaos(h)) and `Dord#i`
+    data-order forks (the seed-level spread)."""
+    from research.autopsy.probes import data_order, ulp_placebo
+    from research.harness.fork import Branch
+
+    br = {"Pl_0": Branch("Pl_0", None, cfg)} if k else {}
+    for ch in channels:
+        for i in range(k):
+            h = ulp_placebo(i, at, ch)
+            br[f"Pl_{ch}#{i}"] = Branch(f"Pl_{ch}#{i}", None if ch == "g" else h, cfg, h if ch == "g" else None)
+    for i in range(data_forks):
+        br[f"Dord#{i}"] = Branch(f"Dord#{i}", data_order(i, at, cfg, data_dir), cfg)
+    return br
+
+
+def phase_a(cfg, recipe, data_dir, taus, c2_taus, placebo=0, channels=(), data_forks=0):
+    """{name: Branch} for the data-spike arms, plus the B0 record log (filled when B0 runs), plus the
+    chaos-floor forks of `placebo_branches`."""
     from research.autopsy import undo
-    from research.autopsy.probes import ulp_placebo
     from research.harness.fork import Branch, compose
 
     window = list(range(recipe.inject_step, recipe.inject_step + recipe.width))
@@ -93,10 +115,7 @@ def phase_a(cfg, recipe, data_dir, taus, c2_taus, placebo=0, channels=()):
     for t in c2_taus:
         br[f"U_m@{t}"] = undo_branch(f"U_m@{t}", t, "m")
         br[f"U_v@{t}"] = undo_branch(f"U_v@{t}", t, "v")
-    for ch in channels:
-        for k in range(placebo):
-            h = ulp_placebo(k, recipe.inject_step, ch)
-            br[f"Pl_{ch}#{k}"] = Branch(f"Pl_{ch}#{k}", h if ch == "w" else None, cfg, h if ch == "g" else None)
+    br.update(placebo_branches(cfg, recipe.inject_step, placebo, channels, data_dir, data_forks))
     return br, log0
 
 
@@ -152,16 +171,20 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     """C-4: the Task-9 battery (Bs clip at 0.5x trunk clip, PLAN_V8 §7.2) + published baselines + RML
     (state-only, fired `lag` steps after the window -- a detector-timed lag, not the oracle):
     RML@lag = full m+v undo; RML-cool = m+v undo + global cooldown; RML-sel = m undo + v undo on the top
-    1% of coordinates by x_i (docs/prereg_v2.md H-E, H-F). Edit stats land in extra[name]."""
+    1% of coordinates by x_i (docs/prereg_v2.md H-E, H-F). Edit stats land in extra[name].
+    `detector_t0` defaults to the step the same detector lag implies (window end + lag), so the detector-timed
+    baselines (skip-step, rollback) act on the same information as RML instead of dropping out of the battery."""
     from research.autopsy import undo
     from research.harness.fork import Branch, compose, make_baseline_branches, make_branches
 
+    window = list(range(recipe.inject_step, recipe.inject_step + recipe.width))
+    at = undo.undo_step(window[-1], lag)
+    if detector_t0 is None:
+        detector_t0 = at - 1  # the detector saw this step's loss; RML acts at the top of the next one
     clip = cfg["optim"].get("grad_clip") or 1.0
     br = make_branches(cfg, recipe, clip_norm=0.5 * clip)
     br.update(make_baseline_branches(cfg, recipe, detector_t0=detector_t0, **snap["meta"].get("baseline_priming", {})))
-    window = list(range(recipe.inject_step, recipe.inject_step + recipe.width))
     extra = {} if extra is None else extra
-    at = undo.undo_step(window[-1], lag)
 
     def sel(log, out):
         def pre_step(step, ctx):
@@ -191,7 +214,7 @@ def run_instance(args) -> str:
     from research.configs import load_config
     from research.data.prepare import resolve_data_dir
     from research.harness.determinism import seed_everything
-    from research.harness.fork import prime_trunk, run_branch
+    from research.harness.fork import Branch, prime_trunk, run_branch
     from research.harness.snapshot import load, save
     from research.spikes.induce import induce
 
@@ -202,10 +225,10 @@ def run_instance(args) -> str:
         cfg["optim"]["betas"] = [float(b) for b in args.betas.split(",")]
     data_dir = args.data_dir or cfg.get("data", {}).get("dir") or resolve_data_dir(args.shard)
     params = {"data_dir": data_dir} if args.kind == "repeat_ngram" else {}
-    recipe = induce(args.kind, cfg, args.inject_step, args.width, **params)
+    recipe = induce(args.kind, cfg, args.inject_step, args.width, **params) if args.kind else None
 
     b1, b2 = cfg["optim"]["betas"]
-    tag = f"{args.kind}_w{args.width}_inj{args.inject_step}_seed{cfg['seed']}_b{b1}-{b2}_{args.battery}"
+    tag = f"{args.kind or 'chaos'}_w{args.width}_inj{args.inject_step}_seed{cfg['seed']}_b{b1}-{b2}_{args.battery}"
     os.makedirs(args.out, exist_ok=True)
     out_path, snap_path = os.path.join(args.out, f"{tag}.json"), os.path.join(args.out, f"{tag}.snap.safetensors")
 
@@ -240,6 +263,8 @@ def run_instance(args) -> str:
             return
         vals: dict = {}
         t = time.time()
+        # A rollback branch runs steps - wasted, so horizon h is probed at matched compute: step h - wasted
+        wasted = getattr(br, "wasted_steps", 0)
         r = run_branch(
             data_dir,
             snap,
@@ -247,18 +272,19 @@ def run_instance(args) -> str:
             steps,
             device=device,
             seed=False,
-            on_step=horizon_probe(data_dir, val, cfg["train"]["batch_size"], horizons, vals),
+            on_step=horizon_probe(data_dir, val, cfg["train"]["batch_size"], [h - wasted for h in horizons], vals),
         )
         res["branches"][name] = {
-            "val": {str(k): v for k, v in vals.items()},
+            "val": {str(k + wasted): v for k, v in vals.items()},
             "survival": r["survival"],
             "final_train_loss": r["final"],
             "train_losses": r["losses"],
-            "seconds": round(time.time() - t, 1),
+            "seconds": round((time.time() - t) * steps / (steps - wasted), 1),
+            "wasted_steps": wasted,
             "metrics": extra.get(name, {}),
         }
         json.dump(res, open(out_path, "w"), indent=1)
-        print(f"[{tag}] {name}: val@end={vals.get(last)} survival={r['survival']}", flush=True)
+        print(f"[{tag}] {name}: val@end={vals.get(last - wasted)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":
         for name, br in _with_schedule(
@@ -266,8 +292,16 @@ def run_instance(args) -> str:
         ).items():
             run(name, br)
         return out_path
+    if args.battery == "chaos":
+        br = {"B*": Branch("B*", None, cfg)}
+        br |= placebo_branches(cfg, args.inject_step, args.placebo, args.placebo_channels, data_dir, args.data_forks)
+        for name, b in _with_schedule(br, cfg).items():
+            run(name, b)
+        return out_path
 
-    a, log0 = phase_a(cfg, recipe, data_dir, args.taus, args.c2_taus, args.placebo, args.placebo_channels)
+    a, log0 = phase_a(
+        cfg, recipe, data_dir, args.taus, args.c2_taus, args.placebo, args.placebo_channels, args.data_forks
+    )
     b_names = _b_names(args)  # empty for lr_bump: its gradient delta is 0 by construction
     if any(n not in res["branches"] for n in b_names):
         res["branches"].pop("B0", None)  # B0 reruns in-process so its record log (G) exists for phase B
@@ -293,20 +327,29 @@ def _b_names(args) -> list[str]:
     return names
 
 
+def _placebo_names(args) -> list[str]:
+    names = ["Pl_0"] if args.placebo else []
+    names += [f"Pl_{ch}#{k}" for ch in args.placebo_channels for k in range(args.placebo)]
+    return names + [f"Dord#{k}" for k in range(args.data_forks)]
+
+
 def expected_branches(args) -> list[str]:
     """Branch names one instance writes (report.py checks completion against this)."""
     if args.battery == "repair":
         return []  # ponytail: battery names come from fork.make_*branches; completion unchecked for repair
+    if args.battery == "chaos":
+        return ["B*"] + _placebo_names(args)
     names = ["B*", "B0"] + [f"U_mv@{t}" for t in args.taus]
     names += [f"U_{c}@{t}" for t in args.c2_taus for c in ("m", "v")]
-    names += [f"Pl_{ch}#{k}" for ch in args.placebo_channels for k in range(args.placebo)]
-    return names + _b_names(args)
+    return names + _placebo_names(args) + _b_names(args)
 
 
 def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="P1-core instance: C-1 kernel, C-2 arms, C-3/M2/M3 probes, C-4 battery")
     ap.add_argument("--config", required=True)
-    ap.add_argument("--kind", required=True, choices=["corrupt_batch", "repeat_ngram", "lr_bump"])
+    ap.add_argument(
+        "--kind", choices=["corrupt_batch", "repeat_ngram", "lr_bump"], help="spike recipe (omit for --battery chaos)"
+    )
     ap.add_argument("--inject-step", type=int, required=True)
     ap.add_argument("--width", type=int, default=1)
     ap.add_argument("--seed", type=int, default=None)
@@ -317,7 +360,10 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--eps-probe", type=float, default=0.05)
     ap.add_argument("--horizons", type=_ints, default=_ints("50,150,500"), help="steps after inject; end always added")
     ap.add_argument("--placebo", type=int, default=0, help="K 1-ulp placebo forks of B* per channel (chaos floor)")
-    ap.add_argument("--placebo-channels", type=lambda s: [c for c in s.split(",") if c], default=["w", "g"])
+    ap.add_argument(
+        "--placebo-channels", type=lambda s: [c for c in s.split(",") if c], default=["w", "g"], help="w / g / opt"
+    )
+    ap.add_argument("--data-forks", type=int, default=0, help="data-order forks of B* (same batches, new order)")
     ap.add_argument(
         "--plant-coefs",
         type=lambda s: [float(c) for c in s.split(",") if c],
@@ -325,9 +371,11 @@ def parser() -> argparse.ArgumentParser:
         help="dose arms: plant c*G on the clean stream, e.g. 1,3,10,30",
     )
     ap.add_argument("--dose-taus", type=_ints, default=_ints("0"), help="undo lags for the dose arms")
-    ap.add_argument("--battery", choices=["core", "repair"], default="core")
+    ap.add_argument("--battery", choices=["core", "repair", "chaos"], default="core")
     ap.add_argument("--lag", type=int, default=3, help="repair battery: RML undo lag after the window")
-    ap.add_argument("--detector-t0", type=int, default=None)
+    ap.add_argument(
+        "--detector-t0", type=int, default=None, help="repair battery: detector step (default: window end + --lag)"
+    )
     ap.add_argument("--data-dir", default=None)
     ap.add_argument("--shard", default="proxy")
     ap.add_argument("--out", default="results/autopsy")
@@ -336,7 +384,10 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(argv=None):
-    args = parser().parse_args(argv)
+    ap = parser()
+    args = ap.parse_args(argv)
+    if args.kind is None and args.battery != "chaos":
+        ap.error("--kind is required unless --battery chaos")
 
     if not args.skip_preflight:
         from research.harness.preflight import check_env

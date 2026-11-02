@@ -11,7 +11,7 @@ All code lives under `research/`. The repo-root `index.html` is the GitHub Pages
 | Package | Role | Status |
 |---|---|---|
 | `harness/` | **C1**, the instrument: determinism, preflight, secrets, name-keyed `(w,m,v)` snapshots, trunk and fork runs, the Δ = 0 gate | ✅ Δ = 0 on T4, P100 and the AMD MI300X |
-| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor, dose meter, the GPU driver `mve`, the sealed report | ◐ CI-tested; the core battery ran in the 2026-10-27 pilot; placebo, dose and cooldown arms not yet GPU-run |
+| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor (weight / gradient / optimizer-state arms, zero-perturbation check, data-order forks, `--battery chaos`), dose meter, the GPU driver `mve`, the sealed report + chaos-fork release table | ◐ CI-tested; the core battery ran in the 2026-10-27 pilot; placebo, dose, cooldown and chaos arms not yet GPU-run |
 | `spikes/` | Spike recipes, detector, capture driver (v̄ + snapshots), natural-spike search, K2 manifest | ◐ 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run |
 | `baselines/` | skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step, as fork interventions | ◐ CI-tested; never GPU-run; `Brollback` in PR #20 |
 | `analysis/` | held-out eval (token-disjoint slots), stats, attribution, figures | ◐ eval done; stats partial; figures stub |
@@ -53,6 +53,8 @@ python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/confi
     --kind corrupt_batch --inject-step 160 --seed 0 --out results/autopsy           # one P1 instance
 python -m research.autopsy.mve ... --placebo 8 --plant-coefs 1,3,10,30          # prereg-v2 arms (after the tag)
 python -m research.autopsy.mve ... --battery repair --lag 3                     # C-4 repair battery
+python -m research.autopsy.mve --config ... --battery chaos --inject-step 1000 \
+    --placebo 111 --placebo-channels w,g,opt --data-forks 8                      # chaos floor (docs/chaos_floor.md)
 ```
 
 Install: `pip install -r research/requirements.txt`. Dev tools go in the root `requirements-dev.txt`, never here.

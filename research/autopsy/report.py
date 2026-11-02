@@ -3,8 +3,11 @@
     python -m research.autopsy.report runs/t1_pilot runs/t1_beta --out runs/t1_report
 
 Writes into <root>: report.md + report.json (INSTRUMENT only: completion, survival, P+ vs B0 parity,
-runtime) and sealed.json (effects: C-1 kernel D(tau) + removed share, C-2 arms, M4 interference, M3 chi).
-sealed.json is never printed. D(X)@h = val(X)@h - val(B*)@h at each probe horizon h. Safe on partial JSONs.
+runtime, chaos floors, the zero-perturbation replay check), sealed.json (effects: C-1 kernel D(tau) + removed
+share, C-2 arms, M4 interference, M3 chi, effects in chaos units d) and chaos_forks.jsonl (one row per
+placebo / data-order fork per horizon: the chaos-floor release). sealed.json is never printed.
+D(X)@h = val(X)@h - val(B*)@h at each probe horizon h. Safe on partial JSONs. An instance without its own
+placebos borrows the w-channel floor of a chaos run forked from the same trunk (same cfg, same inject step).
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ def _num(x):
     return x if isinstance(x, (int, float)) and math.isfinite(x) else None
 
 
-def _instance(res: dict) -> tuple[dict, dict]:
+def _instance(res: dict, sig_fallback=None) -> tuple[dict, dict]:
     args = parser().parse_args(res["stamp"]["argv"][1:])
     br, hs = res["branches"], [str(h) for h in res["horizons"]]
 
@@ -75,15 +78,30 @@ def _instance(res: dict) -> tuple[dict, dict]:
             s["chi"][dt] = op(lambda r, a, q: (r - a) / q if q else None, D(f"R@{dt}", h), p, D(f"Ponly@{dt}", h))
         sealed[h] = s
 
-    # chaos floor (instrument): SD over the K placebo forks of D at each horizon, per channel
-    pl = {ch: [n for n in br if n.startswith(f"Pl_{ch}#")] for ch in ("w", "g")}
+    # chaos floor (instrument): SD over the K placebo forks of D at each horizon, per channel; "data" is the
+    # data-order spread it is compared against. Pl_0 (no nudge) must replay B* exactly.
+    prefixes = {"w": "Pl_w#", "g": "Pl_g#", "opt": "Pl_opt#", "data": "Dord#"}
+    pl = {ch: [n for n in br if n.startswith(p)] for ch, p in prefixes.items()}
     floor = {ch: {h: _sd([D(n, h) for n in ns]) for h in hs} for ch, ns in pl.items() if ns}
     inst["sigma_chaos"] = floor
+    if "Pl_0" in br:
+        z = [abs(x) for x in (D("Pl_0", h) for h in hs) if x is not None]
+        inst["zero_pert_max_abs_D"] = max(z, default=None)
+        inst["zero_pert_exact"] = bool(z) and max(z) == 0.0
     end = hs[-1] if hs else None
-    sig = floor.get("w", {}).get(end)  # prereg-v2 effect unit: w-channel floor at the end horizon
+    sig, src = floor.get("w", {}).get(end), "own"  # prereg-v2 effect unit: w-channel floor at the end horizon
+    if sig is None:
+        sig, src = sig_fallback, ("borrowed" if sig_fallback is not None else None)
+    inst["sigma_unit"] = {"value": sig, "source": src}
 
     def d(x):
         return op(lambda a: a / sig, x) if sig else None
+
+    if "B0" in br and end is not None:  # spike damage and the C-2 arms in chaos units, end horizon
+        sealed["_d_end"] = {
+            "B0": d(D("B0", end)),
+            "c2": {t: {a: d(x) for a, x in sealed[end]["c2"][t].items()} for t in args.c2_taus},
+        }
 
     def seconds(n):
         return br.get(n, {}).get("seconds")
@@ -123,6 +141,38 @@ def _sd(xs):
     return statistics.stdev(xs) if len(xs) > 1 else None
 
 
+def _floor_key(res: dict) -> tuple:
+    """A placebo floor transfers only between instances forked from the same trunk at the same step."""
+    cfg = {k: v for k, v in res["stamp"]["cfg"].items() if k != "data"}
+    return parser().parse_args(res["stamp"]["argv"][1:]).inject_step, json.dumps(cfg, sort_keys=True)
+
+
+def _fork_rows(tag: str, res: dict):
+    """chaos_forks.jsonl rows: every placebo / data-order fork at every horizon, val in nats/token."""
+    args = parser().parse_args(res["stamp"]["argv"][1:])
+    bstar = res["branches"].get("B*", {}).get("val", {})
+    for name, b in res["branches"].items():
+        if name == "Pl_0":
+            arm, k = "zero", 0
+        elif name.startswith(("Pl_", "Dord#")):
+            arm, k = ("data", name[5:]) if name.startswith("Dord#") else name[3:].split("#")
+        else:
+            continue
+        for h, x in b["val"].items():
+            y = bstar.get(h)
+            yield {
+                "instance": tag,
+                "inject_step": args.inject_step,
+                "seed": res["stamp"]["cfg"].get("seed"),
+                "betas": res["stamp"]["cfg"]["optim"]["betas"],
+                "arm": arm,
+                "fork": int(k),
+                "horizon": int(h),
+                "val_nats": x,
+                "D": _num(x - y) if _num(x) is not None and _num(y) is not None else None,
+            }
+
+
 def main(roots: list[str], out: str, unseal: bool = False) -> None:
     out_names = {"report.json", "sealed.json"}
     files = sorted(
@@ -131,16 +181,23 @@ def main(roots: list[str], out: str, unseal: bool = False) -> None:
         for f in glob.glob(os.path.join(root, "**", "*.json"), recursive=True)
         if os.path.basename(f) not in out_names
     )
-    inst, sealed, beta = {}, {}, {}
+    runs = {}
     for f in files:
         res = json.load(open(f))
         if "branches" in res:
-            tag = os.path.basename(f)[: -len(".json")]
-            inst[tag], sealed[tag] = _instance(res)
-            hz = [h for h in sealed[tag] if h.isdigit()]
-            end = sealed[tag][max(hz, key=int)] if hz else {}
-            key = f"{inst[tag]['kind']}_seed{inst[tag]['seed']}_b2={inst[tag]['betas'][1]}"
-            beta.setdefault(key, {})[inst[tag]["betas"][0]] = end.get("indirect_share")
+            runs[os.path.basename(f)[: -len(".json")]] = res
+    floors: dict = {}  # own w-channel end floors, lent to same-trunk instances that ran no placebos
+    for res in runs.values():
+        sig = _instance(res)[0]["sigma_unit"]["value"]
+        if sig is not None:
+            floors.setdefault(_floor_key(res), sig)
+    inst, sealed, beta = {}, {}, {}
+    for tag, res in runs.items():
+        inst[tag], sealed[tag] = _instance(res, floors.get(_floor_key(res)))
+        hz = [h for h in sealed[tag] if h.isdigit()]
+        end = sealed[tag][max(hz, key=int)] if hz else {}
+        key = f"{inst[tag]['kind']}_seed{inst[tag]['seed']}_b2={inst[tag]['betas'][1]}"
+        beta.setdefault(key, {})[inst[tag]["betas"][0]] = end.get("indirect_share")
     # beta1 arms (Fig 2): indirect share at the end horizon per beta1, and its ordering -- sealed
     sealed["_beta_arms"] = {
         k: {
@@ -153,6 +210,10 @@ def main(roots: list[str], out: str, unseal: bool = False) -> None:
     os.makedirs(out, exist_ok=True)
     json.dump(inst, open(os.path.join(out, "report.json"), "w"), indent=1)
     json.dump(sealed, open(os.path.join(out, "sealed.json"), "w"), indent=1)
+    with open(os.path.join(out, "chaos_forks.jsonl"), "w") as fh:
+        for tag, res in runs.items():
+            for row in _fork_rows(tag, res):
+                fh.write(json.dumps(row) + "\n")
     rows = [
         "| instance | done/exp | non-survivors | P+ vs B0 max abs val | s/branch | B* val@end |",
         "|---|---|---|---|---|---|",
@@ -163,10 +224,17 @@ def main(roots: list[str], out: str, unseal: bool = False) -> None:
             f"| {tag} | {r['done']}/{r['expected']} | {r['non_survivors'] or '-'} | "
             f"{r['parity_P+_vs_B0_max_abs_val']} | {r['sec_per_branch_mean']} | {end} |"
         )
-    rows += ["", "| instance | sigma_chaos w @end | sigma_chaos g @end |", "|---|---|---|"]
+    rows += [
+        "",
+        "| instance | sigma_chaos @end: w | g | opt | data-order | zero-pert max abs D | sigma unit |",
+        "|---|---|---|---|---|---|---|",
+    ]
     for tag, r in inst.items():
-        w, g = (list(r["sigma_chaos"][ch].values())[-1] if ch in r["sigma_chaos"] else "-" for ch in ("w", "g"))
-        rows.append(f"| {tag} | {w} | {g} |")
+        sc = r["sigma_chaos"]
+        cells = [list(sc[ch].values())[-1] if ch in sc else "-" for ch in ("w", "g", "opt", "data")]
+        unit = f"{r['sigma_unit']['value']} ({r['sigma_unit']['source']})" if r["sigma_unit"]["source"] else "-"
+        cells += [r.get("zero_pert_max_abs_D", "-"), unit]
+        rows.append(f"| {tag} | " + " | ".join(map(str, cells)) + " |")
     if unseal:  # only after the prereg tag for this run exists
         rows += [
             "",

@@ -6,3 +6,8 @@ fork c (solo) rc=0
 compare rc=0
 capture selfcheck rc=0
 Wed Oct 28 04:40:17 UTC 2026
+NOTE (added 2026-11-01): the rc lines above are from the FIRST run, which used docker exec without
+-e CUBLAS_WORKSPACE_CONFIG (determinism.py refused to start: selfcheck rc=1) and ran capture without
+--selfcheck (help only: rc=0). The re-run at ~04:40 UTC with the env var wrote selfcheck.log and
+capture_selfcheck.log: fork selfcheck rc=0 (max|Δ|=0), capture --selfcheck rc=1 (eps read as a string,
+fixed in f751e14; GPU re-run pending).

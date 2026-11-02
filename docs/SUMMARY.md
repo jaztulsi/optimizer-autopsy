@@ -171,6 +171,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; not yet run on a GPU | `research/baselines/` |
 | Rollback-and-skip at matched compute | ◐ written and CI-tested (PR #20, not merged) | branch `baselines/rollback-skip` |
 | Autopsy code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, placebo floor, dose meter, GPU driver `mve`, sealed report | ◐ CI-tested; the core battery ran on the MI300X; the placebo, dose and cooldown arms have not run yet | `research/autopsy/` |
+| Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ implemented 2026-10-29, not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
 | Stats (TOST, bootstrap, Holm), attribution | ◐ partial | `research/analysis/` |
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M non-embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |

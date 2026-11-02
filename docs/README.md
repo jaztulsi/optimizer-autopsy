@@ -6,6 +6,7 @@
 | **1st** | [`../PLAN_V8.md`](../PLAN_V8.md) | **Governing plan** (2026-10-22; state updated 2026-10-29): question, novelty ledger, methodology, pre-registration, compute ladder, timeline, idea portfolio |
 | 2nd | [`../CLAUDE.md`](../CLAUDE.md) | Guardrails and harness interfaces (binding for every session) |
 | 3rd | [`prereg_v2.md`](prereg_v2.md) | **Next GPU run's pre-registration** (draft, needs sign-off + `git tag prereg-v2`): dose × phase × placebo × cooldown, H-A…H-F, the repair battery |
+| 3b | [`chaos_floor.md`](chaos_floor.md) | Chaos-floor benchmark (implemented 2026-10-29, not run): 1-ulp placebo forks in the weight / gradient / optimizer-state arms × 3 phases, data-order forks, zero-perturbation check, release table, run commands |
 | 4th | [`p1_upgrades.md`](p1_upgrades.md) | Ten ranked P1 upgrades (U1–U10) with kill-search verdicts, costs and owners (2026-10-28) |
 | 5th | [`EXPERIMENT_CATALOG.md`](EXPERIMENT_CATALOG.md) | 16 invented algorithms (A1–A16), about 70 experiment families, sweep templates, the GPU day-1 queue |
 | 6th | [`../research/README.md`](../research/README.md) | Code layout and per-module status |

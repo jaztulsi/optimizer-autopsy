@@ -97,16 +97,49 @@ def nudge_ulp(tensors, seed: int) -> None:
 
 
 def ulp_placebo(seed: int, at: int, channel: str):
-    """Hook nudging every weight (channel "w": use as a `pre_step`) or every final gradient (channel "g":
-    use as a `pre_opt_step`) by 1 ulp at step `at`, on the clean stream. K seeds -> sigma_chaos(h)."""
+    """Hook nudging every element by 1 ulp at step `at`, on the clean stream. K seeds -> sigma_chaos(h).
+    Channels: "w" every weight and "opt" every Adam moment m and v (use as a `pre_step`); "g" every final
+    gradient (use as a `pre_opt_step`)."""
     import torch
 
+    if channel not in ("w", "g", "opt"):
+        raise ValueError(f"placebo channel {channel!r} is not one of w / g / opt")
+
     def hook(step, ctx):
-        if step == at:
-            with torch.no_grad():
-                ts = [p if channel == "w" else p.grad for _, p in ctx["model"].named_parameters()]
+        if step != at:
+            return None
+        params = [p for _, p in ctx["model"].named_parameters()]
+        with torch.no_grad():
+            if channel == "opt":
+                st = ctx["opt"].state
+                nudge_ulp([st[p][k] for p in params if p in st for k in ("exp_avg", "exp_avg_sq")], seed)
+                for p in params:
+                    if p in st:  # a v == 0 nudged down would go negative -> sqrt NaN; it stays 0 instead
+                        st[p]["exp_avg_sq"].clamp_min_(0)
+            else:
+                ts = [p if channel == "w" else p.grad for p in params]
                 nudge_ulp([t for t in ts if t is not None], seed)
         return None
+
+    return hook
+
+
+def data_order(seed: int, at: int, cfg: dict, data_dir: str):
+    """`pre_step` replaying the remaining train slots [at, max_steps) in a seeded random order: the same
+    batches, a new order. The data-order (seed-level) spread the 1-ulp floor is compared against."""
+    import torch
+
+    from research.data.prepare import get_batch
+
+    t, block = cfg["train"], cfg["model"]["block_size"]
+    if t.get("grad_accum", 1) != 1:
+        # ponytail: ctx["batch"] replaces every micro-batch with one; grad_accum > 1 needs PR #20's data_offset
+        raise NotImplementedError("data-order forks need grad_accum == 1")
+    perm = torch.randperm(t["max_steps"] - at, generator=torch.Generator().manual_seed(seed)).tolist()
+
+    def hook(step, ctx):
+        dev = next(ctx["model"].parameters()).device
+        ctx["batch"] = get_batch("train", at + perm[step - at], t["batch_size"], block, data_dir, dev)
 
     return hook
 
