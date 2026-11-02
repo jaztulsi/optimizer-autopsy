@@ -55,7 +55,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <main>
 <header>
   <h1>Optimizer Autopsy: where the project stands</h1>
-  <p class="sub">Audit of branch <code>plan-v8</code> on 27 Oct 2026, updated after the first MI300X night (T0 passed, T1 pilot complete). Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (submission ~18 Jan).</p>
+  <p class="sub">Audit of branch <code>plan-v8</code>, updated 1 Nov 2026. The first MI300X night (27 Oct) passed T0 and finished the T1 pilot. Since then the chaos-floor benchmark and the capture fix are in, Eddie's Brollback (PR #20) is CI-green, and <code>research/kaggle</code> is now <code>research/gpu</code>. Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (submission ~18 Jan).</p>
 </header>
 
 <section class="strip" aria-label="Progress summary (estimates)">
@@ -78,7 +78,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
 <g stroke-width="1.5">
 <rect class="wip" x="10" y="20" width="240" height="96" rx="6"/><rect class="ok" x="280" y="20" width="240" height="96" rx="6"/>
-<rect class="wip" x="550" y="20" width="240" height="96" rx="6"/><rect class="ok" x="820" y="20" width="250" height="96" rx="6"/>
+<rect class="ok" x="550" y="20" width="240" height="96" rx="6"/><rect class="ok" x="820" y="20" width="250" height="96" rx="6"/>
 <rect class="ok" x="10" y="180" width="240" height="96" rx="6"/><rect class="wip" x="280" y="180" width="240" height="96" rx="6"/>
 <rect class="ok" x="550" y="180" width="240" height="96" rx="6"/><rect class="todo" x="820" y="180" width="250" height="96" rx="6"/></g>
 <g font-weight="700"><text x="22" y="42">0 · Environment · 5 min</text><text x="292" y="42">1 · Model sanity · 5 min</text>
@@ -87,9 +87,9 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <text x="562" y="202">6 · Repair battery · ~25 min</text><text x="832" y="202">7 · Avyank's HVP · 5 min</text></g>
 <text x="22" y="64">GPU visible; pinned torch 2.10</text><text x="22" y="82">container or bump the pins</text><text x="22" y="104" font-size="11">needs: your decision on pins</text>
 <text x="292" y="64">trunk trains (loss falls);</text><text x="292" y="82">fork self-check + proxy gate</text><text x="292" y="104" font-size="11">ready</text>
-<text x="562" y="64">cross-process gate; capture</text><text x="562" y="82">self-check (after eps fix)</text><text x="562" y="104" font-size="11">needs: 1-line fix in capture.py</text>
-<text x="832" y="64">SPAM, ZClip, AdaGC, skip-step</text><text x="832" y="82">run + replay bitwise</text><text x="832" y="104" font-size="11">ready (never GPU-run yet)</text>
-<text x="22" y="224">K = 8 placebos, w and g</text><text x="22" y="242">channels → σ_chaos (gate G3)</text><text x="22" y="264" font-size="11">ready (a7's code, CI green)</text>
+<text x="562" y="64">cross-process gate; capture</text><text x="562" y="82">self-check (eps fix in)</text><text x="562" y="104" font-size="11">ready (fix f751e14, GPU re-run due)</text>
+<text x="832" y="64">SPAM, ZClip, AdaGC, skip-step,</text><text x="832" y="82">Brollback (PR #20); replay bitwise</text><text x="832" y="104" font-size="11">ready: gpu/baseline_gpu_session.sh</text>
+<text x="22" y="224">K = 8 placebos, w and g</text><text x="22" y="242">channels → σ_chaos (gate G3)</text><text x="22" y="264" font-size="11">ready: --battery chaos (CI green)</text>
 <text x="292" y="224">dose × undo arms × 3 phases</text><text x="292" y="242">+ cooldown + β1 arms</text><text x="292" y="264" font-size="11">needs: prereg-v2 tag</text>
 <text x="562" y="224">RML-full / -cool / -sel vs</text><text x="562" y="242">Eddie's baselines (H-E, H-F)</text><text x="562" y="264" font-size="11">ready; runs on doses with d ≥ 2</text>
 <text x="832" y="224">HVP determinism under</text><text x="832" y="242">math-SDPA (T0 leftover)</text><text x="832" y="264" font-size="11">blocked: PR #15 needs changes</text>
@@ -99,7 +99,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <text x="400" y="150" font-size="11">stop if any gate fails (Δ ≠ 0, a crash, or σ_chaos too large)</text>
 </g></svg>
 </div>
-<figcaption>Each stage gates the next. Green = code ready. Yellow = one small fix or decision first. Red = blocked. Stages 0–4 take about 45 minutes and must pass before the main run spends GPU time. Stage 7 is optional and can run whenever PR #15 lands.</figcaption>
+<figcaption>Each stage gates the next. Green = code ready. Yellow = one small fix or decision first. Red = blocked. Stages 0–4 take about 45 minutes and must pass before the main run spends GPU time. Stage 7 is optional and can run whenever PR #15 lands. The full chaos-floor benchmark (K = 111 forks per arm, w / g / opt, 3 phases, ~7 GPU-h; <code>docs/chaos_floor.md</code>) is a separate, longer run.</figcaption>
 </figure>
 </section>
 
@@ -108,18 +108,18 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <div class="people">
 <table>
 <tr><th>Person</th><th>What they built</th><th>What's good</th><th>What needs work</th><th>Tested?</th><th>GPU test when</th></tr>
-<tr><td><b>Jasraj</b><br><code>jaztulsi · 64 commits</code></td>
-<td><ul class="tight"><li>Fork harness: determinism, snapshot, trunk, fork, Δ=0 gate</li><li>nanoGPT model, data pipeline</li><li>Spike pipeline: recipes, detector, capture, natural spikes, K2</li><li>Plan V8, research corpus, docs, site</li><li>With Claude sessions: autopsy code, cross-process gate, status page</li></ul></td>
-<td><ul class="tight"><li>Determinism verified on T4, P100 and MI300X</li><li>First AMD pilot: 120 / 120 branches, no crashes</li><li>Clean CI: 62 tests pass</li></ul></td>
-<td><ul class="tight"><li><code>capture.py</code> self-check crash (eps read as text)</li><li>LR schedule is a constant-rate stub</li><li>torch 2.14 on the box vs 2.10 pin</li><li>Pilot lacked placebo arms and τ = 10</li><li>PR #18 is large and unreviewed</li><li>Bus factor 1 on the spike role</li></ul></td>
+<tr><td><b>Jasraj</b><br><code>jaztulsi · 76 commits</code></td>
+<td><ul class="tight"><li>Fork harness: determinism, snapshot, trunk, fork, Δ=0 gate</li><li>nanoGPT model, data pipeline</li><li>Spike pipeline: recipes, detector, capture, natural spikes, K2</li><li>Plan V8, research corpus, docs, site</li><li>With Claude sessions: autopsy code, chaos-floor benchmark, cross-process gate, status page</li></ul></td>
+<td><ul class="tight"><li>Determinism verified on T4, P100 and MI300X</li><li>First AMD pilot: 120 / 120 branches, no crashes</li><li>CI green on PR #18: lint, 68 tests, secret scan</li></ul></td>
+<td><ul class="tight"><li><code>capture.py</code> eps fix committed; GPU re-run pending</li><li>LR schedule is a constant-rate stub</li><li>torch 2.14 on the box vs 2.10 pin</li><li>Placebo / chaos-floor arms built but not yet run</li><li>PR #18 is large and unreviewed</li><li>Bus factor 1 on the spike role</li></ul></td>
 <td><span class="pill p-ok">GPU ✓</span><br><span class="pill p-ok">CI ✓</span></td>
 <td>Stages 0–2, 4–6</td></tr>
-<tr><td><b>Eddie</b><br><code>Eddiegah · 4 commits · PR #14</code></td>
-<td><ul class="tight"><li>Baselines: SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, Bvbar</li><li><code>pre_opt_step</code> hook in trunk / fork</li><li>CI workflow, <code>test_baselines.py</code></li></ul></td>
-<td><ul class="tight"><li>SPAM and AdaGC reimplemented to respect licenses</li><li>Addressed review: forks at inject_step, stateful hooks deep-copied</li><li>Approved and merged</li></ul></td>
-<td><ul class="tight"><li>Never run on a GPU, so AMD numerics are untested</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
+<tr><td><b>Eddie</b><br><code>Eddiegah · 6 commits · PR #14, #20</code></td>
+<td><ul class="tight"><li>Baselines: SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, Bvbar</li><li>Brollback: rollback-and-skip at matched compute (PR #20)</li><li><code>pre_opt_step</code> hook in trunk / fork</li><li>CI workflow, <code>test_baselines.py</code></li></ul></td>
+<td><ul class="tight"><li>SPAM and AdaGC reimplemented to respect licenses</li><li>Addressed review: forks at inject_step, stateful hooks deep-copied</li><li>PR #14 merged; PR #20 review asks done, CI green</li></ul></td>
+<td><ul class="tight"><li>Never run on a GPU, so AMD numerics are untested; PR #20 merges after its GPU check</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
 <td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-ok">CI ✓</span></td>
-<td><b>Stage 3</b> next session, then as comparators in stage 6</td></tr>
+<td><b>Stage 3</b> next session (<code>baseline_gpu_session.sh</code>), then as comparators in stage 6</td></tr>
 <tr><td><b>Avyank</b><br><code>avyankvanamali-star · 4 commits · PR #15</code></td>
 <td><ul class="tight"><li>Toy Hessian-vector product (double-backward) with a finite-difference check</li></ul></td>
 <td><ul class="tight"><li>Math is right (Pearlmutter)</li><li>Independent float64 check is the right kind of test</li><li>Becomes the cross-check for the planned jvp HVP</li></ul></td>
@@ -131,7 +131,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 </section>
 
 <section id="work">
-<h2>Where the work is: 52 items, with today's 10 upgrades added</h2>
+<h2>Where the work is: 52 items, with the 27 Oct upgrades added</h2>
 <figure>
 <div class="scroll">
 <svg viewBox="0 0 1000 260" role="img" aria-label="Of 52 work items, 14 are validated, 10 are written but unproven, and 28 are not started. Every GPU experiment beyond the pilot and all of the writing are still ahead.">
@@ -147,13 +147,13 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <text x="210" y="250" font-size="11">each block = one work item ·  green = validated on a GPU or in CI · yellow = written, unproven · red = not started</text>
 </g></svg>
 </div>
-<figcaption><b>14 of 52 items are validated (27%).</b> The 38 left include every GPU experiment after the pilot, the scale-up to 124M and Pythia, the theory, and all of the writing. They are the heaviest items, so by effort the project is about 10% done. Today's research pass added ten upgrades (U1–U10): the forgetting threshold, chaos-calibrated stats, the v-cooldown test, rollback and prevention baselines, 124M + Pythia-160M/410M, a bit-flip map of m and v, OPEN-1B natural spikes, a prediction law, a damage atlas and a fork-free predictor.</figcaption>
+<figcaption><b>14 of 52 items are validated (27%).</b> The 38 left include every GPU experiment after the pilot, the scale-up to 124M and Pythia, the theory, and all of the writing. They are the heaviest items, so by effort the project is about 10% done. The 27 Oct research pass added ten upgrades (U1–U10): the forgetting threshold, chaos-calibrated stats, the v-cooldown test, rollback and prevention baselines, 124M + Pythia-160M/410M, a bit-flip map of m and v, OPEN-1B natural spikes, a prediction law, a damage atlas and a fork-free predictor.</figcaption>
 </figure>
 </section>
 
 <figure id="map">
 <div class="scroll">
-<svg viewBox="0 0 1080 640" role="img" aria-label="Dependency map: the foundation and most instruments are built; the T1 pilot is running; the placebo arm, factorial/oracle code, pre-registration and the T2 core run stand between tonight's pilot and the P1 paper.">
+<svg viewBox="0 0 1080 640" role="img" aria-label="Dependency map: the foundation and most instruments are built; the T1 pilot is done; the placebo arm, factorial/oracle code, pre-registration and the T2 core run stand between the pilot and the P1 paper.">
 <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="currentColor"/></marker></defs>
 <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="12" fill="currentColor">
 <g font-weight="700" font-size="13">
@@ -180,7 +180,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <rect class="wip" x="235" y="550" width="185" height="36" rx="5"/></g>
 <text x="247" y="73">Spike recipes + detector</text><text x="247" y="123">Spike capture (v̄)</text><text x="247" y="173">Baselines ×7</text>
 <text x="247" y="223">Held-out eval</text><text x="247" y="273">Stats (TOST, Holm…)</text><text x="247" y="323">Undo / RML core</text>
-<text x="247" y="373">MVE driver</text><text x="247" y="423">Report (sealed)</text><text x="247" y="473">Placebo arms + dose (a7)</text>
+<text x="247" y="373">MVE driver</text><text x="247" y="423">Report (sealed)</text><text x="247" y="473">Chaos floor + placebo arms</text>
 <text x="247" y="523">Factorial / oracle / faults</text><text x="247" y="573">prereg-v2 (drafted)</text>
 
 <!-- column 3 -->
@@ -228,7 +228,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 </g>
 </svg>
 </div>
-<figcaption>Green = built and checked on a GPU or in CI. Yellow = written, or running tonight, but not yet validated. Red = not built or not run. Solid arrows exist today. Dashed red arrows are the dependencies still blocking the next step.</figcaption>
+<figcaption>Green = built and checked on a GPU or in CI. Yellow = written but not yet validated on a GPU. Red = not built or not run. Solid arrows exist today. Dashed red arrows are the dependencies still blocking the next step.</figcaption>
 </figure>
 
 <div class="key"><span><i class="dot d-ok"></i> done</span><span><i class="dot d-wip"></i> in progress / unvalidated</span><span><i class="dot d-todo"></i> pending</span></div>
@@ -237,31 +237,33 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <div class="ledger">
 <h2>1 · Completed work</h2>
 <table>
-<tr><td><i class="dot d-ok"></i></td><td><b>GPT model</b>: GPT-2-style nanoGPT, tied embeddings. Trains: held-out loss 10.8 → 2.83 by step 2,000 on the MI300X tonight.<br><code>research/model/nanogpt.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>GPT model</b>: GPT-2-style nanoGPT, tied embeddings. Trains: held-out loss 10.8 → 2.83 by step 2,000 on the MI300X (27 Oct).<br><code>research/model/nanogpt.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Data pipeline</b>: fixed corpus → uint16 memmap. A batch is a pure function of the step, so forks keep the data aligned.<br><code>research/data/prepare.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Determinism harness (C1)</b>: seeding, RNG capture, env preflight.<br><code>research/harness/determinism.py · preflight.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Snapshot / restore</b> of w, m, v keyed by name (fp32).<br><code>research/harness/snapshot.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Trunk loop</b> with pre_step / grad_hook / pre_opt_step / on_step hooks.<br><code>research/harness/trunk.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Fork engine + Δ=0 gate</b>, the battery builder and the kill-test. Gate passes on T4, P100 and now the <b>MI300X</b>.<br><code>research/harness/fork.py</code></td></tr>
-<tr><td><i class="dot d-ok"></i></td><td><b>Cross-process + co-tenancy gate through spike windows</b> (new tonight): 3 processes bitwise equal.<br><code>research/gpu/xproc_gate.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>Cross-process + co-tenancy gate through spike windows</b> (27 Oct): 3 processes bitwise equal.<br><code>research/gpu/xproc_gate.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Spike recipes + detector</b>: lr_bump, corrupt_batch, repeat_ngram, v_inflate, tiny_eps, precision.<br><code>research/spikes/induce.py · tune_detector.py · natural.py · k2.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Baselines</b>: skip, clip, reset, skip-step, SPAM, ZClip, AdaGC (CI-tested).<br><code>research/baselines/*.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Held-out eval</b>: val_loss on slots disjoint from the probe slots.<br><code>research/analysis/eval.py</code></td></tr>
-<tr><td><i class="dot d-ok"></i></td><td><b>CPU test suite</b>: 56 pass in the box container.<br><code>research/tests/*.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>Test suite</b>: 68 tests, green in GitHub CI on PR #18 with lint and the secret scan.<br><code>research/tests/*.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>T1 pilot (exploratory)</b>: 120 / 120 branches, 0 crashes. Spikes at this size mostly wash out to the 1-ulp chaos floor (≤ 0.003 nats). In the one clear run (β1 = 0.8), undoing m+v removed 98% of the damage and undoing v alone made it worse.<br><code>results/mi300x_2026-10-27/ · tag prereg-pilot-2026-10-27</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>GPU numbers</b>: about 33 ms/step per deterministic fork at batch 64; packing 2 forks on the GPU gives ~1.3× throughput.<br><code>/shared-docker/runs/t0_xproc</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>Repo housekeeping</b>: <code>research/kaggle</code> renamed <code>research/gpu</code> (the scripts run on any GPU; Kaggle is paused).<br><code>research/gpu/</code></td></tr>
 </table>
 </div>
 <div class="ledger">
 <h2>2 · Backlog</h2>
 <table>
-<tr><td><i class="dot d-wip"></i></td><td><b>Next GPU session (~100 branches, ~90 min)</b>: chaos-floor dose sweep + Spike Triage + retroactive RML surgery (RML-full / -cool / -sel) against skip-step, SPAM, ZClip, AdaGC. Being built by a7.<br><code>research/autopsy/mve.py · undo.py · probes.py · report.py</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Next GPU session (~100 branches, ~90 min)</b>: chaos-floor dose sweep + Spike Triage + retroactive RML surgery (RML-full / -cool / -sel) against skip-step, SPAM, ZClip, AdaGC. Code built and CI-green (rollback accounting fixed in be0c131); waits on prereg-v2 sign-off and the MI300X go-ahead.<br><code>research/autopsy/mve.py · undo.py · probes.py · report.py</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>prereg-v2</b>: hypotheses H-A…H-F drafted; needs jaz's sign-off and the tag before the run.<br><code>docs/prereg_v2.md</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>LR schedule</b>: minimal stub (constant LR). Needs warmup + cosine for T2.<br><code>research/autopsy/schedule.py</code></td></tr>
-<tr><td><i class="dot d-wip"></i></td><td><b>Spike capture</b>: self-check crashes. JSON writes eps as 1e-08 and YAML reads it back as a string; fix: yaml.safe_dump.<br><code>research/spikes/capture.py:307</code></td></tr>
-<tr><td><i class="dot d-wip"></i></td><td><b>Version pins</b>: box has torch 2.14, repo pins 2.10. Pinned container being pulled, or bump the pins.<br><code>research/requirements.txt</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Spike capture</b>: the self-check crashed (eps read back as a string). Fix committed in f751e14 (yaml.safe_dump); the GPU re-run is pending.<br><code>research/spikes/capture.py:307</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Version pins</b>: box has torch 2.14, repo pins 2.10. Pinned container being pulled, or bump the pins. Dependabot PRs #9–#13 (torch 2.13, numpy 2.5, …) stay unmerged: any bump needs a Δ=0 re-check on the MI300X.<br><code>research/requirements.txt</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Stats / attribution</b>: partial, with TODOs.<br><code>research/analysis/stats.py · attribution.py</code></td></tr>
-<tr><td><i class="dot d-wip"></i></td><td><b>Placebo arms (K = 8, w and g channels) + planted dose c ∈ {1,3,10,30} + cooldown arm</b>: in progress (a7). Rounding chaos reaches ~0.003 nats, so effects are reported as d = Δ / σ_chaos.<br><code>research/autopsy/ · research/tests/test_autopsy.py</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Placebo arms (K = 8, w and g channels) + planted dose c ∈ {1,3,10,30} + cooldown arm</b>: built and CI-tested (be0c131, <code>--battery chaos</code>), not yet run. Full benchmark ≈ 7 GPU-h. Rounding chaos reaches ~0.003 nats, so effects are reported as d = Δ / σ_chaos.<br><code>research/autopsy/ · docs/chaos_floor.md</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Brollback (Eddie, PR #20)</b>: rollback-and-skip at matched compute. CI green at 160bded; merge after the stage-3 GPU check.<br><code>research/baselines/rollback.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Factorial, oracle, localize, faults</b> modules.<br><code>research/autopsy/{factorial,oracle,localize,faults}.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Localizer (C2)</b>: SNR, curvature, poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Repair operator (C3)</b>: stub. The RML undo in autopsy covers part of it.<br><code>research/repair/operator.py</code></td></tr>
