@@ -66,6 +66,8 @@ def train_forward(
     `pre_step(step, ctx)` (spike-induction injection point, Task 8) fires at the TOP of each step with
     a mutable ctx = {model, opt, cfg, batch, autocast_dtype}; a recipe may mutate `opt` (LR/eps),
     override the batch (ctx["batch"]=(x,y)), or force reduced precision (ctx["autocast_dtype"]="float16").
+    It may also set ctx["data_offset"] = k to read step `step + k`'s data slots instead of step `step`'s
+    (every microbatch shifts, so it holds under grad_accum > 1) -- the data skip of rollback-and-skip.
     Default None is a pure no-op -- the trunk/resume/fork paths are byte-for-byte unchanged.
 
     `pre_opt_step(step, ctx)` (Task 15 baselines) fires after accumulation + global clip, right before
@@ -91,9 +93,10 @@ def train_forward(
         opt.zero_grad(set_to_none=True)
         total_loss = 0.0
         acc = None  # manual grad accumulator, only when grad_accum > 1
+        data_step = step + (ctx.get("data_offset", 0) if ctx is not None else 0)
         for micro in range(grad_accum):
             # Each microbatch is a distinct, reproducible data slot (pure function of gstep).
-            gstep = step * grad_accum + micro
+            gstep = data_step * grad_accum + micro
             if ctx is not None and ctx["batch"] is not None:
                 x, y = ctx["batch"]  # perturbation override (e.g. corrupt-batch spike recipe)
             else:
