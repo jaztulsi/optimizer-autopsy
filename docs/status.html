@@ -243,7 +243,7 @@ ul.tight{margin:0;padding-left:18px} ul.tight li{margin:2px 0}
 <tr><td><i class="dot d-ok"></i></td><td><b>Snapshot / restore</b> of w, m, v keyed by name (fp32).<br><code>research/harness/snapshot.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Trunk loop</b> with pre_step / grad_hook / pre_opt_step / on_step hooks.<br><code>research/harness/trunk.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Fork engine + Δ=0 gate</b>, the battery builder and the kill-test. Gate passes on T4, P100 and now the <b>MI300X</b>.<br><code>research/harness/fork.py</code></td></tr>
-<tr><td><i class="dot d-ok"></i></td><td><b>Cross-process + co-tenancy gate through spike windows</b> (new tonight): 3 processes bitwise equal.<br><code>research/kaggle/xproc_gate.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>Cross-process + co-tenancy gate through spike windows</b> (new tonight): 3 processes bitwise equal.<br><code>research/gpu/xproc_gate.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Spike recipes + detector</b>: lr_bump, corrupt_batch, repeat_ngram, v_inflate, tiny_eps, precision.<br><code>research/spikes/induce.py · tune_detector.py · natural.py · k2.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Baselines</b>: skip, clip, reset, skip-step, SPAM, ZClip, AdaGC (CI-tested).<br><code>research/baselines/*.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Held-out eval</b>: val_loss on slots disjoint from the probe slots.<br><code>research/analysis/eval.py</code></td></tr>
