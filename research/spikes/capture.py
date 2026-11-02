@@ -260,7 +260,7 @@ def run_one(spec: dict) -> dict:
 
 def _battery_specs(out_root: str) -> list[dict]:
     """The PLAN V7 §4.2 induced instances: 2 recipes x 2 sites x 5 seeds, policies from spike_run.SPEC."""
-    from research.kaggle.spike_run import SPEC
+    from research.gpu.spike_run import SPEC
 
     specs = []
     for kind in BATTERY_KINDS:

@@ -1,5 +1,5 @@
 """corrupt_batch lead-time probe (Task 8). GPU-only: run it on the AMD MI300X (or any CUDA/ROCm GPU),
-never on the laptop:   python -m research.kaggle.corrupt_batch_probe
+never on the laptop:   python -m research.gpu.corrupt_batch_probe
 
 WHY corrupt_batch shows zero lead today (read from the code): `spikes/induce.py` sets
 `ctx["batch"] = (garbage, garbage)`, so the loss LOGGED at the injection step is the loss on random tokens,
@@ -210,7 +210,7 @@ def main() -> None:
     for seed in SEEDS:
         for variant in VARIANTS:
             path = os.path.join(trace_dir, f"seed{seed}_{variant}.json")
-            cmd = [sys.executable, "-m", "research.kaggle.corrupt_batch_probe", "--one", str(seed), variant]
+            cmd = [sys.executable, "-m", "research.gpu.corrupt_batch_probe", "--one", str(seed), variant]
             cmd += ["--data", data_dir, "--out", path] + ([] if det else ["--no-deterministic"])
             subprocess.run(cmd, check=True)
             runs.append(json.load(open(path)))

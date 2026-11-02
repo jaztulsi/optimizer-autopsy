@@ -2,7 +2,7 @@
 
 These are the *measured* per-step throughput numbers that every GPU-hour estimate in `docs/reference/PLAN_V6.md`
 ultimately depends on ("measured seconds-per-step at proxy scale and at the larger scale"). They come
-from `research/kaggle/step_timer.py` — the timed unit is exactly what a fork branch repeats:
+from `research/gpu/step_timer.py` — the timed unit is exactly what a fork branch repeats:
 `forward + backward + grad-clip + AdamW opt.step`, 10 warmup steps (unmeasured), 100 timed steps with
 `torch.cuda.synchronize()` around each, reported as mean/std/steps-per-sec.
 
@@ -57,7 +57,7 @@ GPU-hours = (steps to train the trunk until the spike window) × (sec/step) ÷ 3
 ```
 
 Proxy trunk reaches its (induced) spike window fast: injections land at the ~160-step plateau and
-`research/kaggle/spike_run.py` runs `STEPS=200`, so steps-to-spike ≈ **200**.
+`research/gpu/spike_run.py` runs `STEPS=200`, so steps-to-spike ≈ **200**.
 
 - Per single trunk-to-spike run, measured batch-16 rate: 200 × 0.061908 ÷ 3600 = **≈ 0.0034 GPU-hours** (~12 s)
 - Whole proxy calibration set (spike_run = 4 recipes × 2 seeds = 8 trunk runs → 1,600 steps):

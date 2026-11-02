@@ -272,7 +272,7 @@ def test_fork_and_normal_selection():
 
 
 def test_battery_is_the_preregistered_design_and_spike_run_policies_exist():
-    from research.kaggle.spike_run import SPEC
+    from research.gpu.spike_run import SPEC
 
     specs = _battery_specs("out")
     assert len(specs) == 2 * 2 * 5

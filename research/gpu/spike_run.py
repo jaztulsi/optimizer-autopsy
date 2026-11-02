@@ -21,7 +21,7 @@ onset bar because its measured loss lands on the injection step, making advance 
 An onset hit is always reported as zero lead and never called early warning. V6 requires any two solid
 recipes at f<=0.05. Two seeds per recipe: seed 0 tunes; seed 1 is held out for the DoD.
 
-Run on Kaggle:  python -m research.kaggle.spike_run
+Run on the GPU:  python -m research.gpu.spike_run
 """
 
 from __future__ import annotations

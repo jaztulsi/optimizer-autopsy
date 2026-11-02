@@ -78,7 +78,7 @@ Repos/libraries mapped to the pipeline tasks, so we **wrap proven code instead o
 
 | Tool | Adopt | Note |
 |---|---|---|
-| kaggle/kaggle-api | **WRAP** | Already wired — our headless compute path. |
+| kaggle/kaggle-api | **PAUSED** | Was our headless GPU path. Kaggle is paused (Oct 2026); GPU work runs on the MI300X. |
 | huggingface_hub multi-commit/large-folder | WRAP | See Task 6 above. |
 
 ---

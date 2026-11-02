@@ -6,7 +6,7 @@ dtype range the DoD is about -- unlike the tiny fork._selfcheck (n_embd=64, bloc
 synthetic: the determinism question is shape-dependent, not data-dependent, so no shard download is
 needed. Short by design (a handful of steps answers determinism, not convergence).
 
-Run on Kaggle:  python -m research.kaggle.proxy_fork_gate
+Run on the GPU:  python -m research.gpu.proxy_fork_gate
 """
 
 from __future__ import annotations

@@ -1,9 +1,9 @@
 """Cross-process + co-tenancy fork gate THROUGH a spike window (PLAN_V8 §8.1 T0 / G0, Tab 1). GPU-only:
 run it on the AMD MI300X, never on the laptop.
 
-    python -m research.kaggle.xproc_gate prime   --out DIR     # trunk -> snapshot at the fork step
-    python -m research.kaggle.xproc_gate fork    --out DIR --tag a
-    python -m research.kaggle.xproc_gate compare --out DIR
+    python -m research.gpu.xproc_gate prime   --out DIR     # trunk -> snapshot at the fork step
+    python -m research.gpu.xproc_gate fork    --out DIR --tag a
+    python -m research.gpu.xproc_gate compare --out DIR
 
 `fork_determinism_gate` compares two forks inside ONE process. This compares forks run by SEPARATE
 processes (own HIP context, allocator, kernel caches), each replaying the same spike recipes from the same

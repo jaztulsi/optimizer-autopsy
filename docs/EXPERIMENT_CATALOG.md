@@ -659,7 +659,7 @@ as a string); the fix is committed and needs a GPU re-run. The step-6 MVE ran as
 without placebos. Spikes at that dose sat at the ~0.003-nat chaos floor, so E02's placebo floor and a dose sweep
 ([`prereg_v2.md`](prereg_v2.md)) come next.*
 
-1. `python -m research.kaggle.step_timer`: measured speeds replace every [A]. ✅ 22.2 ms/step (proxy, batch 64).
+1. `python -m research.gpu.step_timer`: measured speeds replace every [A]. ✅ 22.2 ms/step (proxy, batch 64).
 2. E01: determinism, in-process and cross-process, through a spike window (G0). ✅
 3. `python -m research.spikes.capture --selfcheck`. ◐ (re-run after f751e14)
 4. E06 + E02: eval set and placebo spread. E02 now uses K = 8 placebos in the w and g channels (prereg-v2).

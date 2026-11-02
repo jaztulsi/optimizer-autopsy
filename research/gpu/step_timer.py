@@ -8,8 +8,8 @@ n_layer=3 n_head=6 n_embd=192 block=256 batch=64) -- no invented architecture, n
 Data is a synthetic batch of the correct shape/dtype (int64 token ids, values < vocab); step time is
 shape/dtype-bound, not data-bound, so no shard download is needed for a throughput number.
 
-Copy this whole file into ONE Kaggle notebook cell (GPU T4/P100) and run. Or: python -m research.kaggle.step_timer
-Requires the repo importable as `research.*` (same as the other research/kaggle/* scripts).
+Run on the GPU (the MI300X): python -m research.gpu.step_timer
+Requires the repo importable as `research.*` (same as the other research/gpu/* scripts).
 """
 
 from __future__ import annotations

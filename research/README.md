@@ -21,7 +21,7 @@ All code lives under `research/`. The repo-root `index.html` is the GitHub Pages
 | `data/` | tokenize + shard the corpus (uint16 memmap; a batch is a pure function of the step) | ✅ |
 | `model/` | nanoGPT: proxy (≈ 11M non-embedding params) and 124M | ✅ proxy trains on the MI300X |
 | `experiments/` | `proxy/` and `llm124m/` configs; their drivers (`smoke.py`, `run.py`) are TODO stubs; use `autopsy.mve` | ◐ |
-| `kaggle/` | `step_timer`, the cross-process gate `xproc_gate.py`, legacy CUDA scripts (Kaggle is paused) | ✅ ran on the MI300X |
+| `gpu/` | `step_timer`, the cross-process gate `xproc_gate.py`, older evidence scripts; all run on the MI300X (this folder was `kaggle/` until 2026-11-01) | ✅ ran on the MI300X |
 | `tests/` | CPU tests, run in GitHub CI only | ✅ |
 
 ## Compute
@@ -48,7 +48,7 @@ deterministic algorithms). Forks require bit-identical replay. Don't edit `harne
 ## Run (MI300X)
 
 ```
-python -m research.kaggle.step_timer
+python -m research.gpu.step_timer
 python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/config.yaml \
     --kind corrupt_batch --inject-step 160 --seed 0 --out results/autopsy           # one P1 instance
 python -m research.autopsy.mve ... --placebo 8 --plant-coefs 1,3,10,30          # prereg-v2 arms (after the tag)

@@ -165,7 +165,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Piece | State | Where |
 |---|---|---|
 | Harness: determinism, name-keyed (w, m, v) snapshots (fp32, tied weights once), trunk with hooks, fork + Δ = 0 gate | ✅ GPU-verified on T4, P100 and the MI300X | `research/harness/` |
-| Cross-process + co-tenancy gate through spike windows | ✅ MI300X: 3 processes bitwise equal | `research/kaggle/xproc_gate.py` |
+| Cross-process + co-tenancy gate through spike windows | ✅ MI300X: 3 processes bitwise equal | `research/gpu/xproc_gate.py` |
 | Spike recipes + detector (`lr_bump`, `corrupt_batch`, `repeat_ngram`, `v_inflate`, `tiny_eps`, precision) | ✅ CI; three recipes ran on the MI300X | `research/spikes/` |
 | Spike capture (v̄, t0 / fork / matched-normal snapshots) | ◐ The self-check crashed on the MI300X (eps read back as a string). Fix committed (f751e14); not yet re-run on the GPU | `research/spikes/capture.py` |
 | Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; not yet run on a GPU | `research/baselines/` |

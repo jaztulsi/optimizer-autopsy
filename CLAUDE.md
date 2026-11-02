@@ -180,8 +180,8 @@ on_step=None, grad_hook=None, pre_step=None, run=None) -> list[float]` (per-step
 **The determinism gate** (`harness/fork.py`): `fork_determinism_gate(cfg, data_dir, snapshot, steps,
 device=None, seed=True) -> float`. Runs two noop forks, **asserts** they are bitwise identical at every
 step, returns `max|Δ|` (0.0 on success; raises on any nonzero). Already passes at proxy (fp32, CUDA) and
-at 124M grad_accum=40 (P100) — see `research/kaggle/step_timer_results.md` — and on the AMD MI300X at proxy,
-in-process and across 3 processes through spike windows (`research/kaggle/xproc_gate.py`,
+at 124M grad_accum=40 (P100) — see `research/gpu/step_timer_results.md` — and on the AMD MI300X at proxy,
+in-process and across 3 processes through spike windows (`research/gpu/xproc_gate.py`,
 `results/mi300x_2026-10-27/t0_*`).
 
 **Fork + intervention** (`harness/fork.py`): `run_fork(cfg, data_dir, snapshot, intervention=None,

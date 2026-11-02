@@ -194,7 +194,7 @@ optimizer-autopsy/
 │   ├── analysis/             Held-out eval, stats (partial), attribution gate
 │   ├── theory/               Closed-form predictions (to fill)
 │   ├── experiments/          proxy/ and llm124m/ configs + drivers
-│   ├── kaggle/               step_timer, cross-process gate, legacy CUDA scripts (Kaggle paused)
+│   ├── gpu/                  step_timer, cross-process gate, older evidence scripts (all run on the MI300X)
 │   └── tests/                CPU tests (run in GitHub CI)
 ├── results/                  Committed run evidence: CUDA era, plus mi300x_2026-10-27/ (T0 + T1 pilot)
 └── notebooks/                Legacy Kaggle / Colab launchers
@@ -219,7 +219,7 @@ the AMD MI300X, with `CUBLAS_WORKSPACE_CONFIG=:4096:8` set before Python starts.
 
 ```bash
 pip install -r research/requirements.txt         # torch==2.10.0 (ROCm build from the pinned image)
-python -m research.kaggle.step_timer             # measured speeds
+python -m research.gpu.step_timer             # measured speeds
 python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/config.yaml \
     --kind corrupt_batch --inject-step 160 --seed 0 --out results/autopsy
 ```

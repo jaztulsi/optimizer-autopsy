@@ -122,7 +122,7 @@
    chaos-calibrated stats and U3 v-as-cooldown decide whether P1 has a finding.
 5. **Code.**
    - `research/autopsy/` (RML undo, planted probes, placebo floor, dose meter, cooldown, GPU driver, sealed report),
-     `analysis/eval.py` (held-out Δ) and `kaggle/xproc_gate.py`.
+     `analysis/eval.py` (held-out Δ) and `gpu/xproc_gate.py`.
    - Capture self-check fix (f751e14).
    - `Brollback` in PR #20.
 
@@ -264,7 +264,7 @@ filled in as gates pass. Reviewer simulation at week 8.
 
 | Piece | State | Evidence |
 |---|---|---|
-| C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/kaggle/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
+| C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/gpu/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
 | AMD MI300X | Provided by Avneh. **First session 2026-10-27:** T0 passed, T1 pilot ran. The box has torch 2.14 while the pin is 2.10, so the pilot ran with `--skip-preflight`. Pin decision open | `results/mi300x_2026-10-27/` |
 | Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Pushed on `plan-v8` (**PR #18 open**, unreviewed). `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check **crashed on the MI300X** (eps read back as a string); the fix is committed (f751e14), but the GPU re-run is pending | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
 | Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; **never run on a GPU**. `Brollback` (rollback-and-skip at matched compute) is in **PR #20, open** | `research/baselines/` |

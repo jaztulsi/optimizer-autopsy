@@ -7,7 +7,7 @@ with no run log or results file in the repo. This module regenerates both on a r
   results/task4_determinism.json   per-step max|Δ| over the bitwise-replay gate (all 0.0)
   results/task5_trunk.json         per-step loss for a 200-step proxy trunk (batch 16, T4)
 
-Run on Kaggle:  `python -m research.kaggle.evidence_run`  (see the evidence kernel launcher).
+Run on the GPU:  `python -m research.gpu.evidence_run`  (see the evidence kernel launcher).
 Output dir defaults to ./results; override with EVIDENCE_OUT.
 """
 

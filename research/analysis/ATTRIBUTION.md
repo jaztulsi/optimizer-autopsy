@@ -21,7 +21,7 @@ prose that drifts.
 - **`calibrate()` — mandatory cost control.** Run ~20 full-length forks, score whether a *short* fork
   preserves the **branch-ordering** of Δ (rank-correlation across branches, not just a lead-time
   number), pick the shortest length that preserves ranking, run the big sweep there. This is what keeps
-  the attribution battery inside the GPU budget (see `research/kaggle/step_timer_results.md`).
+  the attribution battery inside the GPU budget (see `research/gpu/step_timer_results.md`).
 
 ## Gate B — the cheap-fix kill-test verdict (this part is BUILT)
 
