@@ -7,7 +7,7 @@
 # Runs, logging everything to OUT_DIR (default runs/baselines_gpu_<UTC time>):
 #   1. python -m research.harness.fork      -- in-process fork gate, must print max|Δ|=0 AND exit 0
 #   2. cross-process gate (xproc_gate): prime, forks a + b at once, fork c solo, compare -- all bitwise
-#   3. research.gpu.baseline_gpu_checks     -- data_offset + Brollback rebuild at grad_accum = 40
+#   3. research.gpu.baseline_gpu_checks     -- data_offset + Brollback / Brollback_k rebuilds at grad_accum = 40
 # Instrument checks only: no repair battery (that waits for the prereg-v2 tag).
 # Every step runs even if an earlier one fails; each exit code goes to OUT_DIR/STATUS. Exits 1 if any failed.
 

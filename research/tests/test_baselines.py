@@ -568,6 +568,58 @@ def test_brollback_branch_is_matched_compute_rollback_on_unseen_data():
             pass
 
 
+def test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute():
+    inj, k, t0, budget = 6, 3, 8, 6
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        snap = prime_trunk(_CFG, data, inj, device="cpu", rollback_k=k)
+        rb = snap["rollback_snapshot"]
+        assert rb["step"] == inj - k
+
+        # The earlier snapshot is bitwise the plain trunk's at inj - k (watching changes nothing).
+        plain = {}
+
+        def grab(step, info):
+            if step == inj - k - 1:
+                plain["snap"] = capture(info["model"], info["opt"], step=inj - k)
+
+        run_trunk(_CFG, data, steps=inj - k, on_step=grab, deterministic=True, device="cpu")
+        for key in ("w", "m", "v"):
+            assert all(torch.equal(rb[key][n], plain["snap"][key][n]) for n in rb[key]), key
+
+        recipe = SimpleNamespace(pre_step=None, inject_step=inj, width=1)
+        br = make_baseline_branches(_CFG, recipe, detector_t0=t0, rollback_snapshot=rb)
+        assert "Brollback" in br and "Brollback_k" in br
+        bk = br["Brollback_k"]
+        wasted, skip = rollback.plan(inj, t0, width=1)
+        assert bk.wasted_steps == wasted == 3  # the charge stays L + 1, not k + L + 1
+
+        seen = []
+        res = run_branch(data, snap, bk, steps=budget, device="cpu", seed=False, on_step=lambda s, i: seen.append(s))
+        assert len(res["losses"]) == budget - wasted  # matched compute
+        assert res["horizon_shift"] == k + wasted  # k + L + 1
+        assert seen == list(range(inj - k, inj - k + budget - wasted))  # it really forked from inj - k
+        # Independent reconstruction: restore the k-earlier snapshot and train on the first unseen batch
+        # onward. Data offset k + skip: step inj - k reads slot inj + skip, right after what was consumed.
+        ref = run_fork(_CFG, data, rb, steps=budget - wasted, start_step=inj + skip, device="cpu", seed=False)
+        assert res["losses"] == ref
+        # ... and it is a genuinely different rollback from the oracle-placed Brollback.
+        assert res["losses"] != run_branch(data, snap, br["Brollback"], steps=budget, device="cpu")["losses"]
+
+        assert "Brollback_k" not in make_baseline_branches(_CFG, recipe, detector_t0=t0)  # needs the snapshot
+        for bad in (snap, {**rb, "step": inj + 1}):  # a "rollback" snapshot at or after the injection
+            try:
+                make_baseline_branches(_CFG, recipe, detector_t0=t0, rollback_snapshot=bad)
+                raise AssertionError("accepted a rollback snapshot that is not before inject_step")
+            except ValueError:
+                pass
+        try:
+            prime_trunk(_CFG, data, inj, device="cpu", rollback_k=inj)  # would need a snapshot at step 0
+            raise AssertionError("accepted rollback_k >= fork_step")
+        except ValueError:
+            pass
+
+
 def test_never_firing_zclip_is_bitwise_identical_to_no_clip():
     # A ZClip that can never clip (no cap, huge threshold, already initialized) must leave the
     # trajectory bitwise equal to running with no clip at all: the hook has no side effects.

@@ -159,13 +159,15 @@ class Branch:
     (Bs runs a clip-augmented cfg; the others reuse the trunk cfg), and an optional `pre_opt_step` hook
     on the final gradient (gradient-side baselines like SPAM; None for the Task-9 cheap branches).
     `wasted_steps` is compute the branch is charged without running (Brollback's pre-rollback steps):
-    `run_branch` trains `steps - wasted_steps`, so every branch spends the same total compute."""
+    `run_branch` trains `steps - wasted_steps`, so every branch spends the same total compute.
+    `snapshot`, if set, is restored instead of the battery's (Brollback_k's earlier checkpoint)."""
 
     name: str
     pre_step: object
     cfg: dict
     pre_opt_step: object = None
     wasted_steps: int = 0
+    snapshot: object = None
 
 
 def compose(*pre_steps):
@@ -205,7 +207,9 @@ def _baseline_max_norm(cfg) -> float:
     return cfg.get("optim", {}).get("grad_clip") or 1.0
 
 
-def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=True, on_step=None, meta=None):
+def prime_trunk(
+    cfg, data_dir, fork_step: int, *, device=None, deterministic=True, on_step=None, meta=None, rollback_k=None
+):
     """Train the trunk from scratch to `fork_step` with the ZClip/AdaGC observers attached, and capture
     the fork snapshot there (w, m, v at `fork_step`, i.e. after `fork_step` optimizer steps).
 
@@ -224,12 +228,19 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
     Seeds ONCE; `deterministic=True` by default so the forks can run in this same process with
     `seed=False` (a second deterministic seed would trip the 'CUDA already initialized' precondition).
     Primes with the default ZClip/AdaGC hyperparameters -- the ones `make_baseline_branches` uses.
-    `on_step` (optional) still sees every trunk step, e.g. for logging."""
+    `on_step` (optional) still sees every trunk step, e.g. for logging.
+
+    `rollback_k` (prereg: `rollback.ROLLBACK_K` = 20) also captures the snapshot `rollback_k` steps before
+    `fork_step`, for Brollback_k, as `snap["rollback_snapshot"]` -- IN MEMORY ONLY: `snapshot.save` writes
+    just w/m/v/RNG/meta, so save it as its own file and pass it to
+    `make_baseline_branches(..., rollback_snapshot=...)`."""
     from research.baselines import adagc, zclip
     from research.harness.snapshot import capture
     from research.harness.trunk import run_trunk
 
     assert fork_step >= 1, f"fork_step must be >= 1 (got {fork_step}): nothing to prime on at step 0"
+    if rollback_k is not None and not 1 <= rollback_k < fork_step:
+        raise ValueError(f"rollback_k={rollback_k} needs 1 <= k < fork_step={fork_step} (a snapshot after step 0)")
     max_norm = _baseline_max_norm(cfg)
     z, a = zclip.ZClip(max_norm=max_norm), adagc.AdaGC(max_norm=max_norm)
     watch_z, watch_a = z.observer(), a.observer(cfg.get("optim", {}).get("grad_clip") or 0.0)
@@ -240,6 +251,8 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
         watch_a(step, info)
         if on_step is not None:
             on_step(step, info)
+        if rollback_k is not None and step == fork_step - rollback_k - 1:
+            out["rollback"] = capture(info["model"], info["opt"], step=fork_step - rollback_k, meta=dict(meta or {}))
         if step == fork_step - 1:  # after this step's update: the state a fork at `fork_step` restores
             priming = {"zclip_state": z.state_dict(), "adagc_state": a.state_dict()}
             out["snap"] = capture(
@@ -247,6 +260,8 @@ def prime_trunk(cfg, data_dir, fork_step: int, *, device=None, deterministic=Tru
             )
 
     run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+    if rollback_k is not None:
+        out["snap"]["rollback_snapshot"] = out["rollback"]
     return out["snap"]
 
 
@@ -261,6 +276,7 @@ def make_baseline_branches(
     detector_t0=None,
     v_bar=None,
     rollback_skip=None,
+    rollback_snapshot=None,
 ):
     """Build `{name: Branch}` for the Task-15 published baselines, forked from the same pre-spike
     snapshot and replaying `recipe` like `B0`. Kept separate from `make_branches` so the pre-registered
@@ -286,6 +302,9 @@ def make_baseline_branches(
         data (`rollback_skip` steps' worth of batches ahead; default: where the cursor was, or past the
         spike window if the detector fired inside it). It shifts the data order, so it is a labelled
         practitioner baseline, never B*. See baselines/rollback.py.
+      * `detector_t0` + `rollback_snapshot` (an earlier trunk snapshot, k steps before inject_step) ->
+        Brollback_k: the same rollback from that non-oracle checkpoint. Charge stays L + 1; data offset
+        k + skip, so it still resumes on the first unseen batch; horizon shift k + L + 1.
       * `v_bar` ({param name: tensor}, the spike manifest's pre-spike v average) -> Bvbar: reset ALL of
         v to v_bar (m kept) once after the window, at the same step as Bg/Bvreset. The fair global
         comparison for our selective v repair."""
@@ -301,6 +320,13 @@ def make_baseline_branches(
         wasted, skip = rollback.plan(inj, detector_t0, rollback_skip, width=w)
         # No recipe hook: the spike does not recur after rollback (the favourable assumption, as PaLM saw).
         optional["Brollback"] = Branch("Brollback", rollback.as_pre_step(skip), cfg, wasted_steps=wasted)
+        if rollback_snapshot is not None:
+            k = inj - rollback_snapshot["step"]
+            if k < 1:
+                raise ValueError(f"rollback_snapshot is at step {rollback_snapshot['step']}, not before {inj}")
+            optional["Brollback_k"] = Branch(
+                "Brollback_k", rollback.as_pre_step(k + skip), cfg, wasted_steps=wasted, snapshot=rollback_snapshot
+            )
     if v_bar is not None:
         optional["Bvbar"] = Branch("Bvbar", compose(recipe.pre_step, reset.as_vbar_pre_step(inj + w, v_bar)), cfg)
     return {
@@ -337,14 +363,17 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
     stateful one (ZClip/AdaGC) starts from the branch's initial state every run, however often it's reused.
     A branch with `wasted_steps` trains `steps - wasted_steps` (matched compute); the result records both.
     `on_step` sees the fork's own step indices, which stop `wasted_steps` short of the other branches'; a
-    caller probing fixed horizons shifts them itself (horizon h at step h - wasted_steps, equal compute)."""
+    caller probing fixed horizons shifts them itself (horizon h at step h - wasted_steps, equal compute).
+    Such branches (and any with their own snapshot) record that shift as `horizon_shift`: wasted_steps for
+    Brollback, k + wasted_steps for Brollback_k."""
+    start_snap = branch.snapshot if branch.snapshot is not None else snapshot
     run_steps = steps - branch.wasted_steps
     if run_steps < 1:
         raise ValueError(f"{branch.name}: {branch.wasted_steps} wasted steps leave nothing of a {steps}-step budget")
     losses = run_fork(
         branch.cfg,
         data_dir,
-        snapshot,
+        start_snap,
         steps=run_steps,
         device=device,
         seed=seed,
@@ -355,7 +384,18 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
     result = _summarize(branch.name, losses)
     if branch.wasted_steps:
         result["wasted_steps"] = branch.wasted_steps
+    if branch.wasted_steps or branch.snapshot is not None:
+        result["horizon_shift"] = branch.wasted_steps + _step_of(snapshot) - _step_of(start_snap)
     return result
+
+
+def _step_of(snapshot) -> int:
+    """A snapshot's step, from the dict or (for a path) from the file."""
+    if isinstance(snapshot, str):
+        from research.harness.snapshot import load
+
+        snapshot = load(snapshot)
+    return snapshot["step"]
 
 
 def run_cheap_battery(data_dir, snapshot, branches: dict, steps, device=None, seed=True) -> dict:

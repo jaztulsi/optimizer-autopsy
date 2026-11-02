@@ -8,7 +8,8 @@ single ctx["batch"] override would be wrong), each must be BITWISE (max|Δ| = 0,
   1. data_offset: training steps s.. with ctx["data_offset"] = k  ==  training steps s+k.. outright.
   2. Brollback rebuild: the Brollback branch (real lr_bump spike, detector at inject + L) == an independent
      rebuild (restore the fork snapshot, no spike, train on the next unseen batches). The branch is also
-     run twice, which must match itself (in-process replay of a reused branch).
+     run twice, which must match itself (in-process replay of a reused branch). Same for Brollback_k,
+     which restores a snapshot k steps before the injection (its data offset is k + skip).
 
 Synthetic random tokens: the question is numerics, not learning. Writes DIR/baseline_gpu_checks.json and
 exits 1 if any check fails. `--tiny` swaps in a 1-layer model for a quick CPU wiring check only -- it says
@@ -28,6 +29,7 @@ import json  # noqa: E402
 GRAD_ACCUM = 40
 INJECT, WIDTH, LAG, BUDGET = 6, 2, 2, 6  # fork at 6, lr_bump over 6..7, detector at 8, 6-step budget
 OFFSET_START, OFFSET_K, OFFSET_STEPS = 3, 5, 4
+ROLLBACK_K_CHECK = 3  # Brollback_k's distance here (the trunk is only INJECT steps); prereg uses 20
 
 
 def _cfg(tiny: bool, batch: int):
@@ -71,24 +73,18 @@ def _last_weights():
     return box, on_step
 
 
-def check_brollback(cfg, data, device) -> dict:
-    from research.baselines import rollback
-    from research.harness.fork import make_baseline_branches, prime_trunk, run_branch, run_fork
-    from research.spikes.induce import induce
-
-    snap = prime_trunk(cfg, data, INJECT, device=device)  # seeds ONCE, deterministically (first CUDA touch)
-    recipe = induce("lr_bump", cfg, inject_step=INJECT, width=WIDTH, factor=50.0)
-    t0 = INJECT + LAG
-    branch = make_baseline_branches(cfg, recipe, detector_t0=t0, **snap["meta"]["baseline_priming"])["Brollback"]
-    wasted, skip = rollback.plan(INJECT, t0, width=WIDTH)  # whatever the default skip is, rebuild with the same one
+def _rollback_rebuild(cfg, data, device, battery_snap, branch, rebuild_snap, rebuild_start, wasted) -> dict:
+    """Run `branch` twice and an independent rebuild (restore `rebuild_snap`, no spike, train from data
+    step `rebuild_start`); all three must agree bitwise, at matched compute."""
+    from research.harness.fork import run_branch, run_fork
 
     box1, on1 = _last_weights()
-    run1 = run_branch(data, snap, branch, steps=BUDGET, device=device, seed=False, on_step=on1)
+    run1 = run_branch(data, battery_snap, branch, steps=BUDGET, device=device, seed=False, on_step=on1)
     box2, on2 = _last_weights()
-    run2 = run_branch(data, snap, branch, steps=BUDGET, device=device, seed=False, on_step=on2)
+    run2 = run_branch(data, battery_snap, branch, steps=BUDGET, device=device, seed=False, on_step=on2)
     boxr, onr = _last_weights()
     ref = run_fork(
-        cfg, data, snap, steps=BUDGET - wasted, start_step=INJECT + skip, device=device, seed=False, on_step=onr
+        cfg, data, rebuild_snap, steps=BUDGET - wasted, start_step=rebuild_start, device=device, seed=False, on_step=onr
     )
     d_ref, d_rerun = _max_abs(box1["w"], boxr["w"]), _max_abs(box1["w"], box2["w"])
     ok = run1["losses"] == ref and run1["losses"] == run2["losses"] and d_ref == 0.0 and d_rerun == 0.0
@@ -96,7 +92,7 @@ def check_brollback(cfg, data, device) -> dict:
     return {
         "PASS": ok,
         "wasted_steps": wasted,
-        "data_skip": skip,
+        "horizon_shift": run1.get("horizon_shift"),
         "steps_run": len(run1["losses"]),
         "losses_equal_rebuild": run1["losses"] == ref,
         "losses_equal_rerun": run1["losses"] == run2["losses"],
@@ -104,6 +100,30 @@ def check_brollback(cfg, data, device) -> dict:
         "max_abs_w_vs_rerun": d_rerun,
         "losses": run1["losses"],
     }
+
+
+def check_brollback(cfg, data, device) -> dict:
+    """Brollback (rollback to the fork snapshot) and Brollback_k (rollback ROLLBACK_K_CHECK steps earlier)."""
+    from research.baselines import rollback
+    from research.harness.fork import make_baseline_branches, prime_trunk
+    from research.spikes.induce import induce
+
+    # seeds ONCE, deterministically (first CUDA touch); also captures the k-earlier rollback snapshot
+    snap = prime_trunk(cfg, data, INJECT, device=device, rollback_k=ROLLBACK_K_CHECK)
+    rb = snap["rollback_snapshot"]
+    recipe = induce("lr_bump", cfg, inject_step=INJECT, width=WIDTH, factor=50.0)
+    t0 = INJECT + LAG
+    branches = make_baseline_branches(
+        cfg, recipe, detector_t0=t0, rollback_snapshot=rb, **snap["meta"]["baseline_priming"]
+    )
+    wasted, skip = rollback.plan(INJECT, t0, width=WIDTH)  # whatever the default skip is, rebuild with the same one
+
+    # Both resume on the first unseen batch, data step INJECT + skip: Brollback from the fork snapshot,
+    # Brollback_k from k steps earlier (its data offset is k + skip).
+    plain = _rollback_rebuild(cfg, data, device, snap, branches["Brollback"], snap, INJECT + skip, wasted)
+    karm = _rollback_rebuild(cfg, data, device, snap, branches["Brollback_k"], rb, INJECT + skip, wasted)
+    karm["PASS"] = karm["PASS"] and karm["horizon_shift"] == ROLLBACK_K_CHECK + wasted
+    return {"PASS": plain["PASS"] and karm["PASS"], "data_skip": skip, "brollback": plain, "brollback_k": karm}
 
 
 def check_data_offset(cfg, data, device) -> dict:

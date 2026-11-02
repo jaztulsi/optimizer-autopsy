@@ -25,12 +25,20 @@ lr_bump it assumes a transient cause; if the bump stands for an LR that is too h
 schedule, rollback rewinds the step counter and the spike would come back. Either way it is the favourable
 case for rollback (PaLM saw no recurrence; OPT did), the right side to err on for a baseline we want to beat.
 
+Brollback_k, the non-oracle placement. Rolling back to exactly `inject_step` is oracle placement: a
+real trainer's newest checkpoint is some way before the spike. Brollback_k forks from a snapshot k steps
+earlier (k = ROLLBACK_K = 20 for prereg; PaLM went back ~100 at its scale). The compute charge stays
+L + 1; the data offset becomes k + skip, so post-rollback training still resumes on the first unseen
+batch, and the horizon shift is k + L + 1 (a horizon h is read at step h - (k + L + 1)).
+
 CONFOUND, by design: rollback-and-skip changes the data order, so it is a practitioner baseline, never
 `B*` (the clean, data-aligned counterfactual). Report it labelled as data-shifting. Its train losses are
 on different batches from the other branches', so compare branches on the held-out metric.
 """
 
 from __future__ import annotations
+
+ROLLBACK_K = 20  # prereg's rollback distance for Brollback_k (steps before inject_step)
 
 
 def plan(inject_step: int, detector_t0: int, skip: int | None = None, width: int = 1) -> tuple[int, int]:
