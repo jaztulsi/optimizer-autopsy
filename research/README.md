@@ -10,16 +10,16 @@ All code lives under `research/`. The repo-root `index.html` is the GitHub Pages
 
 | Package | Role | Status |
 |---|---|---|
-| `harness/` | **C1**, the instrument: determinism, preflight, secrets, name-keyed `(w,m,v)` snapshots, trunk and fork runs, the Δ = 0 gate | ✅ Δ = 0 on T4, P100 and the AMD MI300X |
-| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor (weight / gradient / optimizer-state arms, zero-perturbation check, data-order forks, `--battery chaos`), dose meter, the GPU driver `mve`, the sealed report + chaos-fork release table | ◐ CI-tested; the core battery ran in the 2026-10-27 pilot; placebo, dose, cooldown and chaos arms not yet GPU-run |
-| `spikes/` | Spike recipes, detector, capture driver (v̄ + snapshots), natural-spike search, K2 manifest | ◐ 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run |
+| `harness/` | **C1**, the instrument: determinism, preflight, secrets, name-keyed `(w,m,v)` snapshots, trunk and fork runs, the Δ = 0 gate, the LR schedule (`schedule.py`: warmup + cosine / WSD, set inside the training loop) | ✅ Δ = 0 on T4, P100 and the AMD MI300X; `schedule.py` has CPU tests (first CI run pending), not GPU-run |
+| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor (weight / gradient / optimizer-state arms, zero-perturbation check, data-order forks, `--battery chaos`), dose meter, the GPU driver `mve`, the sealed report + chaos-fork release table, bit-flip fault recipes + the parity residual (`faults.py`) | ◐ CI-tested; the core battery ran in the 2026-10-27 pilot; placebo, dose, cooldown and chaos arms not yet GPU-run; `faults.py` has CPU tests (first CI run pending), not GPU-run |
+| `spikes/` | Spike recipes (`lr_bump` multiplies the schedule; `sdc_grad` / `v_bitflip` / `m_bitflip` come from `autopsy/faults.py`), detector, capture driver (v̄ + snapshots), natural-spike search, K2 manifest | ◐ 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run |
 | `baselines/` | skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step, as fork interventions | ◐ CI-tested; never GPU-run; `Brollback` in PR #20 |
 | `analysis/` | held-out eval (token-disjoint slots), stats, attribution, figures | ◐ eval done; stats partial; figures stub |
 | `localizer/` | **C2**: which state coordinates carry the damage (SNR, curvature, poison score) | ⬜ stubs (output contract: PLAN_V8 §6.4) |
 | `repair/` | **C3**: edit the localized optimizer state | ⬜ stub; RML in `autopsy/` covers part of it |
 | `theory/` | closed-form predictions (ψ_k, AR(2), echo / stall laws) | ⬜ README only |
 | `data/` | tokenize + shard the corpus (uint16 memmap; a batch is a pure function of the step) | ✅ |
-| `model/` | nanoGPT: proxy (≈ 11M non-embedding params) and 124M | ✅ proxy trains on the MI300X |
+| `model/` | nanoGPT: proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains on the MI300X |
 | `experiments/` | `proxy/` and `llm124m/` configs; their drivers (`smoke.py`, `run.py`) are TODO stubs; use `autopsy.mve` | ◐ |
 | `gpu/` | `step_timer`, the cross-process gate `xproc_gate.py`, older evidence scripts; all run on the MI300X (this folder was `kaggle/` until 2026-11-01) | ✅ ran on the MI300X |
 | `tests/` | CPU tests, run in GitHub CI only | ✅ |

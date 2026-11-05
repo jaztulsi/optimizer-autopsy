@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-10-29. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-05. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
@@ -15,9 +15,9 @@ inflated v stalls learning but also caps that echo. So cleaning v alone should b
 
 **Approach.** A bitwise-deterministic fork harness replays a spiked run (B0) and its data-aligned clean twin
 (B\*) from one snapshot. Retroactive undo edits, the Reversible Moment Log (RML), remove the spike's share of m, v
-or both at a chosen lag and leave the weights untouched. Damage is the held-out loss gap to B\*, read against a
+or both at a chosen lag, weights untouched. Damage is the held-out loss gap to B\*, read against a
 chaos floor from 1-ulp placebo forks. Four tests: the memory-written share (ordered by β1), protective v,
-interference between two spikes, and RML repair vs skip-step and other baselines.
+interference between two spikes, and RML repair vs baselines such as skip-step.
 
 **Tactics.**
 - Undo at lags 0…64 traces when memory writes the damage.
@@ -25,16 +25,16 @@ interference between two spikes, and RML repair vs skip-step and other baselines
 - A w/m/v swap factorial and a β1 × β2 cross separate the channels.
 - An effect counts only at \|Δ/σ_chaos\| ≥ 2; thresholds are fixed before data.
 
-**What's new.** Every component has precedent. The new part is the causal, time-resolved split of a spike's lasting
-damage into direct, m-echo and v-stall parts.
+**What's new.** Each part has precedent; new is the causal, time-resolved split of a spike's lasting damage into
+direct, m-echo and v-stall parts.
 
-**Built and run (2026-10-29).**
-- Harness: Δ = 0 on CUDA and on an AMD MI300X, in-process and across processes.
-- Autopsy code: RML undo, planted probes, placebo floor, GPU driver.
-- First MI300X pilot (exploratory, 120 branches): width-1 spikes left 0.0003–0.0117 nats, about the size of the
-  chaos floor (≤ 0.0027). In the one clear case, undoing m+v removed ~98% and undoing v alone made it worse
-  (n = 1).
-- Next experiment: a spike-dose sweep, effects in chaos units, a v-cooldown arm.
+**Built and run (2026-11-05).**
+- Harness: Δ = 0 on CUDA and AMD MI300X, in and across processes.
+- Autopsy code: RML undo, planted probes, placebo floor.
+- MI300X pilot (exploratory, 120 branches): width-1 spikes left 0.0003–0.0117 nats, about the chaos floor
+  (≤ 0.0027). In the one clear case, undoing m+v removed ~98%; undoing v alone made it worse (n = 1).
+- Awaiting CI: an in-loop LR schedule (cosine / WSD); bit-flip faults in g, m, v.
+- Next: a spike-dose sweep in chaos units, with a v-cooldown arm.
 - Not built: localizer, repair module, theory.
 
 ---
@@ -174,14 +174,18 @@ AdaGC, and rollback-and-skip at matched compute.
 | Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ implemented 2026-10-29, not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
 | Stats (TOST, bootstrap, Holm), attribution | ◐ partial | `research/analysis/` |
-| Model: GPT-2-style nanoGPT, proxy (≈ 11M non-embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
-| LR schedule (warmup + cosine / WSD) | ⬜ constant-LR stub | `research/autopsy/schedule.py` |
+| Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
+| LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CPU tests written, first CI run pending; not run on a GPU | `research/harness/schedule.py` |
+| Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CPU tests written, first CI run pending | `research/autopsy/faults.py` |
 | Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML covers part of the repair. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
-| Factorial, causal oracle, faults (bit-flip) modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
+| Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15) | — |
 
 **Known code issues:**
-- `lr_bump` sets an absolute LR instead of multiplying the schedule. That is harmless at constant LR.
+- `trunk.train_forward` changed (the schedule), so the Δ = 0 gate has to pass again on the GPU before new data counts.
+- With the clip off, `trunk._grad_norm` turns every gradient NaN when the norm is infinite (an inf/inf clip
+  coefficient). Only an overflowing fault, such as `sdc_grad` at bit 30, reaches it.
+- `mve` still runs the planted (phase B) arms for `sdc_grad`; at bit 30 on a GPU that plants a reversed gradient.
 - `fork.py:351` still records every exception as a branch failure.
 - The box runs torch 2.14 while the repo pins 2.10, so the pilot skipped the environment preflight.
 
@@ -219,6 +223,9 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 10-28 | Ten new research directions with novelty searches: forgetting threshold, chaos-calibrated stats, v as cooldown, rollback and prevention baselines, larger models, m/v bit-flips, natural spikes, a zero-parameter migration law, a damage atlas by parameter type, ensemble-Lyapunov triage ([`p1_upgrades.md`](p1_upgrades.md)) |
 | 10-28 | Capture self-check fix |
 | 10-29 | Rollback-and-skip baseline at matched compute |
+| 11-05 | LR schedule moved into the training loop; `lr_bump` and the cooldown arm now scale it |
+| 11-05 | Bit-flip faults in g, m and v, plus a parity residual; `mve` skips the undo arms that equal B0 for m / v flips |
+| 11-05 | `mve` refuses to resume a result file written under a different config |
 
 ### 8 · Where things live
 

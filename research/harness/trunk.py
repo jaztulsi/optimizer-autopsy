@@ -20,6 +20,7 @@ import torch
 
 from research.data.prepare import get_batch, resolve_data_dir
 from research.harness.determinism import seed_everything
+from research.harness.schedule import lr_at
 from research.model.nanogpt import GPT, GPTConfig
 
 
@@ -74,15 +75,24 @@ def train_forward(
     for a change that must last exactly one step (e.g. SPAM scaling the LR). Setting ctx["skip_update"]
     = True skips `opt.step()` for this step entirely (w, m, v and Adam's step count untouched; the
     batch is still consumed, so the data stream stays aligned). Default None: unchanged.
+
+    A cfg with `optim.schedule` (warmup + cosine / WSD, harness/schedule.py) sets every group's LR to
+    `lr_at(step, cfg)` at the top of each step, before `pre_step`, so an LR recipe scales the schedule.
+    No schedule key: untouched.
     """
     block = model.cfg.block_size
     t = cfg["train"]
     batch = t["batch_size"]
     grad_accum = t.get("grad_accum", 1)
     grad_clip = cfg["optim"].get("grad_clip", 0.0)
+    sched = cfg["optim"].get("schedule")
 
     losses: list[float] = []
     for step in range(start_step, start_step + steps):
+        if sched:  # before pre_step, so lr_bump / cooldown multiply the scheduled LR
+            lr_now = lr_at(step, cfg)
+            for g in opt.param_groups:
+                g["lr"] = lr_now
         ctx = None
         if pre_step is not None or pre_opt_step is not None:
             ctx = {"model": model, "opt": opt, "cfg": cfg, "batch": None, "autocast_dtype": None}

@@ -8,7 +8,7 @@ far training outcomes move from numerical noise alone: placebo forks with a 1-ul
 
 | Piece | As implemented |
 |---|---|
-| Model / data | Proxy GPT (≈ 11M non-embedding), TinyStories, `max_steps` 2000, seed 0, constant LR. Config: `results/mi300x_2026-10-27/t1_pilot/config.yaml` |
+| Model / data | Proxy GPT (≈ 11M params, 9.7M of them the tied token embedding; ≈ 1.3M in the blocks), TinyStories, `max_steps` 2000, seed 0, constant LR. Config: `results/mi300x_2026-10-27/t1_pilot/config.yaml` |
 | Checkpoints (phases) | Fork steps 160 (early; the pilot's spike step), 1000 (plateau, 50%), 1800 (late, 90%) |
 | Arms | `w`: every weight ±1 ulp. `g`: every final gradient ±1 ulp. `opt`: every Adam moment m and v ±1 ulp (a v of exactly 0 is kept at 0 so √v stays real). Signs come from a seeded coin per element |
 | Forks | K = 111 per (phase, arm) → 999 placebo forks. Plus 8 **data-order forks** per phase (the remaining batches replayed in a seeded new order: the seed-level spread to compare against) |

@@ -273,7 +273,7 @@ filled in as gates pass. Reviewer simulation at week 8.
 | T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
 | Pre-registration | `prereg-v2` drafted; **not signed off or tagged** | `docs/prereg_v2.md` |
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
-| LR schedule | ⬜ constant-LR stub (warmup + cosine / WSD needed for T2) | `research/autopsy/schedule.py` |
+| LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CPU tests written, first CI run pending; **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
 | Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML in `autopsy/` covers part of C3. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
 | Toy HVP | PR #15 open; needs changes before merge | branch `avyank/toy-hvp` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
@@ -401,7 +401,7 @@ OpenAlex are still to query (open issue §13).
 
 | Source | Type | Ground truth | Note |
 |---|---|---|---|
-| `lr_bump` | predictive | none | **Fix:** multiply the *scheduled* LR (today it sets an absolute LR, induce.py:52-60 [V]) |
+| `lr_bump` | predictive | none | Multiplies the *scheduled* LR (`lr_at`), fixed 2026-11; before that it set an absolute LR |
 | `corrupt_batch` | onset, data-driven | none | width 5 |
 | `repeat_ngram` | data-driven (the OLMo cause class) | none | |
 | `v_inflate` + **decoys** + m-only plants | planted | exact | κ ∈ {1, 10², 10⁴} |
@@ -758,7 +758,7 @@ rates are not measured yet. At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $29
 ### 9.1 Layout (new code; nothing is scaffolded until it's written for real)
 
 ```
-research/autopsy/schedule.py      warmup+cosine / WSD pre_step; lr_bump that multiplies the schedule
+research/harness/schedule.py      lr_at(): warmup+cosine / WSD, set inside train_forward (the loop owns the LR, so every path honours it); lr_bump multiplies it
 research/autopsy/factorial.py     hybrid() (asserts same step/adam_step; rng from B0), violation_rate(), shares(), 2^4 k-arm
 research/autopsy/oracle.py        group_test() over tensor/row/head masks; ddmin fallback
 research/autopsy/localize.py      atp_state(), nis_sign(), lambda_decomp(), jump_share(), windup(), magnitude_ctrl() -> Localization
@@ -814,8 +814,8 @@ of 2026-10-29:
 - **Cheap-fix degeneracy (improvement A1): ✅ in the autopsy path.** `Bs` clip = trunk clip made `Bs` ≡ B0 for
   `lr_bump` and ≡ B\* for `corrupt_batch` [V]. `autopsy.mve.repair_battery` now passes 0.5 × the trunk clip.
 - **Pre-registration (improvement A3): ◐.** The pilot was tagged after its data. prereg-v2 is drafted and untagged.
-- **Spike role: ⬜.** The `lr_bump` schedule fix (induce.py still sets an absolute LR). It is harmless at constant
-  LR, and must land with the T2 schedule.
+- **Spike role: ◐ (2026-11).** `lr_bump` now multiplies the scheduled LR, which landed with the schedule
+  (`harness/schedule.py`). CPU tests written, first CI run pending; not GPU-run.
 - **Harness owner, flagged: ⬜.** The `except Exception` at fork.py:351.
 
 ### 9.4 Changes that need sign-off (flagged; not done)

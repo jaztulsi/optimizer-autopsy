@@ -20,11 +20,13 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-10-29):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-05):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
-exploratory T1 pilot. The next run is `docs/prereg_v2.md`, which needs sign-off and a git tag first. C2 (localizer)
+exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
+bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05: first CI run pending, and the `Δ==0` gate must
+pass again on the changed loop before new GPU data counts. The next run is `docs/prereg_v2.md`, which needs sign-off and a git tag first. C2 (localizer)
 and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 
@@ -171,7 +173,9 @@ sub-dicts (see `experiments/proxy/config.yaml`).
 
 **The training loop**: `train_forward(model, opt, cfg, data_dir, start_step, steps, device,
 on_step=None, grad_hook=None, pre_step=None, run=None) -> list[float]` (per-step losses). `steps` counts
-**optimizer steps**; each runs `cfg["train"]["grad_accum"]` micro-batches then one `opt.step()`. Hooks:
+**optimizer steps**; each runs `cfg["train"]["grad_accum"]` micro-batches then one `opt.step()`. If
+`cfg["optim"]["schedule"]` is set, the loop sets every group's LR to `schedule.lr_at(step, cfg)` before `pre_step`
+(no key = constant LR, loop unchanged), so an LR hook scales `lr_at(step, cfg)`, not the group's current LR. Hooks:
 - `pre_step(step, ctx)` fires at the **top** of each step; `ctx = {"model","opt","cfg","batch","autocast_dtype"}`,
   mutable (set `ctx["batch"]=(x,y)`, mutate `opt`, set `ctx["autocast_dtype"]`).
 - `grad_hook(step, micro, model)` fires after each micro-batch's backward with that micro's grad alone.

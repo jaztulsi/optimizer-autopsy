@@ -51,12 +51,13 @@ def test_undo_v_top_edits_only_the_top_fraction():
 
 
 def test_cooldown_is_identity_without_inflation_and_shrinks_with_it():
+    # cfg lr 2e-3 != the optimizer's 1e-3: the cooldown must scale the scheduled LR, not the group's current one
     for scale, shrink in ((0.0, False), (1.0, True)):
         model, opt = _model_opt()
-        out = {}
-        pre = undo.as_cooldown_pre_step(_log(model, scale), 6, "v", out)
-        pre(6, {"model": model, "opt": opt})
-        assert (opt.param_groups[0]["lr"] < 1e-3) == shrink and out["lr0"] == 1e-3
+        pre = undo.as_cooldown_pre_step(_log(model, scale), 6, "v", {})
+        pre(6, {"model": model, "opt": opt, "cfg": {"optim": {"lr": 2e-3}}})
+        lr = opt.param_groups[0]["lr"]
+        assert 0 < lr < 2e-3 if shrink else lr == 2e-3
 
 
 def test_expected_branches_count_placebo_dose_and_cooldown_arms():
@@ -66,6 +67,41 @@ def test_expected_branches_count_placebo_dose_and_cooldown_arms():
     lr = expected_branches(parser().parse_args(base + ["--kind", "lr_bump"] + extra))
     assert len(cb) == 2 + 1 + 2 + 1 + 16 + (2 + 6) + 2 * 5 and "Px10|cool@0" in cb and "Pl_0" in cb
     assert len(lr) == 2 + 1 + 2 + 1 + 16  # no G for lr_bump -> no planted/dose arms
+    n = {
+        k: len(expected_branches(parser().parse_args(base + ["--kind", k, "--fault-bit", "29"] + extra)))
+        for k in ("sdc_grad", "v_bitflip", "m_bitflip")
+    }
+    # a moment flip leaves g alone: no G, so no planted arms, and no U_mv@0 / U_m@0 / U_v@0 (each is bitwise B0)
+    assert n["v_bitflip"] == n["m_bitflip"] == len(lr) - 3
+    assert n["sdc_grad"] == len(cb)  # a gradient flip is a G, planted like corrupt_batch's
+
+
+def test_parity_primed_at_fork_start_flags_a_v_flip_on_the_first_step():
+    # The fork's first step is the fault step: unprimed, parity_residual has no previous m, v and the flip reads clean.
+    from research.autopsy.faults import parity_residual, v_bitflip
+    from research.autopsy.mve import _parity_summary, _prime_parity
+    from research.harness.fork import compose
+
+    for flip, primed in ((True, True), (True, False), (False, True)):
+        model, opt = _model_opt()
+        for p in model.parameters():
+            p.grad = None  # a freshly restored fork
+        pr = {}
+        par = parity_residual(pr)
+        flip_hook = v_bitflip({}, 1, 1, target="weight")[0] if flip else None
+        pre = compose(_prime_parity(par, 1) if primed else None, flip_hook)
+        if pre:
+            pre(1, {"model": model, "opt": opt})
+        assert all(p.grad is None for p in model.parameters())  # priming leaves no grads behind
+        model(torch.randn(4, 8)).square().mean().backward()
+        opt.step()
+        par(1, {"model": model, "opt": opt})
+        if not primed:
+            assert pr == {}  # the gap the priming closes
+            continue
+        assert pr[1]["m"] < 1e-4 and (pr[1]["v"] > 1.0) == flip  # honest steps sit at fp32 rounding
+    s = _parity_summary({0: {"m": 1, "v": 2}, 5: {"m": 3, "v": 4}, 20: {"m": 5, "v": 6}}, inject=5)
+    assert s == {"window": {"5": {"m": 3, "v": 4}}, "max_outside": {"m": 5, "v": 6}}
 
 
 def test_opt_placebo_moves_every_moment_one_ulp_and_keeps_v_nonnegative():
@@ -171,18 +207,6 @@ def test_report_floor_and_dose_units():
     assert abs(inst["sigma_chaos"]["w"]["99"] - 0.1) < 1e-9
     dose = sealed["_dose"]["10"]
     assert abs(dose["d"]["none"] - 5.0) < 1e-6 and abs(dose["indirect_share"] - 0.8) < 1e-6 and dose["xbar"] == 0.3
-
-
-def test_with_schedule_keeps_every_branch_field():
-    # A positional Branch(...) rebuild reset fields it didn't name: rollback's wasted_steps -> 0, so rollback ran free.
-    from dataclasses import fields
-
-    from research.autopsy.mve import _with_schedule
-    from research.harness.fork import Branch
-
-    b = Branch(*[object() for _ in fields(Branch)])  # a distinct sentinel per field, so any reset shows
-    out = _with_schedule({"x": b}, {"optim": {}})["x"]
-    assert all(getattr(out, f.name) is getattr(b, f.name) for f in fields(Branch) if f.name != "pre_step")
 
 
 def test_repair_battery_times_detector_arms_at_the_rml_lag(monkeypatch):

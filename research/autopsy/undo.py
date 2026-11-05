@@ -30,6 +30,8 @@ deep-copied object would record into a copy the undo never sees.
 
 from __future__ import annotations
 
+from research.harness.schedule import lr_at
+
 CHANNELS = {"m": ("exp_avg",), "v": ("exp_avg_sq",), "mv": ("exp_avg", "exp_avg_sq")}
 
 
@@ -176,8 +178,9 @@ def undo_v_top(model, opt, log: dict, at_step: int, frac: float) -> float:
 
 def as_cooldown_pre_step(log: dict, at_step: int, channels: str, out: dict):
     """`pre_step`: at `at_step` undo `channels` ("v": the H-D arm; "mv": RML-cool), then every step set ONE
-    global lr = lr0 * mean_i (sqrt(v^_i)+eps) / (sqrt(v^_i + dv^_i)+eps), dv = the undone inflation still
-    alive -- the step shrink the inflated v would have applied, spread uniformly over coordinates.
+    global lr = lr_at(step) * mean_i (sqrt(v^_i)+eps) / (sqrt(v^_i + dv^_i)+eps), dv = the undone inflation
+    still alive -- the step shrink the inflated v would have applied, spread uniformly over coordinates.
+    lr_at is the scheduled LR (cfg lr at constant LR), so the cooldown multiplies a cosine / WSD schedule.
     A per-coordinate match would just rebuild B0; the global scalar is the test (v as a schedule?)."""
     import torch
 
@@ -192,9 +195,8 @@ def as_cooldown_pre_step(log: dict, at_step: int, channels: str, out: dict):
         b2, eps = g0["betas"][1], g0["eps"]
         if step == at_step:
             undo(model, opt, log, at_step, channels)
-            out["lr0"] = g0["lr"]  # ponytail: constant-LR rung; with a schedule, scale the schedule's lr
         f = 1.0
-        if (1 - b2) * b2 ** (step - 1 - max(log)) > 1e-12:  # past that, the inflation is gone: lr0
+        if (1 - b2) * b2 ** (step - 1 - max(log)) > 1e-12:  # past that, the inflation is gone: the scheduled lr
             num = den = 0.0
             with torch.no_grad():
                 for n, p in model.named_parameters():
@@ -207,8 +209,9 @@ def as_cooldown_pre_step(log: dict, at_step: int, channels: str, out: dict):
                     num += float(((v.sqrt() + eps) / ((v + dv / bc).sqrt() + eps)).sum())
                     den += v.numel()
             f = num / den if den else 1.0
+        lr = lr_at(step, ctx["cfg"]) * f
         for g in opt.param_groups:
-            g["lr"] = out["lr0"] * f
+            g["lr"] = lr
         out["min_lr_factor"] = min(f, out.get("min_lr_factor", 1.0))
 
     return pre_step

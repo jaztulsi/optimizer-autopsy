@@ -2,7 +2,7 @@
 
 Reproducible recipes (context §15.1), each pinned to a KNOWN `inject_step` so the failure has ground
 truth (location + cause) to score the localizer/detector against:
-  (a) lr_bump      -- transiently multiply the LR over a window (adaptive edge-of-stability push)
+  (a) lr_bump      -- transiently multiply the (scheduled) LR over a window (adaptive edge-of-stability push)
   (b) tiny_eps     -- shrink Adam eps to 1e-12 over a window (stresses the v-underflow pathway)
   (c) precision    -- run the windowed step(s) in reduced precision (numerical blow-up)
   (d) corrupt_batch-- feed a garbage batch over a window (cheapest natural class; cleanest B*)
@@ -12,6 +12,9 @@ truth (location + cause) to score the localizer/detector against:
                       it stalls learning there, regaining half speed after ~ln(factor/3)/(-ln beta2) steps
                       (~158 at factor 1e4, beta2 0.95; RESEARCH.md §4.1) -- PLAN V6 §3.2's over-inflated-v
                       pathway -- and gives the localizer (C2) exact ground truth: `targets`.
+  (g) sdc_grad / v_bitflip / m_bitflip -- one fp32 bit flipped in a gradient element (before the clip) or in
+                      stored Adam v / m, at `inject_step` (width 1). Silent-data-corruption ground truth;
+                      see research/autopsy/faults.py.
 
 Each recipe is delivered as a `pre_step(step, ctx)` hook for `trunk.train_forward` -- it perturbs
 ONLY inside `[inject_step, inject_step+width)` and is otherwise a no-op. This keeps the base `cfg`
@@ -29,6 +32,9 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
+
+from research.autopsy.faults import m_bitflip, sdc_grad, v_bitflip
+from research.harness.schedule import lr_at
 
 
 @dataclass
@@ -50,10 +56,10 @@ def _in_window(step: int, inject_step: int, width: int) -> bool:
 
 
 def _lr_bump(cfg, inject_step, width, factor=10.0):
-    base = cfg["optim"]["lr"]
-
     def pre_step(step, ctx):
-        lr = base * factor if _in_window(step, inject_step, width) else base
+        lr = lr_at(step, cfg)  # the scheduled LR (cfg lr exactly when there is no schedule)
+        if _in_window(step, inject_step, width):
+            lr *= factor
         for g in ctx["opt"].param_groups:  # reset every step -> idempotent, restores after the window
             g["lr"] = lr
 
@@ -162,6 +168,9 @@ _BUILDERS = {
     "corrupt_batch": _corrupt_batch,
     "repeat_ngram": _repeat_ngram,
     "v_inflate": _v_inflate,
+    "sdc_grad": sdc_grad,
+    "v_bitflip": v_bitflip,
+    "m_bitflip": m_bitflip,
 }
 RECIPES = tuple(_BUILDERS)
 
@@ -194,7 +203,11 @@ def _selfcheck() -> None:
     def fake_opt():  # opt.param_groups is just a list of dicts, exactly what recipes mutate
         return SimpleNamespace(param_groups=[{"lr": base_lr, "eps": base_eps}, {"lr": base_lr, "eps": base_eps}])
 
-    assert set(RECIPES) == {"lr_bump", "tiny_eps", "precision", "corrupt_batch", "repeat_ngram", "v_inflate"}
+    assert set(RECIPES) == {"lr_bump", "tiny_eps", "precision", "corrupt_batch", "repeat_ngram", "v_inflate"} | {
+        "sdc_grad",
+        "v_bitflip",
+        "m_bitflip",
+    }
 
     # (a) lr_bump: base outside [5,7), 10x inside, restored after.
     r = induce("lr_bump", cfg, inject_step=5, width=2, factor=10.0)
@@ -226,14 +239,14 @@ def _selfcheck() -> None:
     assert ctx["batch"] is None
 
     # (e, f) repeat_ngram / v_inflate: outside their windows they are no-ops (no torch, no model needed).
-    for kind in ("repeat_ngram", "v_inflate"):
+    for kind in ("repeat_ngram", "v_inflate", "sdc_grad", "v_bitflip", "m_bitflip"):
         r = induce(kind, cfg, inject_step=6, width=1, **({"frac": 1.0} if kind == "repeat_ngram" else {}))
         ctx = {"batch": None}
         r.pre_step(2, ctx)
         assert ctx["batch"] is None, kind
 
     assert set(RECIPES) == set().union(*[{k} for k in _BUILDERS])  # all builders dispatchable
-    print("induce selfcheck OK: 6 recipes, window timing + LR/eps/precision control verified (torch-free)")
+    print("induce selfcheck OK: 9 recipes, window timing + LR/eps/precision control verified (torch-free)")
 
 
 if __name__ == "__main__":

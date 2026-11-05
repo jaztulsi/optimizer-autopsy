@@ -20,6 +20,9 @@ Phase B (planted on the clean stream, G = the measured corrupt-batch gradient de
   I_same@dt, I_opp@dt, S2+@dt, S2-@dt   C-3 interference: I = D(both) - D(first) - D(second)
   R@dt, Ponly@dt   M3 refractory: chi = (D(R) - D(P+)) / D(Ponly)
 
+Fault kinds (sdc_grad, v_bitflip, m_bitflip): B* (the honest floor) and B0 also store faults.parity_residual
+raw values under "parity" (H11). v_bitflip / m_bitflip run no U_* arms and no phase B (G - G* = 0).
+
 Results go to <out>/<instance>.json, rewritten after every branch; a rerun skips finished branches.
 Derived quantities (kernel, Shapley, interference, chi, stats) are computed offline from the JSON.
 """
@@ -27,13 +30,22 @@ Derived quantities (kernel, Shapley, interference, chi, stats) are computed offl
 from __future__ import annotations
 
 import argparse
-import inspect
 import json
 import os
 import platform
 import subprocess
 import sys
 import time
+
+from research.autopsy.faults import TARGET
+
+FAULTS = ("sdc_grad", "v_bitflip", "m_bitflip")
+# These leave the gradient untouched, so G - G* = 0: nothing to plant in phase B. sdc_grad flips g itself, so it
+# keeps phase B like corrupt_batch (the record hook's clean recompute doesn't re-flip: the hook fires once).
+NO_GRAD_DELTA = {"lr_bump", "v_bitflip", "m_bitflip"}
+# With G - G* = 0 every U_* arm subtracts exact zeros, i.e. is bitwise B0. Dropped for the m/v flips; lr_bump keeps
+# them so its branch set (the pilot / prereg comparison) doesn't change.
+NO_UNDO = NO_GRAD_DELTA - {"lr_bump"}
 
 
 def _stamp(cfg: dict) -> dict:
@@ -58,20 +70,6 @@ def _stamp(cfg: dict) -> dict:
         "device": dev,
         "time": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
     }
-
-
-def _with_schedule(branches: dict, cfg: dict) -> dict:
-    """Prepend the LR schedule to every branch (fork.make_branches' B* has pre_step=None, which would
-    silently drop a cosine/WSD schedule)."""
-    from dataclasses import replace
-
-    from research.autopsy import schedule
-    from research.harness.fork import compose
-
-    sched = schedule.as_pre_step(cfg)
-    # replace(), not a positional Branch(...): that silently reset every field it didn't name (e.g. a rollback
-    # branch's wasted_steps, which made rollback free)
-    return {n: replace(b, pre_step=compose(sched, b.pre_step)) for n, b in branches.items()}
 
 
 def placebo_branches(cfg, at, k, channels, data_dir=None, data_forks=0):
@@ -207,14 +205,53 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     return br
 
 
+def _prime_parity(on_step, at: int):
+    """`pre_step`, composed BEFORE the fault: at the fork's first step `at`, hand parity_residual's `on_step` the
+    restored m, v as its previous copy. Without it the flip at `at` has nothing to compare against and reads
+    clean. parity_residual skips grad-less params, so each gets a zero grad for the call, then None again
+    (train_forward's zero_grad would drop it anyway); w, m, v are untouched."""
+    import torch
+
+    def pre_step(step, ctx):
+        if step != at:
+            return
+        bare = [p for p in ctx["model"].parameters() if p.grad is None]
+        for p in bare:
+            p.grad = torch.zeros_like(p)
+        on_step(at - 1, ctx)
+        for p in bare:
+            p.grad = None
+
+    return pre_step
+
+
+def _parity_summary(pr: dict, inject: int) -> dict:
+    """Raw residuals for steps inject-2..inject+10 (those the fork ran) and the max over every other step. The
+    flag threshold belongs to the analysis, not the driver."""
+    win = range(inject - 2, inject + 11)
+    rest = [r for s, r in pr.items() if s not in win]
+    return {
+        "window": {str(s): pr[s] for s in win if s in pr},
+        "max_outside": {k: max((r[k] for r in rest), default=None) for k in ("m", "v")},
+    }
+
+
+def _undo_taus(args) -> tuple:
+    """(taus, c2_taus) for the U_* arms; none for NO_UNDO kinds."""
+    return ((), ()) if args.kind in NO_UNDO else (args.taus, args.c2_taus)
+
+
 def run_instance(args) -> str:
+    from dataclasses import replace
+
     import torch
 
     from research.analysis.eval import heldout_steps, horizon_probe
+    from research.autopsy.faults import parity_residual
     from research.configs import load_config
     from research.data.prepare import resolve_data_dir
     from research.harness.determinism import seed_everything
-    from research.harness.fork import Branch, prime_trunk, run_branch
+    from research.harness.fork import Branch, compose, prime_trunk, run_branch
     from research.harness.snapshot import load, save
     from research.spikes.induce import induce
 
@@ -225,31 +262,34 @@ def run_instance(args) -> str:
         cfg["optim"]["betas"] = [float(b) for b in args.betas.split(",")]
     data_dir = args.data_dir or cfg.get("data", {}).get("dir") or resolve_data_dir(args.shard)
     params = {"data_dir": data_dir} if args.kind == "repeat_ngram" else {}
+    kind = args.kind or "chaos"
+    if args.kind in FAULTS:
+        if args.fault_bit is None:  # no default: bit 30 zeroes a whole sdc_grad step on GPU (faults.py docstring)
+            raise SystemExit(f"--kind {args.kind} needs --fault-bit (0 = mantissa LSB, 30 = exponent top)")
+        params = {"target": args.fault_target, "index": args.fault_index, "bit": args.fault_bit}
+        kind += f"-{args.fault_target}-i{args.fault_index}-bit{args.fault_bit}"  # one file per flipped bit
     recipe = induce(args.kind, cfg, args.inject_step, args.width, **params) if args.kind else None
 
     b1, b2 = cfg["optim"]["betas"]
-    tag = f"{args.kind or 'chaos'}_w{args.width}_inj{args.inject_step}_seed{cfg['seed']}_b{b1}-{b2}_{args.battery}"
+    tag = f"{kind}_w{args.width}_inj{args.inject_step}_seed{cfg['seed']}_b{b1}-{b2}_{args.battery}"
     os.makedirs(args.out, exist_ok=True)
     out_path, snap_path = os.path.join(args.out, f"{tag}.json"), os.path.join(args.out, f"{tag}.snap.safetensors")
 
-    if cfg["optim"].get("schedule") and "pre_step" not in inspect.signature(prime_trunk).parameters:
-        # ponytail: prime_trunk (fork.py, harness owner) trains the trunk with no pre_step, so a schedule
-        # would silently be dropped before the fork. Needs a pre_step passthrough there; refuse until then.
-        raise NotImplementedError("cfg has an LR schedule but fork.prime_trunk cannot apply it (flagged)")
+    # An optim.schedule needs nothing here: trunk.train_forward applies it, so prime_trunk, B* and every fork get it.
     if os.path.exists(snap_path):  # resume: seed once ourselves, reuse the primed pre-spike snapshot
         seed_everything(cfg.get("seed", 1337), deterministic=True)
         snap = load(snap_path)
     else:
-        extra = {}
-        if "pre_step" in inspect.signature(prime_trunk).parameters:
-            from research.autopsy import schedule
-
-            extra["pre_step"] = schedule.as_pre_step(cfg)
-        snap = prime_trunk(cfg, data_dir, args.inject_step, meta={"instance": tag}, **extra)
+        snap = prime_trunk(cfg, data_dir, args.inject_step, meta={"instance": tag})
         save(snap, snap_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    res = json.load(open(out_path)) if os.path.exists(out_path) else {"stamp": _stamp(cfg), "branches": {}}
+    if os.path.exists(out_path):  # resume: the tag doesn't encode lr / schedule / clip / steps, so check the cfg
+        res = json.load(open(out_path))
+        if res["stamp"].get("cfg") != json.loads(json.dumps(cfg)):
+            raise SystemExit(f"{out_path} was written with a different cfg: resume would mix runs; use a new --out")
+    else:
+        res = {"stamp": _stamp(cfg), "branches": {}}
     steps = cfg["train"]["max_steps"] - args.inject_step
     last = args.inject_step + steps - 1
     horizons = sorted({min(args.inject_step + h - 1, last) for h in args.horizons} | {last})
@@ -265,15 +305,13 @@ def run_instance(args) -> str:
         t = time.time()
         # A rollback branch runs steps - wasted, so horizon h is probed at matched compute: step h - wasted
         wasted = getattr(br, "wasted_steps", 0)
-        r = run_branch(
-            data_dir,
-            snap,
-            br,
-            steps,
-            device=device,
-            seed=False,
-            on_step=horizon_probe(data_dir, val, cfg["train"]["batch_size"], [h - wasted for h in horizons], vals),
-        )
+        on_step = horizon_probe(data_dir, val, cfg["train"]["batch_size"], [h - wasted for h in horizons], vals)
+        pr: dict = {}  # {step: {"m", "v"}} parity residuals: fault kinds' B* and B0 only
+        if args.kind in FAULTS and name in ("B*", "B0"):
+            par = parity_residual(pr)
+            on_step = compose(on_step, par)
+            br = replace(br, pre_step=compose(_prime_parity(par, args.inject_step), br.pre_step))
+        r = run_branch(data_dir, snap, br, steps, device=device, seed=False, on_step=on_step)
         res["branches"][name] = {
             "val": {str(k + wasted): v for k, v in vals.items()},
             "survival": r["survival"],
@@ -283,33 +321,31 @@ def run_instance(args) -> str:
             "wasted_steps": wasted,
             "metrics": extra.get(name, {}),
         }
+        if pr:
+            res["branches"][name]["parity"] = _parity_summary(pr, args.inject_step)
         json.dump(res, open(out_path, "w"), indent=1)
         print(f"[{tag}] {name}: val@end={vals.get(last - wasted)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":
-        for name, br in _with_schedule(
-            repair_battery(cfg, recipe, data_dir, snap, args.lag, args.detector_t0, extra), cfg
-        ).items():
+        for name, br in repair_battery(cfg, recipe, data_dir, snap, args.lag, args.detector_t0, extra).items():
             run(name, br)
         return out_path
     if args.battery == "chaos":
         br = {"B*": Branch("B*", None, cfg)}
         br |= placebo_branches(cfg, args.inject_step, args.placebo, args.placebo_channels, data_dir, args.data_forks)
-        for name, b in _with_schedule(br, cfg).items():
+        for name, b in br.items():
             run(name, b)
         return out_path
 
-    a, log0 = phase_a(
-        cfg, recipe, data_dir, args.taus, args.c2_taus, args.placebo, args.placebo_channels, args.data_forks
-    )
-    b_names = _b_names(args)  # empty for lr_bump: its gradient delta is 0 by construction
+    a, log0 = phase_a(cfg, recipe, data_dir, *_undo_taus(args), args.placebo, args.placebo_channels, args.data_forks)
+    b_names = _b_names(args)  # empty for NO_GRAD_DELTA kinds: their gradient delta is 0 by construction
     if any(n not in res["branches"] for n in b_names):
         res["branches"].pop("B0", None)  # B0 reruns in-process so its record log (G) exists for phase B
-    for name, br in _with_schedule(a, cfg).items():
+    for name, br in a.items():
         run(name, br)
     if any(n not in res["branches"] for n in b_names):
         b = phase_b(cfg, recipe, log0, args.dts, args.eps_probe, args.plant_coefs, args.dose_taus, extra)
-        for name, br in _with_schedule(b, cfg).items():
+        for name, br in b.items():
             run(name, br)
     return out_path
 
@@ -319,7 +355,7 @@ def _ints(s: str) -> list[int]:
 
 
 def _b_names(args) -> list[str]:
-    if args.kind == "lr_bump":
+    if args.kind in NO_GRAD_DELTA:
         return []
     names = ["P+", "P-"] + [f"{k}@{dt}" for dt in args.dts for k in ("I_same", "I_opp", "S2+", "S2-", "R", "Ponly")]
     for c in args.plant_coefs:
@@ -339,8 +375,9 @@ def expected_branches(args) -> list[str]:
         return []  # ponytail: battery names come from fork.make_*branches; completion unchecked for repair
     if args.battery == "chaos":
         return ["B*"] + _placebo_names(args)
-    names = ["B*", "B0"] + [f"U_mv@{t}" for t in args.taus]
-    names += [f"U_{c}@{t}" for t in args.c2_taus for c in ("m", "v")]
+    taus, c2_taus = _undo_taus(args)
+    names = ["B*", "B0"] + [f"U_mv@{t}" for t in taus]
+    names += [f"U_{c}@{t}" for t in c2_taus for c in ("m", "v")]
     return names + _placebo_names(args) + _b_names(args)
 
 
@@ -348,8 +385,13 @@ def parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="P1-core instance: C-1 kernel, C-2 arms, C-3/M2/M3 probes, C-4 battery")
     ap.add_argument("--config", required=True)
     ap.add_argument(
-        "--kind", choices=["corrupt_batch", "repeat_ngram", "lr_bump"], help="spike recipe (omit for --battery chaos)"
+        "--kind",
+        choices=["corrupt_batch", "repeat_ngram", "lr_bump", *FAULTS],
+        help="spike recipe (omit for --battery chaos)",
     )
+    ap.add_argument("--fault-target", default=TARGET, help="bit-flip kinds: parameter name whose g / m / v is hit")
+    ap.add_argument("--fault-index", type=int, default=0, help="bit-flip kinds: flat element index")
+    ap.add_argument("--fault-bit", type=int, help="bit-flip kinds (required): 0 = mantissa LSB, 30 = exponent top")
     ap.add_argument("--inject-step", type=int, required=True)
     ap.add_argument("--width", type=int, default=1)
     ap.add_argument("--seed", type=int, default=None)
