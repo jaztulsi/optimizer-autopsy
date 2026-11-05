@@ -1,0 +1,27 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 393, in <module>
+    main()
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 375, in main
+    _selfcheck()
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 346, in _selfcheck
+    run = run_one(spec)
+          ^^^^^^^^^^^^^
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 217, in run_one
+    run_trunk(cfg, data_dir, steps=n_steps, on_step=on_step, pre_step=pre_step, deterministic=True)
+  File "/shared-docker/optimizer-autopsy/research/harness/trunk.py", line 162, in run_trunk
+    model, opt = build_model_opt(cfg, device)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/shared-docker/optimizer-autopsy/research/harness/trunk.py", line 41, in build_model_opt
+    opt = model.configure_optimizers(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/shared-docker/optimizer-autopsy/research/model/nanogpt.py", line 156, in configure_optimizers
+    return torch.optim.AdamW(groups, lr=lr, betas=tuple(betas), eps=eps)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/optim/adamw.py", line 35, in __init__
+    super().__init__(
+  File "/usr/local/lib/python3.12/dist-packages/torch/optim/adam.py", line 60, in __init__
+    if not 0.0 <= eps:
+           ^^^^^^^^^^
+TypeError: '<=' not supported between instances of 'float' and 'str'

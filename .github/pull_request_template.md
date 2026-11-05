@@ -1,6 +1,6 @@
 ## What & why
 
-<!-- What does this change and why. Link the task/phase from BUILD_PLAN.md if relevant. -->
+<!-- What does this change and why. Link the task/phase from PLAN_V8.md if relevant. -->
 
 ## Checklist
 

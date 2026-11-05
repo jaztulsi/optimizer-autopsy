@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="OPTIMIZER AUTOPSY: causally localize the poison in Adam's optimizer state after a loss spike and repair it without resetting, proven by bit-identical replay forks. Instrument built + CUDA-verified; restarting on AMD MI300X under PLAN V6 — audited compute ask ~15–40 GPU-hours (not the old 500), based on measured proxy throughput.">
-<title>OPTIMIZER AUTOPSY — Research Plan</title>
+<meta name="description" content="OPTIMIZER AUTOPSY: where does an LLM loss spike's lasting damage live, in the weights or in Adam's m and v, and for how long? A causal w/m/v damage-migration measurement with bit-identical counterfactual forks, a signed localizer scored against a causal oracle, and surgical repair (state-only retroactive deletion and stability-certified restoration). PLAN V8 on an AMD MI300X, targeting ICML 2027 and NeurIPS 2027.">
+<title>Optimizer Autopsy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
@@ -14,408 +14,260 @@
 <nav><div class="wrap nav-in">
   <span class="nav-brand">OPTIMIZER-AUTOPSY<span class="dot">●</span></span>
   <a class="tab" href="#overview">Overview</a>
-  <a class="tab" href="#learn">Learn</a>
-  <a class="tab" href="#papers">Papers</a>
+  <a class="tab" href="#method">Method</a>
+  <a class="tab" href="#novelty">Novelty</a>
   <a class="tab" href="#math">Math</a>
-  <a class="tab" href="#infra">Infra</a>
-  <a class="tab" href="#team">Team</a>
+  <a class="tab" href="#program">Program</a>
   <a class="tab" href="#timeline">Timeline</a>
-  <a class="tab" href="#pub">Publication</a>
+  <a class="tab" href="#ideas">Ideas</a>
   <a class="tab" href="#redteam">Red Team</a>
+  <a class="tab" href="#papers">Papers</a>
+  <a class="tab" href="#team">Team</a>
 </div></nav>
 
 <header><div class="wrap">
-  <div class="eyebrow">Research &amp; Publication Plan · PLAN V6 — AMD MI300X restart · audited compute ask ~15–40 GPU-h · supersedes the team-scaled V3 plan below</div>
-  <h1>Fork training at the moment of failure. Find where the poison lives. Repair it — don't reset it.</h1>
-  <p class="sub"><strong>OPTIMIZER AUTOPSY</strong> forks training at a detected pre-spike step and intervenes directly on Adam's state, showing <strong>where</strong> in (w, m, v) the damage lives, <strong>when</strong> it can be surgically repaired to recover the pre-spike trajectory, and <strong>when it provably cannot</strong> — turning a folklore mitigation into a predictable, measurable operation.</p>
+  <div class="eyebrow">Research plan · PLAN V8 · state 2026-10-29 · AMD MI300X · ICML 2027 → NeurIPS 2027</div>
+  <h1>The afterlife of a loss spike: how Adam's memory writes lasting damage, and how to undo it.</h1>
+  <p class="sub">When an LLM's loss spikes, every standard fix (clip, skip, reset, roll back) treats the optimizer as a black box. <strong>Optimizer Autopsy</strong> measures how much of a spike's <strong>lasting</strong> damage is carried by the weights versus Adam's <strong>m</strong> and <strong>v</strong>, and how fast it migrates between them. It then finds the coordinates that carry it and repairs only those. Every claim is checked against a <strong>bit-identical counterfactual replay</strong>.</p>
   <div class="hero-meta">
-    <span class="chip">Compute <b>AMD MI300X · ~15–40 GPU-h (audited)</b></span>
-    <span class="chip">Status <b>instrument (C1) done, CUDA-verified</b></span>
-    <span class="chip">Next <b>AMD determinism go/no-go</b></span>
-    <span class="chip">Venue <b>TMLR · NeurIPS 2027</b></span>
+    <span class="chip">Instrument <b>built · Δ = 0 on CUDA and AMD</b></span>
+    <span class="chip">Next <b>chaos floor + spike-dose sweep</b></span>
+    <span class="chip">Compute <b>AMD MI300X · tiers T0–T4</b></span>
+    <span class="chip">Venues <b>ICML 2027 · NeurIPS 2027</b></span>
   </div>
 
   <div class="card kill" style="margin:18px 0 4px">
-    <h4>▶ Current plan: PLAN V6 (AMD restart)</h4>
-    <p>The instrument (C1 — deterministic replay, snapshot, and the fork <b>Δ==0</b> gate) is <b>built and
-    CUDA-verified</b> on a free Kaggle T4, with run evidence committed under <code>results/</code>. The
-    project is now restarting on a dedicated <b>AMD MI300X</b> budget (Path B: port everything, re-earn only
-    the ROCm determinism guarantee via a cheap go/no-go smoke test first). Venue shifts to <b>TMLR /
-    NeurIPS 2027</b> — NeurIPS 2026 has passed. <b>This page reflects PLAN V6 throughout</b> (the earlier
-    16-week, team-scaled, A100-based V3 plan has been superseded on hardware, team, budget, and timeline).
-    Full plan: <code>PLAN_V6.md</code>.</p>
+    <h4>▶ Status, honestly</h4>
+    <p>The fork-and-replay instrument (C1) is built. Its noop-vs-noop <b>Δ == 0</b> gate holds on CUDA and, since 2026-10-27, on the <b>AMD MI300X</b>, in-process and across processes, through spike windows. The first AMD pilot was <b>exploratory</b>. Width-1 spikes left 0.0003–0.0117 nats of lasting damage, about the size of the 1-ulp chaos floor (≤ 0.003). In the one clear case, undoing m+v removed ~98% of it, and undoing v alone made it worse (n = 1). The next run measures that chaos floor and raises the spike dose until damage clears it. Every other number on this page is still a <b>prediction or a pre-registered proposal</b>, not a result. Full plan: <a href="https://github.com/jaztulsi/optimizer-autopsy/blob/main/PLAN_V8.md"><code>PLAN_V8.md</code></a>.</p>
   </div>
 
   <figure class="spikefig">
-    <svg viewBox="0 0 900 320" role="img" aria-label="Diagram: a training loss curve is forked at a detected pre-spike step into matched branches — no-op diverges (red dashed), repair of v recovers to the clean counterfactual (green), global reset recovers slower (amber), a random-subspace control fails (grey). The gap of each branch to the clean counterfactual is the causal measurement.">
-      <!-- axes -->
-      <line x1="50" y1="20" x2="50" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
-      <line x1="50" y1="270" x2="880" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
-      <text x="18" y="150" font-family="IBM Plex Mono" font-size="11" fill="#4A5568" transform="rotate(-90 18 150)">loss</text>
-      <text x="820" y="290" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">steps</text>
-      <!-- trunk: shared pre-fork trajectory -->
-      <path d="M50,80 C130,130 230,160 330,172 C370,176 395,178 420,180" fill="none" stroke="#0F1522" stroke-width="2.5"/>
-      <text x="90" y="105" font-family="IBM Plex Mono" font-size="11.5" fill="#0F1522">shared trunk — same seed, same data order</text>
-      <!-- fork point -->
-      <line x1="420" y1="30" x2="420" y2="270" stroke="#2F5FE0" stroke-width="1.5" stroke-dasharray="3 4"/>
-      <circle cx="420" cy="180" r="5" fill="#2F5FE0"/>
-      <text x="290" y="44" font-family="IBM Plex Mono" font-size="11.5" fill="#2F5FE0">fork t₀ · snapshot (w, m, v)</text>
-      <!-- clean counterfactual -->
-      <path d="M420,180 C520,186 680,192 880,196" fill="none" stroke="#4A5568" stroke-width="2" stroke-dasharray="7 5"/>
-      <text x="700" y="188" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">B* clean counterfactual</text>
-      <!-- no-op: diverges -->
-      <path d="M420,180 C455,168 480,110 500,60 C512,32 525,22 545,16" fill="none" stroke="#E5484D" stroke-width="2.5" stroke-dasharray="6 5"/>
-      <text x="512" y="36" font-family="IBM Plex Mono" font-size="11.5" fill="#E5484D">B₀ no-op → spike</text>
-      <!-- random control: fails slowly -->
-      <path d="M420,180 C490,176 560,150 640,128 C720,108 800,96 880,90" fill="none" stroke="#9AA6B8" stroke-width="2" stroke-dasharray="2 5"/>
-      <text x="672" y="112" font-family="IBM Plex Mono" font-size="11" fill="#9AA6B8">B_r random-subspace control</text>
-      <!-- global reset: survives, slower -->
-      <path d="M420,180 C460,192 490,226 540,232 C630,240 760,222 880,214" fill="none" stroke="#B45309" stroke-width="2.5"/>
-      <text x="556" y="252" font-family="IBM Plex Mono" font-size="11.5" fill="#B45309">B_g global reset (SPAM)</text>
-      <!-- repair v: recovers to clean -->
-      <path d="M420,180 C465,182 505,190 560,194 C670,199 780,198 880,198" fill="none" stroke="#0E9F6E" stroke-width="2.5"/>
-      <text x="620" y="215" font-family="IBM Plex Mono" font-size="11.5" fill="#0E9F6E">B_v repair v — rejoins clean path</text>
-      <!-- delta bracket -->
-      <path d="M886,196 L894,196 L894,214 L886,214" fill="none" stroke="#4A5568" stroke-width="1.2"/>
-      <text x="726" y="308" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">Δᵢ = L_final(Bᵢ) − L_final(B*)</text>
+    <svg viewBox="0 0 900 330" role="img" aria-label="Schematic of the hypothesis, not data: after a spike, the share of lasting damage carried by v and m decays at rates set by Adam's betas, while the weight-carried share grows. Bands for v, m and w are stacked over time since the spike.">
+      <line x1="60" y1="30" x2="60" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
+      <line x1="60" y1="270" x2="870" y2="270" stroke="#E3E7EE" stroke-width="1.5"/>
+      <text x="22" y="190" font-family="IBM Plex Mono" font-size="11" fill="#4A5568" transform="rotate(-90 22 190)">share of lasting Δ</text>
+      <text x="640" y="296" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">cut time τ after the spike (steps) →</text>
+      <text x="30" y="44" font-family="IBM Plex Mono" font-size="10" fill="#9AA6B8">100%</text>
+      <text x="44" y="272" font-family="IBM Plex Mono" font-size="10" fill="#9AA6B8">0</text>
+      <!-- 100%-stacked shares: w (bottom) grows, m (middle) and v (top) shrink -->
+      <path d="M60,270 L60,200 C150,150 260,80 420,52 L870,45 L870,270 Z" fill="#E9EFFD" stroke="#2F5FE0" stroke-width="2"/>
+      <path d="M60,200 C150,150 260,80 420,52 L870,45 L870,42 L300,43 C180,46 110,70 60,120 Z" fill="#FDF3E3" stroke="#B45309" stroke-width="1.5"/>
+      <path d="M60,120 C110,70 180,46 300,43 L870,42 L870,40 L60,40 Z" fill="#FDECEC" stroke="#E5484D" stroke-width="1.5"/>
+      <!-- legend -->
+      <rect x="560" y="150" width="14" height="14" fill="#FDECEC" stroke="#E5484D"/>
+      <text x="582" y="162" font-family="IBM Plex Mono" font-size="12" fill="#E5484D">v-carried · decays ≈ β2^τ</text>
+      <rect x="560" y="176" width="14" height="14" fill="#FDF3E3" stroke="#B45309"/>
+      <text x="582" y="188" font-family="IBM Plex Mono" font-size="12" fill="#B45309">m-carried · ≈ √β1^τ (closed loop)</text>
+      <rect x="560" y="202" width="14" height="14" fill="#E9EFFD" stroke="#2F5FE0"/>
+      <text x="582" y="214" font-family="IBM Plex Mono" font-size="12" fill="#2F5FE0">w-carried · what remains</text>
+      <line x1="150" y1="30" x2="150" y2="270" stroke="#4A5568" stroke-width="1" stroke-dasharray="3 4"/>
+      <text x="156" y="44" font-family="IBM Plex Mono" font-size="11" fill="#4A5568">undo / repair window</text>
+      <text x="640" y="318" font-family="IBM Plex Mono" font-size="11" fill="#9AA6B8">SCHEMATIC OF THE HYPOTHESIS, NOT MEASURED DATA</text>
     </svg>
-    <figcaption>The paper in one figure: fork at t₀, run matched branches under different surgeries plus controls, measure each branch's final-loss gap Δ to the clean counterfactual. The gap pattern <b>is</b> the causal map of where the poison lives.</figcaption>
+    <figcaption>The headline experiment: at each cut time τ, the 2³ cross-world hybrids (w, m, v) ∈ {spiked B0, clean B*}³ are trained to the end of the schedule. Their held-out losses split the lasting damage into w-, m- and v-carried shares. If the state shares are ≈ 0 beyond about 50 steps, that is the finding: "damage is weight-carried after k steps". It is a measured result either way.</figcaption>
   </figure>
 </div></header>
 
 <!-- OVERVIEW -->
 <section id="overview"><div class="wrap">
   <div class="sec-kicker">00 · The paper in one page</div>
-  <h2>Three contributions in priority order. The methodology leads.</h2>
-  <p class="lede">Identity: <strong style="color:var(--ink)">causal localization + repair</strong> — not predict-and-repair. The abstract's one-liner: <em>"We fork training at the moment of failure and intervene directly, showing where in the optimizer the damage lives, when it can be surgically repaired to recover the pre-spike trajectory, and when it provably cannot."</em> Everything else supports that sentence. (SNR-SURGEON survives as the localizer inside C2, demoted from oracle to instrument.)</p>
-
+  <h2>Three contributions, measurement first, plus a released benchmark.</h2>
+  <p class="lede"><b>Headline to test:</b> most of a loss spike's lasting damage is written <i>after</i> the spike step, by Adam's memory of it. On a large spike-dominated coordinate the momentum echo writes a fraction β1/√β2 ≈ 92% of the total drift (a corollary of Patitucci &amp; Mokhtari 2026). The inflated v stalls ordinary learning, but it also keeps the echo bounded. So the sharp prediction is that <b>cleaning v alone is worse than doing nothing</b>. We measure the real shares by undoing the spike's contribution to m, v or both at increasing lags. Working title: <em>"Most of a Loss Spike's Damage Is Done After the Spike: A Causal Autopsy of Adam's Memory."</em> We claim the <b>finding</b> and the <b>instrument</b>. We claim neither determinism nor a root cause: the claim is that damage is <i>carried</i> in optimizer state.</p>
   <div class="grid c3">
-    <div class="card"><span class="num">C1 · METHODOLOGY — the originality engine · ✅ BUILT, CUDA-VERIFIED</span><h4>Training counterfactuals</h4><p>A fork-and-intervene protocol: snapshot (w, m, v) at a detected pre-spike step, run matched branches under different surgical interventions plus controls — same data order, same seed — and measure divergence in final converged loss. Nobody does controlled interventional training-run science at scale; the closest work stitches checkpoints observationally (LLM360 K2). A reusable scientific instrument. <b>Status:</b> the harness, snapshot, and fork <code>Δ==0</code> gate are done and verified on a Kaggle T4 (evidence in <code>results/</code>); the guarantee is being re-earned on AMD next.</p></div>
-    <div class="card"><span class="num">C2 · SCIENCE</span><h4>Where does the poison live?</h4><p>Use C1 to causally attribute divergence across w, m, v, and test whether the damage is low-rank / subspace-structured or delocalized. Directly resolves the puzzle SPAM's moment-reset ablation raised. Directional SNR from microbatch disagreement is repurposed as the localizer/trigger — "which subspace is poisoned" — not a future-predicting oracle.</p></div>
-    <div class="card"><span class="num">C3 · METHOD</span><h4>Repair beats reset — and when it doesn't</h4><p>Curvature/SNR-guided repair that rescales the identified poisoned subspace of v toward its pre-spike EMA while preserving descent information in the complement. Benchmarked against SPAM, ZClip, AdaGC, global reset, and the honest cheap baseline (spike-skip + clip) on <b>recovery of final loss</b> — not merely "survived divergence."</p></div>
-    <div class="card"><span class="num">THEORY</span><h4>A recovery theorem, not another onset theorem</h4><p>Spike onset is taken (arXiv 2506.04805). We prove a <b>localizability criterion</b> for recovery: when rank-k repair provably matches global reset, when bulk poison mass makes reset provably necessary, and the computable crossover between them. Theory that predicts its own failure regime.</p></div>
-    <div class="card"><span class="num">HONESTY MOVES</span><h4>Built-in credibility</h4><p>"Interventional attribution" in the sandbox; "causal" reserved for where it's earned. Natural spikes included (data-corruption class + LLM360 K2's released spike checkpoints), not just induced ones. Commutator correction measured, not assumed away. 3 seeds at 410M stated plainly.</p></div>
-    <div class="card kill"><h4>⚠ Kill criteria (decided now, not in rebuttal)</h4><p><b>If selective repair never beats global reset</b> → pivot to "the poison is delocalized: a causal explanation of why global reset wins" — still a real result.<br><b>If final-loss recovery ≈ cheap spike-skip</b> → the method is dead; ship C1+C2 as a science/benchmark paper to NeurIPS D&amp;B.<br>Knowing the fallback is what makes this fundable.</p></div>
+    <div class="card"><span class="num">C1 · MEASURE</span><h4>Damage-migration curve</h4><p>A 2³ (and 2⁴, adding Adam's step counter) cross-world factorial over (w, m, v) at cut times τ ∈ {1, 10, 30, 60, 150, 400}. A <b>β1 × β2 cross</b> identifies which memory carries the damage, and a poisoned-state transplant measures a dose-response. Placebo replicates (1-ulp) bound chaotic sensitivity.</p></div>
+    <div class="card"><span class="num">C2 · LOCALIZE</span><h4>Signed, support-limited, causal</h4><p>A <b>group-testing oracle</b> finds the minimal state support whose repair recovers the run. Cheap signed predictors are scored against it: attribution patching over (m, v), two-sided innovation tests, Bai's λ_grad by group, and a jump-robust "shadow v". Over- vs under-preconditioning is tracked as a sign.</p></div>
+    <div class="card"><span class="num">C3 · REPAIR</span><h4>Undo it, certify it</h4><p>A <b>state-only retroactive deletion</b> removes the spike window's direct contribution from m and v; the weights are untouched. A <b>stability-certified restoration</b> makes the smallest log-space move of v on the localized support that puts λ_grad(Ĥ) under (1−δ)·2/η. Scored by gap closed against the best non-oracle baseline.</p></div>
+    <div class="card"><span class="num">P3 · RELEASE</span><h4>SpikeState + toolkit</h4><p>≥ 200 spike instances with (w, m, v, v̄) snapshots, clean twins, oracle damage maps and a leaderboard. Plus the counterfactual fork engine, an undo-log optimizer wrapper and an optimizer-state integrity scanner.</p></div>
+    <div class="card"><span class="num">SCALE</span><h4>Does it transfer?</h4><p>Three levels. <b>L0:</b> β-set rates hold at any scale. <b>L1:</b> amplitudes should collapse under μP. <b>L2:</b> finite-size effects are measured. A scaling law is fitted on small configs and must <b>predict held-out rungs before they run</b>. Real trunks are borrowed from released Pythia and OPEN-1B optimizer states.</p></div>
+    <div class="card kill"><h4>⚠ Route, don't kill</h4><p>The gates decide what runs first. They never delete an idea. A null state-share becomes the "weight-carried" paper. If a simple band-clamp matches our repair, it becomes the practical recommendation. If ROCm can't reach Δ = 0, the fork-free detector and online undo lead.</p></div>
   </div>
 </div></section>
 
-<!-- LEARN -->
-<section id="learn"><div class="wrap">
-  <div class="sec-kicker">01 · Background to master</div>
-  <h2>Background to master</h2>
-
-  <h3>Concepts checklist</h3>
-  <ul class="tick">
-    <li>Adam's update rule, bias correction, first/second moments m and v, the preconditioner D = diag(√v + ε), and why v "lags" the instantaneous squared gradients (the decoupling mechanism of arXiv 2506.04805)</li>
-    <li>Hessian of the loss, eigenvalues/eigenvectors; GD stability threshold η·λ &lt; 2; Edge of Stability (λ_max hovers at 2/η); adaptive EoS (preconditioned sharpness ≈ 38/η)</li>
-    <li>Stochastic linear recursions: AR(2) companion matrix, spectral radius, contraction rate, stationary variance — the entire theory workstream lives here</li>
-    <li>Gradient noise scale &amp; SNR (McCandlish et al.); microbatch-disagreement variance estimation</li>
-    <li>Hessian-vector products via Pearlmutter's trick / double backprop; power iteration &amp; Lanczos for top-k eigenpairs</li>
-    <li>Loss spikes: causes (LR schedule, low precision, Adam ε, data quality, hardware faults / silent data corruption) and current fixes (skip-and-reinject, checkpoint restart, clipping, moment reset)</li>
-    <li>Deterministic training replay: seeded data loaders, RNG state capture, bitwise-reproducible forks — the harness is only as good as its determinism</li>
-    <li>Small-scale-proxies methodology (Wortsman et al.) — how to induce instability deliberately and defend its validity</li>
-  </ul>
-
-  <h3>Videos — watch in this order</h3>
+<!-- METHOD -->
+<section id="method"><div class="wrap">
+  <div class="sec-kicker">01 · Method</div>
+  <h2>Fork, cut, hybridize, localize, repair, replay.</h2>
+  <p class="lede">Every branch (ours and every baseline) forks from the same snapshot, so two trajectories differ only by the edit under test. The clean counterfactual B* keeps the data stream aligned. The effect is always <code>Δ = val_loss(branch) − val_loss(B*)</code> on held-out batches that are disjoint from every probe.</p>
   <div class="tbl-scroll"><table>
-    <tr><th>#</th><th>Resource</th><th>Why</th></tr>
-    <tr><td>1</td><td>3Blue1Brown — <i>Essence of Linear Algebra</i> (eigenvector chapters, esp. Ch. 14)</td><td>Eigen-intuition everything else builds on</td></tr>
-    <tr><td>2</td><td>3Blue1Brown — <i>Neural Networks</i> series (backprop chapters)</td><td>Gradient mechanics</td></tr>
-    <tr><td>3</td><td>Karpathy — <i>Zero to Hero</i>: "Let's build GPT" + <b>"Let's reproduce GPT-2 (124M)"</b></td><td>The 124M video <b>is</b> your Week-2 infra tutorial. Watch twice.</td></tr>
-    <tr><td>4</td><td>Jeremy Cohen — Edge of Stability talks (YouTube: "Cohen Edge of Stability" — Simons Institute / ML theory seminars)</td><td>The stability regime the theory borrows</td></tr>
-    <tr><td>5</td><td>Any good "Adam optimizer explained / bias correction derivation" lecture + YouTube: "loss spikes LLM training"</td><td>You will be operating on m and v with a scalpel — know them cold</td></tr>
+    <tr><th>Spike source</th><th>Type</th><th>Ground truth</th><th>Role</th></tr>
+    <tr><td><code>corrupt_batch</code>, <code>repeat_ngram</code></td><td>data-driven</td><td>none</td><td>core</td></tr>
+    <tr><td><code>lr_bump</code> (multiplies the schedule)</td><td>LR-driven</td><td>none</td><td>core; undo is predicted to fail here (H6)</td></tr>
+    <tr><td><code>v_inflate</code> + inert decoys + m-only plants</td><td>planted</td><td>exact</td><td>localizer benchmark</td></tr>
+    <tr><td><code>sdc_grad</code> · <code>v_bitflip</code> · <code>m_bitflip</code></td><td>silent data corruption</td><td>exact</td><td>reliability arm: undo fixes gradient faults; the parity residual catches v-flips</td></tr>
+    <tr><td>Data-selected v-inflation · ordering-attack window</td><td>data-realizable plants</td><td>known support</td><td>bridges planted and natural</td></tr>
+    <tr><td>Natural stress presets · bf16 flash-attention explosion · OPEN-1B natural spikes</td><td>natural</td><td>none</td><td>localization and detection (no B* for causal contrasts)</td></tr>
   </table></div>
-
-  <h3>Courses, notes &amp; tools</h3>
-  <ul class="tick">
-    <li><b>Roger Grosse — CSC2541 <i>Neural Net Training Dynamics</i> notes (Toronto)</b> — the single best resource for this project's theory side</li>
-    <li>Stanford CS231n optimization notes (<a href="https://cs231n.github.io">cs231n.github.io</a>) · Boyd &amp; Vandenberghe, <i>Convex Optimization</i>, Ch. 9 · any linear-systems treatment of AR(2) recursions</li>
-    <li>Tools: PyTorch <code>autograd.grad(create_graph=True)</code> for HVPs · <a href="https://github.com/amirgholami/PyHessian">PyHessian</a> · <a href="https://github.com/karpathy/nanoGPT">nanoGPT</a> (fork base) · <a href="https://github.com/bluorion-com/ZClip">ZClip official repo</a> (baseline) · SPAM official implementation (linked from arXiv 2501.06842) · Weights &amp; Biases — every run logged, non-negotiable</li>
-    <li><b>Natural-spike goldmine:</b> LLM360 released paired spike/normal checkpoints from K2's real 65B training spikes (<a href="https://huggingface.co/LLM360/K2-Spike-1">K2-Spike-1</a>, <a href="https://huggingface.co/LLM360/K2-Spike-2">K2-Spike-2</a> on HuggingFace) — study them in Week 1; they are free evidence of what real poison looks like</li>
-  </ul>
+  <h3>Baselines (each tuned on seed 0 only)</h3>
+  <p>Rollback-and-skip (PaLM) · Adam-MR · bias-correct full reset · v-only reset · v ← v̄ · OLMo 6σ skip · skip-step (OPEN-1B rule) · ZClip · AdaGC · SPAM · GradientStabilizer · StableAdamW · <b>band-clamp</b> v ← clip(v, a·v̄, b·v̄) · random edit matched in support and energy · magnitude-only localizer. Merged so far (PR #14): SPAM, ZClip, AdaGC, skip-step, v-only reset, v ← v̄.</p>
 </div></section>
 
-<!-- PAPERS -->
-<section id="papers"><div class="wrap">
-  <div class="sec-kicker">02 · Annotated reading list</div>
-  <h2>Papers, in reading order</h2>
-  <p class="lede">One shared Zotero library. Every paper gets a 5-line note: claim / method / what we borrow / how we differ / cite-where. <b>Week 1:</b> fresh arXiv sweep for 2025–26 spike papers. The onset-theory paper (2506.04805) must be cited prominently and the recovery claim staked sharply against it — same regime, different question.</p>
-
-  <h3>Tier 1 — read fully, Week 1 · these define the battlefield</h3>
+<!-- NOVELTY -->
+<section id="novelty"><div class="wrap">
+  <div class="sec-kicker">02 · What's new, fact-checked</div>
+  <h2>Narrower than the first draft, and defensible.</h2>
+  <p class="lede">Two fact-check passes re-read every cited claim at the source. An adversarial kill-search then tried to find prior art for every "new" claim. The honest result: <b>every component has precedent</b>. What is new is the <b>study</b>, the first time-resolved causal (w, m, v) decomposition of LLM loss-spike damage, and the results it produces. "New" means <b>not found in the logged searches</b>.</p>
   <div class="tbl-scroll"><table>
-    <tr><th>Paper</th><th>arXiv</th><th>Why it matters</th></tr>
-    <tr><td><i>Adaptive Preconditioners Trigger Loss Spikes in Adam</i> (2025)</td><td class="mono">2506.04805</td><td>The onset theory — v decouples from squared gradients, preconditioned sharpness crosses threshold, five-stage spike anatomy. <b>Our theory starts where this stops: recovery, not onset.</b> Cite prominently.</td></tr>
-    <tr><td>Huang et al. — <i>SPAM: Spike-Aware Adam with Momentum Reset</i></td><td class="mono">2501.06842</td><td>The named puzzle C2 resolves: their ablation shows moment reset matters but not <i>where</i> or <i>why</i>. Primary baseline + primary foil.</td></tr>
-    <tr><td>Kumar et al. — <i>ZClip: Adaptive Spike Mitigation for LLM Pre-Training</i></td><td class="mono">2504.02507</td><td>Baseline — z-score EMA anomaly detection on gradient norms; reimplement from their repo</td></tr>
-    <tr><td><i>AdaGC: Enhancing LLM Pretraining Stability via Adaptive Gradient Clipping</i></td><td class="mono">2502.11034</td><td>Baseline — per-parameter adaptive clipping; also the catalog of natural spike causes (data, hardware, precision, hyperparameters) our spike-sourcing section must answer</td></tr>
-    <tr><td>Molybog et al. — <i>A Theory on Adam Instability in Large-Scale ML</i></td><td class="mono">2304.09871</td><td>The original "poisoned moment buffer" story — foundation of the repair framing</td></tr>
-    <tr><td>Wortsman et al. — <i>Small-scale Proxies for Large-scale Transformer Training Instabilities</i></td><td class="mono">2309.14322</td><td>Spike-induction methodology; we inherit its legitimacy but must additionally validate mechanism transfer across our own two scales</td></tr>
+    <tr><th>Claim</th><th>Verdict</th><th>Closest prior work</th></tr>
+    <tr><td>Damage-migration curve for spikes (w/m/v shares vs time, β-identified)</td><td class="pct mid">PARTIAL · headline</td><td>Xu 2026 (state transplants) · Chimera 2026 · Guo 2026 · Ibrahim 2024 ("state washes out" at β2 = 0.95, which we pre-register as the null to beat)</td></tr>
+    <tr><td>Dose–response of spike-poisoned state on clean weights</td><td class="pct mid">PARTIAL</td><td>Xu 2026 (m alone carries a trait) · "Newer Is Not Always Better" (ICLR 2027 submission: moment transplants and history coverage, 34M–7B)</td></tr>
+    <tr><td>"Poisoned v is protective" (cleaning v alone is worse than nothing)</td><td class="pct mid">out-of-sample test</td><td>History-coverage theory in "Newer Is Not Always Better"; boundary condition from Asadi 2023</td></tr>
+    <tr><td>Lasting-damage mediation (vs immediate spike control)</td><td class="pct mid">PARTIAL</td><td>"Understanding and Mitigating AdamW Loss Spikes" (ICLR 2027 submission: onset capture and replay, 355M)</td></tr>
+    <tr><td>Signed localization in m/v vs a causal group-testing oracle</td><td class="pct mid">PARTIAL</td><td>SPAM (one-sided g²/v test) · AtP* · ACDC · per-layer reset oracles</td></tr>
+    <tr><td>Stability-certified restoration of v</td><td class="pct mid">PARTIAL</td><td>Biswas 2026 (toy task: clearing excess v on affected rows ≈ full reset) · GI-Adam (v at init)</td></tr>
+    <tr><td>Window deletion from Adam's moments (undo log)</td><td class="pct mid">PARTIAL</td><td>SWIFT, TPDS 2024 (one-step inversion) · Stewart 2026 (memory-only deletion, L-BFGS)</td></tr>
+    <tr><td>Direct fault injection into m/v (v up-flips freeze, down-flips spike)</td><td class="pct mid">PARTIAL · injection map looks new</td><td>Altenbernd 2026 (gradient SDC → v→∞) · LayerCheck 2026 (per-layer restore)</td></tr>
+    <tr><td>Held-out-rung prediction of damage shares</td><td class="pct mid">PARTIAL</td><td>Wortsman 2023 small-scale proxies · CompleteP 2025</td></tr>
+    <tr><td>SpikeState (curated spike instances with w, m, v, v̄, twins, oracle maps)</td><td class="pct hi">NEW (low confidence)</td><td>Pythia / OPEN-1B released states (no spike curation)</td></tr>
+    <tr><td>Bitwise-deterministic replay</td><td class="pct lo">NOT OURS</td><td>NVIDIA Megatron Core (2026) · OPEN-1B (2026)</td></tr>
+    <tr><td>Spike mechanism (v decouples from g²; λ_grad &gt; 2/η)</td><td class="pct lo">NOT OURS</td><td>Bai et al., ICML 2026</td></tr>
   </table></div>
-
-  <h3>Tier 2 — read fully, Weeks 1–2 · evidence, controls, neighbors</h3>
-  <div class="tbl-scroll"><table>
-    <tr><th>Paper</th><th>Where</th><th>Why</th></tr>
-    <tr><td>LLM360 — <i>K2: Building a 65B 360-Open LLM</i> (spike sections + released spike checkpoints)</td><td class="mono">2501.07124</td><td>The observational version of what we do interventionally; their public spike checkpoints are our natural-spike test set</td></tr>
-    <tr><td>Ma et al. — <i>Understanding Silent Data Corruption in LLM Training</i></td><td class="mono">2502.12340</td><td>The SDC case: a spike near the end of fine-tuning → zero test accuracy. Proof that "reaction is enough" fails somewhere — the regime C1 must find</td></tr>
-    <tr><td>Cohen et al. — <i>Adaptive Gradient Methods at the Edge of Stability</i></td><td class="mono">2207.14484</td><td>Preconditioned sharpness ≈ 38/η — the working eigenbasis for the localizer</td></tr>
-    <tr><td>Cohen et al. — <i>GD Typically Occurs at the Edge of Stability</i></td><td class="mono">2103.00065</td><td>EoS foundations</td></tr>
-    <tr><td>McCandlish et al. — <i>An Empirical Model of Large-Batch Training</i></td><td class="mono">1812.06162</td><td>Gradient noise scale / SNR formalism the localizer generalizes directionally</td></tr>
-    <tr><td>Damian, Nichani, Lee — <i>Self-Stabilization: The Implicit Bias of GD at EoS</i></td><td class="mono">2209.15594</td><td>Implicit projected-GD machinery reused in the repair analysis</td></tr>
-    <tr><td>Arora, Li, Panigrahi — <i>Understanding GD on the Edge of Stability</i></td><td class="mono">2205.09745</td><td>Quadratic-regime proof techniques</td></tr>
-    <tr><td>Chowdhery et al. — <i>PaLM</i> (loss-spike sections)</td><td class="mono">2204.02311</td><td>The restart-and-skip folklore recipe we turn into a measured operation</td></tr>
-  </table></div>
-
-  <h3>Tier 3 — skim for related work, Weeks 2–4</h3>
-  <ul class="tick">
-    <li>Zeng et al. — <i>GLM-130B</i> (arXiv 2210.02414) — real-world spike tricks (embedding-gradient shrink) · Takase et al. — <i>Spike No More</i> (2312.16903) — prevention-side neighbor</li>
-    <li>Ghorbani, Krishnan, Xiao — <i>Hessian Eigenvalue Density via Lanczos</i> (1901.10159) · Yao et al. — <i>PyHessian</i> (1912.07145) — spectral tooling</li>
-    <li>SDC follow-ups: <i>Exploring SDC as a Reliability Challenge in LLM Training</i> (2604.00726), <i>LLM-PRISM</i> (2604.10390) — natural-spike taxonomy</li>
-    <li>SAM (2010.01412) — contrast: prevention vs. autopsy · Zhang et al. — <i>Why Gradient Clipping Accelerates Training</i> (1905.11881)</li>
-    <li>Anything 2025–26 matching: "loss spike", "training instability", "optimizer state corruption", "Adam second moment", "counterfactual training"</li>
-  </ul>
 </div></section>
 
 <!-- MATH -->
 <section id="math"><div class="wrap">
-  <div class="sec-kicker">03 · Formula sheet</div>
-  <h2>All the math</h2>
+  <div class="sec-kicker">03 · The math that makes predictions</div>
+  <h2>Closed forms we will test, not assume.</h2>
+  <p class="lede">These are derivations [I], checked by hand. Each becomes a pre-registered test. Defaults are (β1, β2) = (0.9, 0.95).</p>
 
-  <div class="flabel">Setup</div>
-  <div class="formula">L(θ), Hessian H = ∇²L(θ), eigenpairs (λᵢ, uᵢ), λ₁ ≥ λ₂ ≥ …
-Adam state: m_t (first moment), v_t (second moment), D_t = diag(√v_t + ε)
-preconditioned Hessian  H̃ = D^(−1/2) H D^(−1/2)  — top-k via Lanczos with preconditioned HVPs
-minibatch gradient  g = ∇L(θ) + ξ,   Cov(ξ) = Σ/|B|</div>
+  <div class="flabel">Damage and its decomposition</div>
+  <div class="formula">Δ_X(h) = L_val(X, t1+h) − L_val(B*, t1+h)            <span class="c"># held-out, end of schedule</span>
+Θ^{abc} = (w^a, m^b, v^c, k),  a,b,c ∈ {B0, B*}           <span class="c"># 2³ cross-world hybrids</span>
+φ_state = ½[D(011) + D(111) − D(100)]                     <span class="c"># Shapley share of (m,v)</span></div>
 
-  <div class="flabel">C1 · The fork-and-intervene protocol — the instrument</div>
-  <div class="formula"><span class="c"># at localizer trigger step t₀ (pre-spike):</span>
-snapshot  S = (w_{t₀}, m_{t₀}, v_{t₀}, RNG state, data cursor)
+  <div class="flabel">Honest-Adam feasibility (every real state satisfies it)</div>
+  <div class="formula">|m_i| ≤ C·√v_i,   C = (1−β1) / √(1−β2) / √(1 − β1²/β2) = 1.165</div>
 
-branches, ALL with identical seed + data order:
-  B₀   no-op            <span class="c"># let the spike happen — the damage measurement</span>
-  B_w  repair w only    B_m  repair m only    B_v  repair v only
-  B_g  global reset of (m, v)                 <span class="c"># SPAM-style — the folklore arm</span>
-  B_r  random-subspace repair, matched rank &amp; strength   <span class="c"># the causal control</span>
-  B_s  spike-skip + clip                       <span class="c"># the honest ≈0-cost baseline</span>
-  B*   clean counterfactual                    <span class="c"># spike batch replaced, run continues</span>
+  <div class="flabel">Anti-windup invariance: why clipping only softens spikes</div>
+  <div class="formula">update/η on a spike-dominated coordinate = (1−β1)/√(1−β2) · (β1/√β2)^k = 0.447 · 0.9234^k
+total drift → D = (1−β1) / [√(1−β2) · (1 − β1/√β2)] · η = 5.84η · 10.47η · 31.8η   (β2 = .95 · .99 · .999)
+<span class="c"># a saturating limit as G/ḡ → ∞: clipping a large spike barely changes D (smaller spikes drift less)</span></div>
 
-measurement:  Δᵢ = L_final(Bᵢ) − L_final(B*)
-attribution:  effect(component c) = Δ_noop − Δ_repair-c   <span class="c"># minus B_r control</span>
+  <div class="flabel">Which memory carries it? (the identification problem)</div>
+  <div class="formula">v excess decays as β2^τ               → half-life 13.5 steps at β2 = 0.95
+closed-loop (w, m) modes decay at √β1 → half-life 13.2 steps at β1 = 0.9    <span class="c"># 2.7% apart</span>
+<span class="c"># so V8 crosses β1 × β2: (.9,.95) (.9,.99) (.9,.999) (.8,.95) (.95,.95)</span></div>
 
-<span class="c"># cost control (mandatory): establish ONCE, on a small set, the lead time between</span>
-<span class="c"># immediate-recovery divergence and final-loss divergence; then use short forks</span>
-<span class="c"># (500–2000 post-fork steps) as the proxy for the big sweep, full-length forks</span>
-<span class="c"># only on the decision set. Without this the compute plan is fantasy.</span></div>
+  <div class="flabel">Planted-poison recovery law</div>
+  <div class="formula">k½ = ln((κ−1)/3) / (−ln β2)  ≈ 158 steps   (κ = 10⁴, β2 = 0.95)</div>
 
-  <div class="flabel">C2 · The localizer — directional SNR, demoted from oracle to instrument</div>
-  <div class="formula">SNR_u = |ḡᵀu| / √(var̂(gᵀu)/m)     <span class="c"># microbatch-disagreement estimator, m microbatch grads</span>
-<span class="c"># grads g₁…g_m already exist under gradient accumulation — m dot-products per direction, free</span>
+  <div class="flabel">Repairs</div>
+  <div class="formula">undo:     m −= Σ_{s∈W} (1−β1) β1^{t1−s} g_s
+          v −= Σ_{s∈W} (1−β2) β2^{t1−s} (g_s² − v̄),  v ≥ 0            <span class="c"># weights untouched; no ÷β error growth</span>
+restore:  v_S(α) = v_S^{1−α} · T_S^α,  largest α with λ_grad(Ĥ) ≤ (1−δ)·2/η  <span class="c"># Bai's Ĥ (threshold 2/η); raw D⁻¹H is 38/η</span></div>
 
-poison score along uᵢ:   pᵢ = |uᵢᵀ(v_t − v̄_pre)| / uᵢᵀv̄_pre     <span class="c"># v̄_pre = pre-spike EMA of v</span>
-poisoned set:            P = { i : pᵢ &gt; τ_p  and  SNR_uᵢ &lt; τ_s }
-spectral-mass concentration:  ψ_k = ‖Π_k δ_v‖ / ‖δ_v‖,   δ_v = v_t − v̄_pre,  Π_k = top-k projector
-
-<span class="c"># VALIDATED CLAIM, not a footnote: measure noise–curvature alignment directly at both</span>
-<span class="c"># scales, in bf16, and report where it degrades. Fallback localizer: a few power-iteration</span>
-<span class="c"># steps on top-k curvature directions — cheap, robust rather than faith-based.</span></div>
-
-  <div class="flabel">Theory · Recovery, not onset — the localizability criterion</div>
-  <div class="formula"><span class="c"># A spike injects perturbation δ = (δ_w, δ_m, δ_v) into the state. Model recovery as the</span>
-<span class="c"># Adam-quadratic stochastic linear recursion acting on δ (frozen-preconditioner leading order):</span>
-x_{t+1} = x_t − η D^(−1/2)(H x_t + ε_t)D^(−1/2)-terms + β-momentum coupling
-<span class="c"># per-direction: AR(2) with contraction rate ρᵢ(λ̃ᵢ, η, β) = spectral radius of companion matrix</span>
-
-THEOREM 1 (selective repair suffices).  If ψ_k ≥ ψ*(gap):
-  rank-k repair on exactly the top-k curvature subspace restores ρ &lt; 1 in every direction
-  and the trajectory re-converges to the clean path up to O(η)
-  ⇒ selective repair is provably as good as global reset, while preserving
-    the complement's descent information.
-
-THEOREM 2 (reset necessity).  If bulk mass 1 − ψ_k exceeds threshold:
-  ANY rank-k repair leaves a residual amplification factor &gt; 1
-  ⇒ global reset is provably necessary.
-  <span class="c"># This explains SPAM's empirical result: magnitude-based selection picks the wrong</span>
-  <span class="c"># subspace, or the poison is genuinely delocalized in their regime.</span>
-
-CROSSOVER: ψ* is a computable threshold in the poison's spectral-mass concentration
-relative to the top-k / bulk curvature gap  (λ̃_k − λ̃_bulk).
-
-<span class="c"># HONESTY CLAUSE — the non-commutativity hole is load-bearing: decoupling per-direction</span>
-<span class="c"># assumes D^(−1/2) commutes with H's eigenbasis; it doesn't. Frame everything as the</span>
-<span class="c"># leading-order characterization and MEASURE the commutator's effect on ψ* at 124M.</span>
-<span class="c"># Claim a leading-order theory with a measured correction — never a guarantee.</span>
-
-<span class="c"># FALSIFIABLE PER-INSTANCE PREDICTION (top-venue signature): measured ψ_k predicts,</span>
-<span class="c"># per-spike, whether selective repair beats global reset. Then test it.</span></div>
-
-  <div class="flabel">C3 · The repair operator</div>
-  <div class="formula"><span class="c"># rescale the identified poisoned subspace of v toward its pre-spike EMA,</span>
-<span class="c"># preserve descent information in the complement:</span>
-v_t ← v_t − Σ_{i∈P} c_i · uᵢuᵢᵀ (v_t − v̄_pre) applied in the diagonal approximation
-m_t ← m_t − Σ_{i∈P} (m_tᵀuᵢ) uᵢ              <span class="c"># remove poisoned first-moment components</span>
-c_i ∈ [0,1] scheduled → full repair over R recovery steps
-
-<span class="c"># required ablations: (a) repair v vs m vs w vs all  (b) subspace vs global</span>
-<span class="c"># (c) magnitude-selected (SPAM-style) vs curvature/SNR-selected subspace  (d) no-op</span></div>
-
-  <div class="flabel">Metric hierarchy — in this order, always</div>
-  <ul class="tick" style="margin-top:10px">
-    <li><b>1 · Final converged loss vs clean counterfactual</b> — the headline. Reactive methods report "prevented divergence / lower perplexity"; almost none prove they recover the counterfactual clean trajectory. We do, because C1 gives us the counterfactual.</li>
-    <li><b>2 · Compute to recover</b> — steps × FLOPs to re-enter δ-band around the clean path, vs checkpoint-restart-and-skip accounting</li>
-    <li><b>3 · Spike survival rate</b> — the field's usual metric, reported last on purpose</li>
-    <li><b>Attribution map</b> — effect(w), effect(m), effect(v) with CIs across ≥5 seeds; random-subspace control subtracted</li>
-    <li><b>Localizability</b> — ψ_k distribution per spike class (induced-LR, induced-ε, induced-precision, data-corruption, K2-natural); theory-predicts-practice scatter: ψ_k vs (selective − global) outcome</li>
-    <li><b>Overhead</b> — wall-clock % of localizer (eigenvector refresh + SNR tracking) and snapshot I/O</li>
-  </ul>
+  <div class="flabel">Matching rungs (scale protocol)</div>
+  <div class="formula">16,384 tokens per optimizer step inside every fork window;  otherwise β2* = β2^(B*/B)   <span class="c"># Marek 2025</span></div>
 </div></section>
 
-<!-- INFRA -->
-<section id="infra"><div class="wrap">
-  <div class="sec-kicker">04 · Infrastructure &amp; compute</div>
-  <h2>Harness, data, GPUs — and the fork-cost arithmetic</h2>
-
-  <div class="grid c2">
-    <div class="card"><h4>Repo layout</h4><p class="mono" style="font-size:13px;color:var(--ink)">optimizer-autopsy/<br>&nbsp;&nbsp;harness/&nbsp;&nbsp;<span style="color:var(--ink-2)"># fork/snapshot/replay — the product</span><br>&nbsp;&nbsp;localizer/ · repair/ · theory/<br>&nbsp;&nbsp;experiments/llm/ (nanoGPT fork) · experiments/proxy/<br>&nbsp;&nbsp;baselines/ (SPAM · ZClip · AdaGC · clip · skip)<br>&nbsp;&nbsp;analysis/ · spikes/ (recipes + K2 checkpoints)</p><p style="margin-top:10px">Deterministic replay is a first-class requirement: seeded loaders, RNG state in every snapshot, bitwise-identical trunk verification in CI. A 10-minute smoke test forks a tiny run and asserts branch divergence is zero under no-op-with-no-spike. Reproducibility isn't a virtue here — it's the instrument's calibration.</p></div>
-    <div class="card"><h4>Datasets &amp; spike sourcing</h4><p><b>LLM track:</b> OpenWebText or FineWeb 10BT sample (<span class="mono" style="color:var(--trace)">HuggingFaceFW/fineweb</span>) on GPT-2 124M and Pythia-style 410M. You need spike windows, not convergence: 2–5B tokens per 124M run.</p><p style="margin-top:10px"><b>Induced spikes:</b> high LR, tiny Adam ε (1e-12), bf16→fp16 on sensitive ops, weakened QK-layernorm.<br><b>Natural spikes (mandatory):</b> data-injected corrupted-batch spikes — the cheapest natural class (AdaGC's catalog: data quality, hardware faults, precision, hyperparameters) — plus LLM360's released K2 spike/normal checkpoint pairs as a real-world validation set. A repair that only handles ε-perturbation spikes at 124M is a toy.</p></div>
-  </div>
-
-  <h3>The audited AMD compute ask — roughly 15–40 GPU-hours, not 500</h3>
-  <p class="lede">The earlier "500–600 GPU-hours" figure conflated two different resources: <b>build-effort (person-hours)</b> and <b>GPU-compute</b>. A bottom-up recount — grounded in a <b>measured 0.0619 s/step</b> at proxy scale (11M params, batch 16, Tesla P100; committed under <code>research/kaggle/step_timer_results.md</code>) and a full code audit of which components are actually GPU-bound versus engineering-time — puts the <b>real AMD GPU ask at ~15–40 GPU-hours</b>. That is <b>~5–10h to re-earn bit-exact determinism on AMD/ROCm</b> (the one line nothing has tested — every measurement so far ran on NVIDIA/CUDA free-tier Kaggle) plus <b>~3–30h of proxy-scale GPU-bound science</b> (calibration + attribution battery). The ~500 remaining hours are <b>build-effort</b>, which drives the ~24-week wall-clock, not the GPU grant. <b>Path B:</b> port every hardware-independent piece (data, model, spike recipes, fork/branch design, and the already-verified determinism/snapshot/fork spine) unchanged; re-earn only the ROCm determinism guarantee. A cheap <b>go/no-go smoke test runs first</b> — one forked pair, one step, compare m/v/w bit-for-bit over the exact ops this pipeline uses (HVP double-backward + Adam moment update) — because ROCm has no exact <code>CUBLAS_WORKSPACE_CONFIG</code> analog and bitwise Δ==0 on MI300X is not assumed.</p>
-  <p style="margin-bottom:8px;font-size:14px;color:var(--ink-2)">Bottom-up recount. <b>Build-effort</b> = person-hours (drives wall-clock, not the GPU grant). <b>GPU-h (audited)</b> = real proxy-scale compute at the measured 0.0619 s/step, low–high; the assumption behind each range is stated. Rows marked <b>ENG</b> are engineering-bound (their GPU cost is only dev-validation runs); <b>GPU</b> rows are genuinely compute-bound.</p>
+<!-- PROGRAM -->
+<section id="program"><div class="wrap">
+  <div class="sec-kicker">04 · Program and compute</div>
+  <h2>Five tiers, each a complete unit, from 5 to 2,000 GPU-hours.</h2>
+  <p class="lede">These are MI300X-hours. They stay <b>estimates until <code>step_timer</code> runs on AMD day 1</b>. One 192 GB MI300X holds fp32 weights, gradients, m and v up to about 7B parameters, so forks stay single-GPU and avoid multi-GPU reduction-order nondeterminism. Only fork-vs-fork determinism matters, so trunks may use many GPUs.</p>
   <div class="tbl-scroll"><table>
-    <tr><th>Line item</th><th>Build-effort (h)</th><th>Bound by</th><th>GPU-h (audited)</th><th>Basis</th></tr>
-    <tr><td>AMD determinism re-verification</td><td class="mono">30</td><td>ENG + AMD</td><td class="mono">5–10</td><td><b>The one unverified line.</b> Bit-exact Δ==0 has only ever run on NVIDIA/CUDA; re-earning it on ROCm is the go/no-go. Small compute, high risk.</td></tr>
-    <tr><td>Spike induction + detection</td><td class="mono">30</td><td>ENG</td><td class="mono">0.1–1.4</td><td>induce + detector built &amp; run (1/4 recipes pass DoD); remainder is coding + threshold sweeps over cached runs, not retraining.</td></tr>
-    <tr><td>Cheap-fix kill-test</td><td class="mono">15</td><td>ENG (built)</td><td class="mono">0.1–0.5</td><td>Battery + Gate-B verdict built, not yet run: 4 branches × (2–4 recipes) × 3–5 seeds × 200 steps.</td></tr>
-    <tr><td>Localizer (C2)</td><td class="mono">70</td><td>ENG</td><td class="mono">0.1–2</td><td>Pure TODO stubs today; HVP/eigensolve on the 11M proxy is cheap — the 70h is coding, not GPU.</td></tr>
-    <tr><td>Repair operator (C3)</td><td class="mono">60</td><td>ENG</td><td class="mono">0.2–1.7</td><td>9-line stub; repair is a cheap tensor edit validated by 50–200 short forks vs the clean counterfactual.</td></tr>
-    <tr><td>Baselines</td><td class="mono">45</td><td>ENG</td><td class="mono">0.2–1.3</td><td>skip/clip/reset real; SPAM/ZClip/AdaGC are 3-line stubs — reproducing published methods is human time.</td></tr>
-    <tr><td>Short-fork calibration</td><td class="mono">55</td><td>GPU</td><td class="mono">2–14</td><td>Genuinely GPU-bound: ~20 full-length proxy forks (5000 steps) to fix the shortest fork length that preserves branch-ordering.</td></tr>
-    <tr><td>Full attribution battery (proxy)</td><td class="mono">120</td><td>GPU</td><td class="mono">0.4–4.8</td><td>recipes × 7 branches × seeds × fork-len × 0.0619s ÷ 3600: (2×7×3×500)→0.4h … (4×7×5×2000)→4.8h. A ceiling.</td></tr>
-    <tr><td>Commutator-error measurement</td><td class="mono">15</td><td>Analysis</td><td class="mono">0.1–1</td><td>Measured once at 1–4 confirmed spike sites (a few HVPs each).</td></tr>
-    <tr><td>Contingency</td><td class="mono">60</td><td>Buffer</td><td class="mono">—</td><td>Effort buffer, not GPU compute.</td></tr>
-    <tr><td><b>Total</b></td><td class="mono"><b>~500</b></td><td><b>—</b></td><td class="mono"><b>~15–40</b></td><td>The ~500 is <b>build-effort</b> (PLAN V6 §5 flagged the GPU-vs-dev-hours conflation). The audited <b>AMD GPU ask is ~15–40 GPU-h</b>.</td></tr>
+    <tr><th>Tier</th><th>What</th><th>GPU-h</th><th>Paper</th></tr>
+    <tr><td><b>T0</b></td><td>AMD bring-up · pinned ROCm image · cross-process Δ = 0 gate through a spike window · step_timer</td><td class="pct">3–5</td><td>all</td></tr>
+    <tr><td><b>T1</b></td><td>Minimal viable experiment: damage migration on 12 proxy instances (~370 forks)</td><td class="pct">1–2</td><td>go/no-go</td></tr>
+    <tr><td><b>T2</b></td><td>Realistic proxy + mid rung · β cross · localizers + oracle · repairs + strong baselines · SDC arm · 124M n = 5 · Pythia-160M borrowed trunk</td><td class="pct">50–80</td><td class="pct hi">P1 · ICML 2027</td></tr>
+    <tr><td><b>T3</b></td><td>Pythia ladder 410M → 2.8B · μP collapse · held-out-rung prediction · OPEN-1B released states (use depends on its skip protocol) · Adam-mini / Muon / Adafactor · SpikeState</td><td class="pct">200–450</td><td class="pct hi">P2 · NeurIPS 2027 · P3 datasets track</td></tr>
+    <tr><td><b>T4</b></td><td>Own instrumented 1B trunks on an 8× node · Pythia-6.9B on one card · RL fine-tuning and ViT transfer</td><td class="pct">500–2,000</td><td class="pct mid">follow-ups</td></tr>
   </table></div>
-  <div class="card kill" style="margin-top:14px"><h4>Off the AMD ask — the 124M robustness check</h4><p>The larger-scale (124M) robustness battery measures <b>~71–302 GPU-hours per battery</b> (measured 124M step-time 1.08 s/step at batch 8 on P100, grad_accum=40; see <code>step_timer_results.md §2</code>). It is designed to run on <b>free-tier Kaggle over multiple weeks</b> per BUILD_PLAN Task 22's own weekly-cap survival design — <b>not on the AMD grant</b>, and it is not part of what is requested from Exea Labs.</p></div>
-  <p style="margin-top:14px"><b>Written cut order (decided now, not mid-crunch):</b> (1) shrink to the recipes that work; (2) fewer seeds, flagged as a limitation; (3) drop the two adaptive-clipping baselines; (4) measure the commutator error once, not per site. <b>Never cut:</b> the exact-zero replay proof or the held-out validation methodology. Snapshots: proxy (w,m,v) fp32 ≈ 12–36 MB, 124M bf16 ≈ 0.75 GB → rotating <code>latest.safetensors</code> on HuggingFace. Underlying data + full audit: <code>research/kaggle/step_timer_results.md</code>; plan detail: <code>PLAN_V6.md</code>.</p>
-</div></section>
-
-<!-- TEAM -->
-<section id="team"><div class="wrap">
-  <div class="sec-kicker">05 · Team &amp; resources</div>
-  <h2>Who's building it, and what's still open</h2>
-  <p class="lede">Scheduling uses a conservative <b>single-contributor-plus-mentor</b> assumption. The team-size figure is a PLAN V6 <b>open item</b>: different numbers have circulated (five with a mentor; eight per outreach framing) against a commit history showing one author. It needs to resolve to one accurate figure before it appears in any funding or compute request — cheap to fix now, costly to credibility if a partner checks it later. If a verified team with assigned roles is confirmed, the localizer and repair builds can run in parallel and the wall-clock timeline compresses; the GPU-hour budget itself does not change.</p>
-  <div class="tbl-scroll"><table>
-    <tr><th>Work area</th><th>State</th><th>Scope</th></tr>
-    <tr><td><b>Instrument (C1)</b> — harness, snapshot, fork Δ==0 gate</td><td>✅ done, CUDA-verified</td><td>Deterministic replay, name-keyed (w,m,v,RNG) snapshot/restore, fork-and-compare. Re-earn on AMD via the go/no-go gate.</td></tr>
-    <tr><td><b>Spikes + kill-test</b></td><td>🟡 partial</td><td>1 of 4 induced-spike recipes solid; cheap-fix battery built, not yet run to a verdict.</td></tr>
-    <tr><td><b>Localizer (C2)</b> + <b>repair (C3)</b> + baselines</td><td>⬜ not started</td><td>Directional SNR + preconditioned-Hessian curvature → poison score; rank-limited projection repair; SPAM/ZClip/AdaGC/skip+clip/reset baselines. The genuinely novel, highest-risk work.</td></tr>
-    <tr><td><b>Theory</b></td><td>⬜ not started</td><td>AR(2) recovery criterion + ψ_k crossover; commutator-error measurement; the per-spike falsifiable prediction. Mentor: proof checking, venue strategy, endorsement.</td></tr>
-  </table></div>
-  <p style="margin-top:14px"><b>Compute (open items, from PLAN V6 §5):</b> the audited AMD GPU ask is <b>~15–40 GPU-hours</b> (see §04) — the earlier 500–600h figure was build-effort, not GPU-compute. Still to confirm with Exea Labs: the realistic single-project AMD allocation, plus GPU parallelism + any grant expiry, since those decide whether the (small) GPU-hours or personal dev-hours is the binding constraint. Nothing is locked until the Exea inquiry resolves.</p>
 </div></section>
 
 <!-- TIMELINE -->
 <section id="timeline"><div class="wrap">
-  <div class="sec-kicker">06 · Phase by phase</div>
-  <h2>The V6 timeline (~24 weeks of build-effort)</h2>
-  <p class="lede"><b>The per-phase hour tags below are build-effort (person-hours), not GPU-hours</b> — the audited GPU-compute ask is the separate ~15–40 GPU-h in §04. Wall-clock is the single-contributor-plus-mentor pacing (~24 weeks); it compresses if a verified team or parallel GPUs materialize. The week numbers are relative to the AMD grant landing, not fixed calendar dates. Venue: <b>TMLR</b> (no deadline, judges claim-support) and/or a <b>NeurIPS 2027</b> cycle — NeurIPS 2026 has passed, and 2027's deadline is a historically-grounded prediction (2024 May 22 → 2025 May 16 → 2026 May 6), not a locked date.</p>
-
+  <div class="sec-kicker">05 · Calendar</div>
+  <h2>Thirteen weeks to ICML 2027, then NeurIPS 2027.</h2>
+  <p class="lede">Venue dates are unofficial until the calls for papers are published.</p>
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p1">PHASE 1 · WKS 1–3</span><h3>Re-earn determinism on AMD, finish the spike-maker</h3></div>
-    <div class="week"><div class="wk-label">Week 1<span>Go/no-go</span></div><ul>
-      <li class="crit"><b>The go/no-go determinism smoke test (~6h)</b>: one forked pair, one step, compare m/v/w bit-for-bit over the exact ops this pipeline uses (HVP double-backward + Adam moment update). <b>This decides which tier is buildable.</b></li>
-      <li>Decision point: exact zero on MI300X → continue on a single-run bitwise proof. Can't hit zero → pivot Phase 1 to a tolerance-based statistical framework (paired seeds, many-run averaging).</li>
+    <div class="phase-head"><span class="phase-tag p1">WEEKS 1–2</span><h3>Instrument you can trust, then the headline</h3></div>
+    <div class="week"><div class="wk-label">Week 1<span>from Oct 26</span></div><ul>
+      <li class="crit"><b>AMD determinism gate</b> (cross-process, through a spike window) and step_timer.</li>
+      <li>Instrument fixes: held-out Δ, a non-degenerate cheap fix, <code>lr_bump</code> multiplying the schedule, disjoint eval batches, stamped results.</li>
+      <li>Commit the pre-registration thresholds. Push the spike pipeline PR. Email EleutherAI. Open one OPEN-1B shard on the GPU host.</li>
     </ul></div>
-    <div class="week"><div class="wk-label">Weeks 1–3<span>Re-verify + spikes</span></div><ul>
-      <li>Remaining AMD determinism re-verification (24h build; <b>~5–10 GPU-h</b> — the one line nothing has tested, all prior gates ran on NVIDIA/CUDA): derive the ROCm strict-mode setup + pin set; re-run the noop-vs-noop gate at proxy and at the larger scale.</li>
-      <li>Finish spike induction to the <b>relaxed V6 DoD of ≥2 solid recipes</b> (30h). The old Kaggle P100-vs-T4 blocker is moot on AMD, but recipe numerics may shift and need re-checking.</li>
+    <div class="week"><div class="wk-label">Week 2<span>MVE</span></div><ul>
+      <li class="crit"><b>Damage-migration MVE</b>: harness sanity (planted v), headline (state share CI excludes 0?), placebo spread.</li>
     </ul></div>
   </div>
-
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p2">PHASE 2 · WKS 4–5</span><h3>The cheap-fix kill-test, early and pre-registered</h3></div>
-    <div class="week"><div class="wk-label">Weeks 4–5<span>Kill-test</span></div><ul>
-      <li class="crit"><b>Run the cheap-fix battery (15h) against a threshold written down first:</b> does skip+clip already recover held-out loss everywhere? If yes → the repair method is unnecessary and C1+C2 ship as a science/benchmark paper. A legitimate, valuable outcome, decided before the expensive machinery is built.</li>
-    </ul></div>
+    <div class="phase-head"><span class="phase-tag p3">WEEKS 3–10</span><h3>The ICML core</h3></div>
+    <div class="week"><div class="wk-label">Weeks 3–4</div><ul><li>Realistic proxy + mid rung, QK-Norm and untied variants, β cross, SDC recipes, stress re-search.</li></ul></div>
+    <div class="week"><div class="wk-label">Weeks 5–6</div><ul><li>Oracle + localizers (gate: AUROC ≥ 0.7 vs the oracle). Pythia converter + optimizer-state census.</li></ul></div>
+    <div class="week"><div class="wk-label">Weeks 7–8</div><ul><li>Repairs + full baseline battery (primary: non-inferiority vs the best baseline). Scaling-law fit on small configs.</li></ul></div>
+    <div class="week"><div class="wk-label">Weeks 9–10</div><ul><li class="crit"><b>124M n = 5</b> at matched tokens and the <b>Pythia-160M</b> borrowed trunk. Does the held-out rung land inside the predicted interval?</li></ul></div>
   </div>
-
   <div class="phase">
-    <div class="phase-head"><span class="phase-tag p3">PHASE 3 · WKS 6–20</span><h3>Build the science: localizer, repair, attribution</h3></div>
-    <div class="week"><div class="wk-label">Weeks 6–12<span>C2 + C3</span></div><ul>
-      <li class="crit">Build and locally validate the <b>localizer (70h)</b> — directional SNR + preconditioned-Hessian curvature → poison score + ψ_k — and the <b>repair operator (60h)</b>, the rank-limited projection.</li>
-      <li>Reimplement <b>baselines (45h)</b>: skip+clip, SPAM, ZClip, AdaGC, naive full-reset, each as a fork intervention.</li>
-    </ul></div>
-    <div class="week"><div class="wk-label">Weeks 13–15<span>Calibration</span></div><ul>
-      <li>Short-fork calibration (55h build; <b>~2–14 GPU-h</b>): find the shortest fork length that preserves the branch-ordering of Δ, back-solved against the measured 0.0619 s/step from the committed CUDA logs so the battery fits the budget.</li>
-    </ul></div>
-    <div class="week"><div class="wk-label">Weeks 16–20<span>Attribution</span></div><ul>
-      <li class="crit">The <b>full attribution battery (120h build ceiling; <b>~0.4–4.8 GPU-h</b> at proxy scale)</b>: multiple spike sites × branches × seeds at the calibrated length, sized to the surviving recipe count, trimmed by the written cut order if hours run short.</li>
-      <li>Measure the commutator-error correction (15h) across confirmed spike sites.</li>
-    </ul></div>
-  </div>
-
-  <div class="phase">
-    <div class="phase-head"><span class="phase-tag p4">PHASE 4 · WKS 21–24</span><h3>Write up and submit</h3></div>
-    <div class="week"><div class="wk-label">Weeks 21–24<span>Paper</span></div><ul>
-      <li>Write in contribution order: C1 methodology → C2 attribution → C3 repair → theory. Every claim maps to a figure; "causal" appears only where the random-subspace control earned it.</li>
-      <li>Internal + mentor review; reproducibility package (the fork harness is the artifact).</li>
-      <li class="crit"><b>Submit to TMLR</b> (no deadline) and/or freeze for a NeurIPS 2027 cycle per the mentor's read. The pre-committed stop-and-write-up triggers (PLAN V6 §8) decide when to stop, regardless of hours remaining.</li>
-    </ul></div>
+    <div class="phase-head"><span class="phase-tag p4">WEEKS 11–13 · FEB–MAY</span><h3>Write, submit, scale</h3></div>
+    <div class="week"><div class="wk-label">Weeks 11–13<span>to ~Jan 22</span></div><ul><li class="crit"><b>ICML 2027 submission</b> (P1).</li></ul></div>
+    <div class="week"><div class="wk-label">Feb–May 2027</div><ul><li>Tier 3 scale-up → <b>NeurIPS 2027</b> main (P2) and the datasets/benchmarks track (P3, SpikeState).</li></ul></div>
   </div>
 </div></section>
 
-<!-- PUBLICATION -->
-<section id="pub"><div class="wrap">
-  <div class="sec-kicker">07 · Publication strategy</div>
-  <h2>Venues &amp; honest odds</h2>
-  <p class="lede">No reallocation of a fixed compute budget engineers a high acceptance rate — review is noisy even for strong papers, and the top tier needs a different <i>category</i> of contribution than a well-executed application of existing tools to a scoped question. The honest ceiling here is a genuinely strong, technically sound single contribution: exactly what TMLR is built to reward, and a reasonable NeurIPS D&amp;B or workshop candidate. Not a near-certain top-tier acceptance, and this plan does not claim to be.</p>
-  <div class="tbl-scroll"><table>
-    <tr><th>Artifact</th><th>When</th><th>Venue</th><th>Fit</th></tr>
-    <tr><td>Preprint (C1 + C2 + theory sketch)</td><td>After the attribution battery</td><td>arXiv</td><td class="pct hi">Direct</td></tr>
-    <tr><td>Full paper</td><td>~Weeks 21–24</td><td>TMLR (rolling; judges claim-support, no deadline)</td><td class="pct hi">Strong structural fit</td></tr>
-    <tr><td>Full paper (alt)</td><td>NeurIPS 2027 cycle (predicted ~May 2027)</td><td>NeurIPS 2027 main / D&amp;B</td><td class="pct mid">Reasonable</td></tr>
-    <tr><td>If the method dies (kill-test)</td><td>Decided in Phase 2</td><td>NeurIPS D&amp;B — the harness + causal benchmark</td><td class="pct mid">Reasonable</td></tr>
-    <tr><td style="color:var(--alarm)">NeurIPS 2026 main</td><td colspan="2"><b>Out of reach — the May 6, 2026 deadline has passed.</b></td><td class="pct lo">—</td></tr>
-  </table></div>
-  <div class="grid c3" style="margin-top:20px">
-    <div class="card"><span class="num">BUDGET DISCIPLINE</span><h4>Claim sized to compute</h4><p>Three tiers (Floor / Core / Stretch) with a written cut order, so a smaller-or-larger grant needs no renegotiation. The kill-test and go/no-go run first, so months aren't spent on a dead or unprovable contribution.</p></div>
-    <div class="card"><span class="num">ORIGINALITY</span><h4>Concentrated in C1 + C2</h4><p>Training counterfactuals as an instrument: no direct prior work found. C2 resolves a named, published puzzle (SPAM's ablation). C3 is "beat reset" — incremental, never the lead. Write the paper in exactly this order.</p></div>
-    <div class="card"><span class="num">STRATEGY</span><h4>Outcome-robust, honestly</h4><p>Repair works → C1+C2+C3; cheap fix wins → C1+C2 benchmark; poison delocalized → "why reset wins." Every branch is a real paper. "Causal" only where the random-subspace control earned it; pre-registered thresholds remove the pull toward the exciting read.</p></div>
+<!-- IDEAS -->
+<section id="ideas"><div class="wrap">
+  <div class="sec-kicker">06 · Idea portfolio</div>
+  <h2>About 140 ideas, all kept and labelled honestly.</h2>
+  <p class="lede">The full table with verdicts and tiers is in <a href="https://github.com/jaztulsi/optimizer-autopsy/blob/main/PLAN_V8.md#appendix-a--idea-portfolio-every-idea-kept">PLAN V8 Appendix A</a>. They come from two research waves that borrowed from causal inference, estimation theory, finance, data assimilation, reliability engineering, security and scaling theory. A few highlights:</p>
+  <div class="grid c3">
+    <div class="card"><span class="num">MECHANISM</span><h4>Protection law</h4><p>A spike's v-excess may <i>protect its own damage</i> from being overwritten. Restoration works by removing that protection (after Biswas 2026). It predicts which spikes self-heal.</p></div>
+    <div class="card"><span class="num">ESTIMATION</span><h4>Shadow v</h4><p>A bipower-variation copy of v (from finance) that a single jump barely moves. Its jump share localizes with zero forks and zero logs, and fails by design at width ≥ 2.</p></div>
+    <div class="card"><span class="num">RELIABILITY</span><h4>Bit-flip map</h4><p>A flip that inflates v is <b>silent</b>: the coordinate freezes with no loss spike, permanently if v becomes ∞. A flip that shrinks v, or any flip in m, spikes at once. Undo fixes gradient faults; a parity residual catches state faults.</p></div>
+    <div class="card"><span class="num">FORENSICS</span><h4>Recover the offending tokens</h4><p>Δlog v on embedding rows between two snapshots may reveal which tokens caused the spike, with no data logs. It is also a privacy note for anyone releasing optimizer states.</p></div>
+    <div class="card"><span class="num">SCALE</span><h4>A law that predicts</h4><p>Fit on five small configs, then predict the mid rung and 124M before running them. Under μP the amplitudes should collapse; under SP the exponent is the finding.</p></div>
+    <div class="card"><span class="num">SECURITY</span><h4>Spikes as attacks on state</h4><p>v too large freezes, v too small destabilizes, a poisoned m steers. An integrity scanner checks shipped <code>optimizer.pt</code> files against honest-Adam invariants.</p></div>
   </div>
-  <p style="margin-top:16px"><b>Open logistics (PLAN V6 §5, §11):</b> resolve the team-size figure, confirm the realistic Exea allocation, and confirm GPU parallelism + expiry before locking a tier. Author order, mentor affiliation, and endorsement follow from the team resolution.</p>
 </div></section>
 
 <!-- RED TEAM -->
 <section id="redteam"><div class="wrap">
-  <div class="sec-kicker">08 · The brutal review, kept in the plan on purpose</div>
-  <h2>What can kill this — pre-attacked</h2>
-  <p class="lede">Every item below was raised adversarially against this plan. They stay on this page so nobody discovers them in a rebuttal.</p>
+  <div class="sec-kicker">07 · Pre-attacked</div>
+  <h2>What could sink this, and where each risk routes.</h2>
+  <div class="verdict"><h4>Marin 32B says the opposite: a direct counter-case</h4><p>Marin's retrospective inferred, by elimination, that its spikes were "rooted in the model's attention stack <b>rather than in optimizer state</b>". An optimizer-state rebuild relapsed. <b>Route:</b> our factorial measures exactly this split, and the QK-Norm arm reports it either way. We claim "carried in", never "caused by".</p></div>
+  <div class="verdict"><h4>ROCm may not reach bitwise Δ = 0</h4><p>On ROCm, <code>use_deterministic_algorithms</code> doesn't reach hipBLASLt, and torch 2.10's AOTriton attention backward ignores the deterministic flag. <b>Route:</b> env vars in the launcher, math-backend attention, torch 2.13 if needed, then the pre-registered tolerance. If all of those fail, the fork-free detector and online undo lead.</p></div>
+  <div class="verdict"><h4>The state share could be ≈ 0 after ~50 steps</h4><p>At β2 = 0.95, v forgets in about 100 steps. <b>Route:</b> that is H2's prediction, and the result is "weight-carried after k steps", with the undo log as the in-window remedy.</p></div>
+  <div class="verdict"><h4>A dumb clamp might match the clever repair</h4><p>If v ← clip(v, a·v̄, b·v̄) matches certified restoration, localization adds nothing. <b>Route:</b> it is a required baseline. If it wins, it becomes the practical recommendation and localization becomes analysis.</p></div>
+  <div class="verdict"><h4>"A 3-layer toy at step 160"</h4><p><b>Route:</b> a realistic proxy, a mid rung, 124M n = 5, borrowed Pythia and OPEN-1B states, and a scaling law that predicts held-out rungs. Molybog's small-scale caveat is quoted and answered, not hidden.</p></div>
+  <div class="verdict"><h4>The undo log isn't new</h4><p>Correct for the mechanism: SWIFT (TPDS 2024) inverts Adam one step back. <b>Route:</b> it is cited as the ancestor. Ours is the retroactive window, state only, the forward form with no error growth, and the direct/indirect path split.</p></div>
+</div></section>
 
-  <div class="verdict"><h4>Risk #1 — AMD/ROCm bitwise determinism may not be achievable (the load-bearing one)</h4><p>The entire evidentiary standard is exact-zero replay, and the CUDA trick that earned it (<code>CUBLAS_WORKSPACE_CONFIG</code> set before torch imports) has <b>no exact ROCm analog</b>; rocBLAS/hipBLASLt determinism is handled differently and deterministic-kernel coverage is less complete than CUDA. If Δ==0 is unachievable on MI300X, the proof standard collapses on that hardware. <b>Mitigation:</b> the ~6h go/no-go smoke test runs <i>first</i>, on the exact ops this pipeline uses; if it fails, Phase 1 pivots to a tolerance-based statistical framework (paired seeds, many-run averaging) rather than discovering the wall weeks in. A useful narrowing: the eigensolve appears to run its iterative solve on the host and farm only matvecs to the GPU — so the burden may be one bit-reproducible HVP, not a whole multi-step solve. Confirm that.</p></div>
-
-  <div class="verdict"><h4>Risk #2 — the compute grant, and its terms, aren't confirmed</h4><p>The AMD restart is contingent on an Exea Labs grant that is <b>requested, not approved</b>. The audited ask is modest — <b>~15–40 GPU-hours</b> (the old "500–600 GPU-hours" was build-effort mislabeled as compute) — so the binding constraint is more likely personal dev-time than GPU-hours, but "24 weeks" and any hour figure are only the same constraint if there's one GPU with no expiry. <b>Mitigation:</b> three scope tiers (Floor/Core/Stretch) so a smaller-or-larger grant needs no rewrite; PLAN V6 §5 lists the exact questions to resolve (realistic allocation, parallelism, expiry) before locking a tier. Abandoning a working CUDA stack for an unconfirmed one is the real cost if this falls through.</p></div>
-
-  <div class="verdict"><h4>Risk #3 — C1 might show that reaction is enough</h4><p>If the kill-test reveals that one-step-late spike-skip recovers held-out loss as well as any surgery, the repair contribution collapses — a live possibility, since the field skips-and-reinjects routinely. <b>Mitigation is baked in:</b> the cheap-fix battery runs early (Phase 2), against a <b>pre-registered</b> threshold, so the answer is known before the expensive machinery is built. If reaction wins → C1+C2 ship as a science/benchmark paper; the methodology de-risks everything either way.</p></div>
-
-  <div class="verdict"><h4>Risk #4 — the theory's non-commutativity hole is load-bearing</h4><p>Per-direction decoupling assumes the preconditioner commutes with the Hessian eigenbasis; it doesn't, and the onset paper (2506.04805) already lives in this regime. <b>Mitigation:</b> frame the decoupled result as the leading-order characterization, measure the commutator's effect on ψ* empirically, and claim a leading-order theory with a measured correction. A measured correction is more credible than a clean-but-false bound. PLAN V6 §8 pre-registers what a convincing ψ_k signal is before it decides anything.</p></div>
-
-  <div class="verdict"><h4>Risk #5 — "causal" is still slightly overclaimed</h4><p>Fork-and-intervene with matched seeds and a random-subspace control is genuinely interventional — far stronger than observational checkpoint stitching — but it's causal <i>within the induced-spike sandbox</i>; transfer to natural spikes is inference. <b>Mitigation:</b> say "interventional attribution," reserve "causal" for the sandbox, and let the K2 + corrupted-batch results carry the transfer argument.</p></div>
-
-  <div class="verdict"><h4>Novelty audit — honest verdict</h4><p>C1 (training counterfactuals as an instrument): freshest thing here, no direct prior work found, and it's <b>already built and CUDA-verified</b>. C2: resolves a named, published puzzle — reviewers value that above generic gaps. C3: "beat reset," incremental, never the lead. Theory: differentiated (recovery vs onset) but shares a regime with 2506.04805 — cite it prominently, stake the recovery claim sharply. <b>Net: a defensible novelty profile whose strength is the methodology and the puzzle-resolution, not the optimizer tweak.</b></p></div>
-
-  <h3>Immediate actions (PLAN V6 open items)</h3>
+<!-- PAPERS -->
+<section id="papers"><div class="wrap">
+  <div class="sec-kicker">08 · Read these first</div>
+  <h2>Reading list (every entry verified at the source)</h2>
   <ul class="tick">
-    <li>Confirm the Exea Labs AMD grant — get a yes/no and an actual hour figure; the audited need is only ~15–40 GPU-hours, so ask what a realistic single-project allocation looks like at that scale.</li>
-    <li>Confirm GPU parallelism + any grant expiry — this decides whether GPU-hours or personal dev-hours is the binding constraint.</li>
-    <li>Resolve the team-size figure to one accurate number before it appears in any funding or compute request.</li>
-    <li>Build the go/no-go determinism smoke test — the first thing to run on AMD, before the full determinism budget is spent.</li>
-    <li>Have the mentor (or another qualified reader) read the fork/branch design fresh for confounds before fully committing to Path B.</li>
+    <li><b>Bai et al.</b>, <i>Adaptive Preconditioners Trigger Loss Spikes in Adam</i>, ICML 2026: <a href="https://arxiv.org/abs/2506.04805">2506.04805</a>. The mechanism and λ_grad.</li>
+    <li><b>Wortsman et al.</b>, <i>Stable and low-precision training for large-scale vision-language models</i>: <a href="https://arxiv.org/abs/2304.13013">2304.13013</a>. 28/30 spikes follow an RMS spike (§3.4).</li>
+    <li><b>Xu</b>, <i>Stored in Optimizer State, Valued by Later Training</i>: <a href="https://arxiv.org/abs/2608.20442">2608.20442</a>. Optimizer-state surgery.</li>
+    <li><b>Liu &amp; Li</b>, <i>Finite-Horizon Input-Output Dynamics of Minibatch Perturbations in AdamW</i>: <a href="https://arxiv.org/abs/2608.19762">2608.19762</a>. Paired control/shock forks.</li>
+    <li><b>Zhong et al.</b>, <i>SWIFT: Expedited Failure Recovery for Large-scale DNN Training</i>, IEEE TPDS 2024: <a href="https://arxiv.org/abs/2302.06173">2302.06173</a>. One-step Adam inversion.</li>
+    <li><b>Biswas</b>, <i>Recent Training is Protected by Adam's Second Moment</i>, NeurIPS 2026 OPT workshop. Selective v clearing.</li>
+    <li><b>Altenbernd et al.</b>, <i>Exploring Silent Data Corruption as a Reliability Challenge in LLM Training</i>, CCGrid 2026: <a href="https://arxiv.org/abs/2604.00726">2604.00726</a>.</li>
+    <li><b>Donaghy et al.</b>, <i>OPEN-1B: A Fully Auditable Training Run</i>: <a href="https://arxiv.org/abs/2609.17380">2609.17380</a>. Full optimizer state is public every 100 steps.</li>
+    <li><b>Tang, Chen &amp; Liu</b>, <i>Beyond Quadratic Loss: The Stability Phase Diagram of Adam</i>: <a href="https://arxiv.org/abs/2609.18314">2609.18314</a>.</li>
+    <li><b>Cohen et al.</b>, <i>Adaptive Gradient Methods at the Edge of Stability</i>: <a href="https://arxiv.org/abs/2207.14484">2207.14484</a> (the 38/η threshold) · <i>Central Flows</i>, ICLR 2025: <a href="https://arxiv.org/abs/2410.24206">2410.24206</a>.</li>
+    <li><b>Baselines:</b> SPAM (ICLR 2025, <a href="https://arxiv.org/abs/2501.06842">2501.06842</a>) · ZClip (<a href="https://arxiv.org/abs/2504.02507">2504.02507</a>) · AdaGC (<a href="https://arxiv.org/abs/2502.11034">2502.11034</a>) · GradientStabilizer (<a href="https://arxiv.org/abs/2502.17055">2502.17055</a>).</li>
   </ul>
+  <p style="margin-top:12px">Full verified BibTeX: <a href="https://github.com/jaztulsi/optimizer-autopsy/blob/main/master-research/references.bib"><code>master-research/references.bib</code></a>.</p>
+</div></section>
+
+<!-- TEAM -->
+<section id="team"><div class="wrap">
+  <div class="sec-kicker">09 · Team</div>
+  <h2>Who's building it</h2>
+  <div class="tbl-scroll"><table>
+    <tr><th>Area</th><th>Owner</th><th>State</th></tr>
+    <tr><td>Instrument (C1), spike pipeline, autopsy code</td><td><span class="owner">jaztulsi</span></td><td>built; Δ = 0 on CUDA and the MI300X · 3 spike recipes and the core undo battery ran in the pilot</td></tr>
+    <tr><td>Baselines</td><td><span class="owner">Eddie</span></td><td>SPAM · ZClip · AdaGC · skip-step · v-resets merged (PR #14); rollback-and-skip in PR #20; not yet GPU-run</td></tr>
+    <tr><td>HVP (curvature)</td><td><span class="owner">Avyank</span></td><td>toy double-backward HVP in PR #15 (needs fixes)</td></tr>
+    <tr><td>Localizer (C2) · repair (C3) · theory</td><td>open roles</td><td>unbuilt (RML undo covers part of C3); output contract defined in PLAN V8 §6.4</td></tr>
+    <tr><td>Compute</td><td>AMD MI300X (via Avneh)</td><td>T0 ✓ and an exploratory T1 pilot (2026-10-27); prereg-v2 dose sweep next</td></tr>
+  </table></div>
 </div></section>
 
 <footer><div class="wrap">
-  <p class="mono">OPTIMIZER AUTOPSY · Causal Localization + Repair · PLAN V6 — AMD MI300X restart · instrument (C1) built &amp; CUDA-verified</p>
-  <p style="margin-top:6px">"We fork training at the moment of failure and intervene directly, showing where the damage lives, when it can be repaired, and when it provably cannot."</p>
+  <p class="mono">OPTIMIZER AUTOPSY · PLAN V8 · the afterlife of a loss spike · instrument built, Δ = 0 on CUDA and AMD · pilot run, dose sweep next</p>
+  <p style="margin-top:6px">"Measure where the damage lives before you repair it, and prove every claim against a bit-identical replay."</p>
   <p style="margin-top:12px"><a class="toplink" href="#top">↑ back to top</a></p>
 </div></footer>
 

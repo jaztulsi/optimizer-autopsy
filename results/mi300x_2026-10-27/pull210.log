@@ -1,0 +1,34 @@
+rocm7.14.1_ubuntu24.04_py3.12_pytorch_release_2.10.0: Pulling from rocm/pytorch
+0926a8eb0e60: Pulling fs layer
+535ca2efb752: Pulling fs layer
+33f8ebf93b59: Pulling fs layer
+2579b20b73af: Pulling fs layer
+0f083fc59dc8: Pulling fs layer
+99082bd30890: Pulling fs layer
+7bb68bba150c: Pulling fs layer
+473136f59873: Pulling fs layer
+4cc052b08b07: Pulling fs layer
+d516ae67a7d2: Pulling fs layer
+33f8ebf93b59: Download complete
+2579b20b73af: Download complete
+0926a8eb0e60: Download complete
+4cc052b08b07: Download complete
+7bb68bba150c: Download complete
+473136f59873: Download complete
+0926a8eb0e60: Pull complete
+4cc052b08b07: Pull complete
+7bb68bba150c: Pull complete
+0f083fc59dc8: Download complete
+d516ae67a7d2: Download complete
+535ca2efb752: Download complete
+535ca2efb752: Pull complete
+2579b20b73af: Pull complete
+473136f59873: Pull complete
+d516ae67a7d2: Pull complete
+0f083fc59dc8: Pull complete
+99082bd30890: Download complete
+33f8ebf93b59: Pull complete
+99082bd30890: Pull complete
+Digest: sha256:a39b69fe364a2919b66f03688c1505d391678f7e21dc4c77048fbacaba92bed4
+Status: Downloaded newer image for rocm/pytorch:rocm7.14.1_ubuntu24.04_py3.12_pytorch_release_2.10.0
+docker.io/rocm/pytorch:rocm7.14.1_ubuntu24.04_py3.12_pytorch_release_2.10.0

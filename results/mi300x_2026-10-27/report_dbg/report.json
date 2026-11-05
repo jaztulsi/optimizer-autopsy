@@ -1,0 +1,143 @@
+{
+ "corrupt_batch_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "corrupt_batch",
+  "seed": 0,
+  "done": 1,
+  "expected": 34,
+  "missing": [
+   "B0",
+   "U_mv@0",
+   "U_mv@1",
+   "U_mv@2",
+   "U_mv@4",
+   "U_mv@8",
+   "U_mv@16",
+   "U_mv@32",
+   "U_mv@64",
+   "U_m@0",
+   "U_v@0",
+   "U_m@10",
+   "U_v@10",
+   "P+",
+   "P-",
+   "I_same@2",
+   "I_opp@2",
+   "S2+@2",
+   "S2-@2",
+   "R@2",
+   "Ponly@2",
+   "I_same@8",
+   "I_opp@8",
+   "S2+@8",
+   "S2-@8",
+   "R@8",
+   "Ponly@8",
+   "I_same@32",
+   "I_opp@32",
+   "S2+@32",
+   "S2-@32",
+   "R@32",
+   "Ponly@32"
+  ],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  }
+ },
+ "lr_bump_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "lr_bump",
+  "seed": 0,
+  "done": 1,
+  "expected": 14,
+  "missing": [
+   "B0",
+   "U_mv@0",
+   "U_mv@1",
+   "U_mv@2",
+   "U_mv@4",
+   "U_mv@8",
+   "U_mv@16",
+   "U_mv@32",
+   "U_mv@64",
+   "U_m@0",
+   "U_v@0",
+   "U_m@10",
+   "U_v@10"
+  ],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  }
+ },
+ "repeat_ngram_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "repeat_ngram",
+  "seed": 0,
+  "done": 2,
+  "expected": 34,
+  "missing": [
+   "U_mv@0",
+   "U_mv@1",
+   "U_mv@2",
+   "U_mv@4",
+   "U_mv@8",
+   "U_mv@16",
+   "U_mv@32",
+   "U_mv@64",
+   "U_m@0",
+   "U_v@0",
+   "U_m@10",
+   "U_v@10",
+   "P+",
+   "P-",
+   "I_same@2",
+   "I_opp@2",
+   "S2+@2",
+   "S2-@2",
+   "R@2",
+   "Ponly@2",
+   "I_same@8",
+   "I_opp@8",
+   "S2+@8",
+   "S2-@8",
+   "R@8",
+   "Ponly@8",
+   "I_same@32",
+   "I_opp@32",
+   "S2+@32",
+   "S2-@32",
+   "R@32",
+   "Ponly@32"
+  ],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  }
+ }
+}
