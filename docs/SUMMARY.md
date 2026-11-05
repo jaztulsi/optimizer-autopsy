@@ -33,7 +33,7 @@ direct, m-echo and v-stall parts.
 - Autopsy code: RML undo, planted probes, placebo floor.
 - MI300X pilot (exploratory, 120 branches): width-1 spikes left 0.0003–0.0117 nats, about the chaos floor
   (≤ 0.0027). In the one clear case, undoing m+v removed ~98%; undoing v alone made it worse (n = 1).
-- Awaiting CI: an in-loop LR schedule (cosine / WSD); bit-flip faults in g, m, v.
+- New, CI-tested: an in-loop LR schedule (cosine / WSD); bit-flip faults in g, m, v.
 - Next: a spike-dose sweep in chaos units, with a v-cooldown arm.
 - Not built: localizer, repair module, theory.
 
@@ -175,8 +175,8 @@ AdaGC, and rollback-and-skip at matched compute.
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
 | Stats (TOST, bootstrap, Holm), attribution | ◐ partial | `research/analysis/` |
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
-| LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CPU tests written, first CI run pending; not run on a GPU | `research/harness/schedule.py` |
-| Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CPU tests written, first CI run pending | `research/autopsy/faults.py` |
+| LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
+| Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
 | Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML covers part of the repair. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15) | — |

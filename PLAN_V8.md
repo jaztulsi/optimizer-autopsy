@@ -273,7 +273,7 @@ filled in as gates pass. Reviewer simulation at week 8.
 | T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
 | Pre-registration | `prereg-v2` drafted; **not signed off or tagged** | `docs/prereg_v2.md` |
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
-| LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CPU tests written, first CI run pending; **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
+| LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CI-tested (fdff507); **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
 | Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML in `autopsy/` covers part of C3. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
 | Toy HVP | PR #15 open; needs changes before merge | branch `avyank/toy-hvp` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
@@ -815,7 +815,7 @@ of 2026-10-29:
   `lr_bump` and ≡ B\* for `corrupt_batch` [V]. `autopsy.mve.repair_battery` now passes 0.5 × the trunk clip.
 - **Pre-registration (improvement A3): ◐.** The pilot was tagged after its data. prereg-v2 is drafted and untagged.
 - **Spike role: ◐ (2026-11).** `lr_bump` now multiplies the scheduled LR, which landed with the schedule
-  (`harness/schedule.py`). CPU tests written, first CI run pending; not GPU-run.
+  (`harness/schedule.py`). CI-tested (fdff507); not GPU-run.
 - **Harness owner, flagged: ⬜.** The `except Exception` at fork.py:351.
 
 ### 9.4 Changes that need sign-off (flagged; not done)

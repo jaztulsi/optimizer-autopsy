@@ -25,7 +25,7 @@ determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA a
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
 exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
-bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05: first CI run pending, and the `Δ==0` gate must
+bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate must
 pass again on the changed loop before new GPU data counts. The next run is `docs/prereg_v2.md`, which needs sign-off and a git tag first. C2 (localizer)
 and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
