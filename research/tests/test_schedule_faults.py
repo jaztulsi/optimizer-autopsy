@@ -191,21 +191,23 @@ def test_sdc_grad_flips_the_first_microbatch_once_before_the_clip(monkeypatch):
             micro[step, m] = {n: p.grad.clone() for n, p in model.named_parameters()}
 
         losses = train_forward(model, opt, cfg, data, 0, 5, "cpu", grad_hook=gh, pre_step=pre_step)
-        return micro, losses
+        return micro, losses, dict(model.named_parameters())[TARGET].detach().clone()
 
     with _tmpdir() as d:
         data = _data_dir(d)
-        clean, clean_losses = run()
+        clean, clean_losses, clean_w = run()
         r = induce("sdc_grad", cfg, inject_step=2, width=1, index=3, bit=26)
-        micro, losses = run(r.pre_step)
+        micro, losses, w = run(r.pre_step)
         assert calls == [(3, 26)]  # once: not on microbatch 1, not on steps 3-4
         assert all(_diffs(micro[s, m], clean[s, m]) == [] for s in (0, 1) for m in (0, 1))
         assert _diffs(micro[2, 0], clean[2, 0]) == [(TARGET, 3)]
         got, was = micro[2, 0][TARGET].view(-1).view(torch.int32)[3], clean[2, 0][TARGET].view(-1).view(torch.int32)[3]
         assert int(got) == int(was) ^ (1 << 26)  # exactly bit 26 of that element
         assert _diffs(micro[2, 1], clean[2, 1]) == []  # the second microbatch's gradient is honest
-        assert losses[:3] == clean_losses[:3] and losses[3:] != clean_losses[3:]  # the flip reached the weights
-        _, again = run(r.pre_step)  # reused recipe object: flips again, identically
+        # The flip reached the weights. Not the loss: here g ~ 2e-5 has bit 26 set (a /256 flip), so the loss moves
+        # by ~ g * dw ~ 1e-8, below fp32 resolution at loss ~2.5 (CI 2026-11-05: losses bitwise equal).
+        assert losses[:3] == clean_losses[:3] and not torch.equal(w, clean_w)
+        _, again, _ = run(r.pre_step)  # reused recipe object: flips again, identically
         assert again == losses and len(calls) == 2
 
 
@@ -218,8 +220,8 @@ def _parity(cfg, data, recipe=None, steps=6):
     out = {}
     model, opt = _fresh(cfg)
     pre = None if recipe is None else recipe.pre_step
-    losses = train_forward(model, opt, cfg, data, 0, steps, "cpu", pre_step=pre, on_step=faults.parity_residual(out))
-    return out, losses
+    train_forward(model, opt, cfg, data, 0, steps, "cpu", pre_step=pre, on_step=faults.parity_residual(out))
+    return out, dict(model.named_parameters())[TARGET].detach().clone()
 
 
 def test_parity_residual_is_rounding_on_honest_adam_and_flags_state_flips():
@@ -239,7 +241,7 @@ def test_parity_residual_cannot_see_a_gradient_fault_by_design():
     # sdc_grad corrupts g, and m and v both integrate the same corrupt g: the recurrence still holds.
     with _tmpdir() as d:
         data = _data_dir(d)
-        _, clean = _parity(_NOCLIP, data)
-        out, losses = _parity(_NOCLIP, data, induce("sdc_grad", _NOCLIP, inject_step=3, width=1, bit=26))
-        assert losses[:4] == clean[:4] and losses[4:] != clean[4:]  # the fault did land ...
+        _, clean_w = _parity(_NOCLIP, data)
+        out, w = _parity(_NOCLIP, data, induce("sdc_grad", _NOCLIP, inject_step=3, width=1, bit=26))
+        assert not torch.equal(w, clean_w)  # the fault did land (in w; the loss is too coarse, see the sdc test) ...
         assert sorted(out) == [1, 2, 3, 4, 5] and max(max(r.values()) for r in out.values()) < 1e-5  # ... unseen
