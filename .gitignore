@@ -17,3 +17,4 @@ client_secret*.json
 service-account*.json
 *_token*.txt
 .claude-flow/
+.DS_Store
