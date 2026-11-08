@@ -331,7 +331,7 @@ def run_branch(data_dir, snapshot, branch: Branch, steps, device=None, seed=Fals
 
 def run_cheap_battery(data_dir, snapshot, branches: dict, steps, device=None, seed=True) -> dict:
     """Run the whole cheap-fix battery NaN-safely: seed once, then each branch with `seed=False`; a
-    branch that NaNs or raises records `survival=0` and the battery CONTINUES. Returns `{name: result}`.
+    branch that NaNs or hits a RuntimeError records `survival=0` and the battery CONTINUES. Returns `{name: result}`.
     All branches restore the SAME snapshot, so two `B0`s replay bitwise (the Δ==0 determinism gate)."""
     import torch
 
@@ -348,7 +348,8 @@ def run_cheap_battery(data_dir, snapshot, branches: dict, steps, device=None, se
     for name, br in branches.items():
         try:
             results[name] = run_branch(data_dir, snap, br, steps, device=device, seed=False)
-        except Exception as e:  # a NaN kernel, transient device error, etc. -- keep the battery going
+        except RuntimeError as e:  # NaN kernel / device error: keep going. A coding bug (KeyError, ...) must raise
+            # ponytail: a tensor shape mismatch is a RuntimeError too; it lands in "error", so read that field
             results[name] = {"name": name, "losses": [], "final": float("nan"), "survival": 0, "error": repr(e)}
     return results
 

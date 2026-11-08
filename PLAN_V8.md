@@ -816,7 +816,7 @@ of 2026-10-29:
 - **Pre-registration (improvement A3): ◐.** The pilot was tagged after its data. prereg-v2 is drafted and untagged.
 - **Spike role: ◐ (2026-11).** `lr_bump` now multiplies the scheduled LR, which landed with the schedule
   (`harness/schedule.py`). CI-tested (fdff507); not GPU-run.
-- **Harness owner, flagged: ⬜.** The `except Exception` at fork.py:351.
+- **Harness owner, flagged: ✅ (2026-11-08).** `run_cheap_battery` now catches only `RuntimeError`, so a coding bug raises.
 
 ### 9.4 Changes that need sign-off (flagged; not done)
 - **ROCm env vars** (`ROCBLAS_DEFAULT_ATOMICS_MODE=0`, `ROCBLAS_USE_HIPBLASLT=0`, `preferred_blas_library`, a fixed

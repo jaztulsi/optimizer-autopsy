@@ -183,10 +183,7 @@ AdaGC, and rollback-and-skip at matched compute.
 
 **Known code issues:**
 - `trunk.train_forward` changed (the schedule), so the Δ = 0 gate has to pass again on the GPU before new data counts.
-- With the clip off, `trunk._grad_norm` turns every gradient NaN when the norm is infinite (an inf/inf clip
-  coefficient). Only an overflowing fault, such as `sdc_grad` at bit 30, reaches it.
 - `mve` still runs the planted (phase B) arms for `sdc_grad`; at bit 30 on a GPU that plants a reversed gradient.
-- `fork.py:351` still records every exception as a branch failure.
 - The box runs torch 2.14 while the repo pins 2.10, so the pilot skipped the environment preflight.
 
 ### 6 · Results so far (AMD MI300X, 2026-10-27)

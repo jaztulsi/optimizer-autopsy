@@ -159,14 +159,14 @@ out.
 
 ## Status
 
-*As of 2026-10-29. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
+*As of 2026-11-08. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
 
 ```
 Instrument (C1)      ####################  built; Δ==0 on CUDA and on the AMD MI300X (in- and cross-process)
 Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); rollback (PR #20); never GPU-run
 Spike pipeline       ################----  pushed (PR #18); 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run
 P1 autopsy code      ##############------  RML undo · probes · placebo floor · dose · cooldown · driver; core battery ran
-Instrument fixes     ##############------  held-out Δ ✓ · Bs clip ✓ · lr_bump schedule and fork.py:351 open
+Instrument fixes     ##################--  held-out Δ ✓ · Bs clip ✓ · lr_bump schedule ✓ · battery errors ✓; Δ==0 re-run owed
 T1 pilot             ####################  exploratory: damage at the ~0.003-nat chaos floor; one β1 = 0.8 hint for C-2
 prereg-v2            ##########----------  drafted (dose × phase × placebo × cooldown); needs sign-off + tag
 Localizer / repair   ##------------------  C2 unbuilt; C3 partly covered by RML; output contract in PLAN V8 §6.4
@@ -235,7 +235,7 @@ CI test fails the build if a token literal reaches the tree.
 
 ## Contributing
 
-Work through PRs, under your own identity. CI (ruff, sloppylint, tests, gitleaks) must be green. Don't modify
+Work through PRs, under your own identity. CI (ruff, tests, gitleaks) must be green. Don't modify
 `research/harness/determinism.py` or `preflight.py` without flagging it first. See [`CLAUDE.md`](CLAUDE.md) and
 [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 

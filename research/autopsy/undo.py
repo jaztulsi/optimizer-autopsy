@@ -46,6 +46,7 @@ def clean_final_grads(model, cfg, data_dir, step) -> dict:
     import torch
 
     from research.data.prepare import get_batch
+    from research.harness.trunk import _grad_norm
 
     t = cfg["train"]
     ga, b, blk = t.get("grad_accum", 1), t["batch_size"], model.cfg.block_size
@@ -64,8 +65,7 @@ def clean_final_grads(model, cfg, data_dir, step) -> dict:
                 a.add_(p.grad)
     for a, (_, p) in zip(acc, params):
         p.grad = a.div_(ga)
-    clip = cfg["optim"].get("grad_clip", 0.0)
-    torch.nn.utils.clip_grad_norm_([p for _, p in params], clip if clip and clip > 0 else float("inf"))
+    _grad_norm([p for _, p in params], cfg["optim"].get("grad_clip", 0.0))
     out = {n: p.grad.detach().clone() for n, p in params}
     for (_, p), g in zip(params, saved):
         p.grad = g
@@ -206,7 +206,8 @@ def as_cooldown_pre_step(log: dict, at_step: int, channels: str, out: dict):
                         continue
                     bc = 1 - b2 ** (int(st["step"]) + 1)
                     v = st["exp_avg_sq"].double() / bc
-                    num += float(((v.sqrt() + eps) / ((v + dv / bc).sqrt() + eps)).sum())
+                    # clamp: v was rounded to fp32 after the undo, so v + dv can land just below 0 where dv < 0
+                    num += float(((v.sqrt() + eps) / ((v + dv / bc).clamp_min(0).sqrt() + eps)).sum())
                     den += v.numel()
             f = num / den if den else 1.0
         lr = lr_at(step, ctx["cfg"]) * f

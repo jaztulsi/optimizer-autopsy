@@ -60,6 +60,47 @@ def test_cooldown_is_identity_without_inflation_and_shrinks_with_it():
         assert 0 < lr < 2e-3 if shrink else lr == 2e-3
 
 
+def test_cooldown_lr_stays_finite_when_v_plus_dv_goes_negative():
+    # A coordinate the clean batch hit and the spike did not: dv < 0 and v ~ 0, so v + dv can round below 0
+    model, opt = _model_opt()
+    log = {5: {n: (torch.zeros_like(p).double(), -torch.ones_like(p).double()) for n, p in model.named_parameters()}}
+    pre, ctx = undo.as_cooldown_pre_step(log, 6, "v", {}), {"model": model, "opt": opt, "cfg": {"optim": {"lr": 2e-3}}}
+    pre(6, ctx)
+    for p in model.parameters():
+        opt.state[p]["exp_avg_sq"].zero_()
+    pre(7, ctx)
+    assert opt.param_groups[0]["lr"] == 2e-3
+
+
+def test_grad_norm_clip_off_leaves_an_overflowed_gradient_intact():
+    from research.harness.trunk import _grad_norm
+
+    p, q = torch.nn.Parameter(torch.ones(2)), torch.nn.Parameter(torch.ones(2))
+    p.grad, q.grad = torch.tensor([float("inf"), 1.0]), torch.tensor([3.0, 4.0])
+    assert _grad_norm(iter([p, q]), 0.0) == float("inf")  # a generator, as the trunk passes
+    assert p.grad[1] == 1.0 and q.grad.tolist() == [3.0, 4.0]
+    assert _grad_norm([q], None) == 5.0 and q.grad.tolist() == [3.0, 4.0]
+    assert _grad_norm([q], 2.5) == 5.0 and float(q.grad.norm()) == pytest.approx(2.5, rel=1e-4)
+
+
+def test_battery_records_a_runtime_error_but_raises_a_coding_bug(monkeypatch):
+    from research.harness import fork
+
+    def raises(exc):
+        def run_branch(*args, **kwargs):
+            raise exc
+
+        return run_branch
+
+    branches = {"B0": fork.Branch("B0", None, {})}
+    monkeypatch.setattr(fork, "run_branch", raises(RuntimeError("NaN kernel")))
+    res = fork.run_cheap_battery(None, {}, branches, 1, device="cpu", seed=False)
+    assert res["B0"]["survival"] == 0 and "NaN kernel" in res["B0"]["error"]
+    monkeypatch.setattr(fork, "run_branch", raises(KeyError("typo")))
+    with pytest.raises(KeyError):
+        fork.run_cheap_battery(None, {}, branches, 1, device="cpu", seed=False)
+
+
 def test_expected_branches_count_placebo_dose_and_cooldown_arms():
     base = ["--config", "x", "--inject-step", "160", "--taus", "0", "--c2-taus", "0", "--dts", "8"]
     extra = ["--placebo", "8", "--plant-coefs", "1,10", "--dose-taus", "0"]

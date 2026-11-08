@@ -4,8 +4,8 @@ Convention everywhere: Δ is held-out damage, LOWER IS BETTER. `a` is the method
 spike instance (same index = same instance). `clusters` (e.g. the data-order seed) collapses the paired
 differences to cluster means first, so the resampling unit is the cluster, not the fork.
 
-scipy and statsmodels are imported lazily: both are pinned (research/requirements.txt, requirements-dev.txt)
-and installed in CI, so the tests exercise the real code.
+scipy and statsmodels are imported lazily: both are pinned (research/requirements.txt, requirements-dev.txt).
+CI installs neither and no test imports this module yet, so none of it is CI-tested.
 """
 
 from __future__ import annotations

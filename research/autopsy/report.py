@@ -1,4 +1,4 @@
-"""Report over mve instance JSONs, blinded per PLAN_V8 §7.2 until prereg-v1 is tagged (§13b).
+"""Report over mve instance JSONs, blinded per PLAN_V8 §7.2 until prereg-v2 is tagged.
 
     python -m research.autopsy.report runs/t1_pilot runs/t1_beta --out runs/t1_report
 

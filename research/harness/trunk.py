@@ -25,9 +25,11 @@ from research.model.nanogpt import GPT, GPTConfig
 
 
 def _grad_norm(params, clip: float) -> float:
-    """Total grad L2 norm; also clips in place when clip>0 (0/None -> measure only)."""
-    max_norm = clip if clip and clip > 0 else float("inf")
-    return float(torch.nn.utils.clip_grad_norm_(params, max_norm))
+    """Total grad L2 norm; also clips in place when clip>0. Clip off (0/None) only measures: `clip_grad_norm_`
+    with max_norm=inf would scale by inf/inf = NaN once the norm overflows, wiping every gradient."""
+    if clip and clip > 0:
+        return float(torch.nn.utils.clip_grad_norm_(params, clip))
+    return float(torch.nn.utils.get_total_norm([p.grad for p in params if p.grad is not None]))
 
 
 def build_model_opt(cfg: dict, device: str):

@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/ruff-action@v3
         with:
+          version: "0.16.2"  # same as requirements-dev.txt and .pre-commit-config.yaml
           args: check
 
   secret-scan:

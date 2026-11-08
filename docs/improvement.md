@@ -13,7 +13,8 @@
 > - **A2 (held-out loss) is fixed in the P1 driver:** `analysis/eval.py`, used by `autopsy/mve.py`.
 > - **A1 (`Bs` clip) is fixed in the P1 driver:** `mve.repair_battery` passes 0.5 × the trunk clip.
 > - **A6:** the cross-process gate passed on the MI300X (`results/mi300x_2026-10-27/`).
-> - **Still open:** B3 (`fork.py:351`) and the A8 pin choice (the box has torch 2.14; the pin is 2.10).
+> - **2026-11-08:** B3 is fixed (`run_cheap_battery` catches only `RuntimeError`), and CI's ruff is pinned to 0.16.2 (C4).
+> - **Still open:** the A8 pin choice (the box has torch 2.14; the pin is 2.10).
 >
 > Current state: [`SUMMARY.md`](SUMMARY.md) and PLAN_V8 §3 / §9.3.
 >
