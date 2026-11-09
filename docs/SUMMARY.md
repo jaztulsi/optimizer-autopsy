@@ -169,7 +169,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Spike recipes + detector (`lr_bump`, `corrupt_batch`, `repeat_ngram`, `v_inflate`, `tiny_eps`, precision) | ✅ CI; three recipes ran on the MI300X | `research/spikes/` |
 | Spike capture (v̄, t0 / fork / matched-normal snapshots) | ◐ The self-check crashed on the MI300X (eps read back as a string). Fix committed (f751e14); not yet re-run on the GPU | `research/spikes/capture.py` |
 | Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; not yet run on a GPU | `research/baselines/` |
-| Rollback-and-skip at matched compute | ◐ written and CI-tested (PR #20, not merged) | branch `baselines/rollback-skip` |
+| Rollback-and-skip at matched compute | ◐ written and CI-tested (PR #20, not merged); `Brollback_k` wiring into `mve` in PR #21 | branches `baselines/rollback-skip`, `autopsy/brollback-k-wiring` |
 | Autopsy code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, placebo floor, dose meter, GPU driver `mve`, sealed report | ◐ CI-tested; the core battery ran on the MI300X; the placebo, dose and cooldown arms have not run yet | `research/autopsy/` |
 | Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ implemented 2026-10-29, not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
