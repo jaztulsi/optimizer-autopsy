@@ -5,7 +5,7 @@ spike instance (same index = same instance). `clusters` (e.g. the data-order see
 differences to cluster means first, so the resampling unit is the cluster, not the fork.
 
 scipy and statsmodels are imported lazily: both are pinned (research/requirements.txt, requirements-dev.txt).
-CI installs neither and no test imports this module yet, so none of it is CI-tested.
+CI installs neither, so only `_diffs` (numpy alone) is CI-tested.
 """
 
 from __future__ import annotations
@@ -18,14 +18,16 @@ import numpy as np
 
 def _diffs(a, b, clusters=None) -> np.ndarray:
     d = np.asarray(a, dtype=np.float64) - np.asarray(b, dtype=np.float64)
-    if d.ndim != 1 or d.size < 2:
-        raise ValueError(f"need >= 2 paired values, got shape {d.shape}")
-    if clusters is None:
-        return d
-    c = np.asarray(clusters)
-    if c.shape != d.shape:
-        raise ValueError(f"clusters shape {c.shape} != diffs shape {d.shape}")
-    return np.array([d[c == k].mean() for k in np.unique(c)])
+    if d.ndim != 1:
+        raise ValueError(f"need 1-D paired values, got shape {d.shape}")
+    if clusters is not None:
+        c = np.asarray(clusters)
+        if c.shape != d.shape:
+            raise ValueError(f"clusters shape {c.shape} != diffs shape {d.shape}")
+        d = np.array([d[c == k].mean() for k in np.unique(c)])
+    if d.size < 2:  # checked after collapsing: the resampling unit is the cluster
+        raise ValueError(f"need >= 2 paired values (or clusters), got {d.size}")
+    return d
 
 
 def paired_bootstrap(a, b, clusters=None, alpha=0.05, n_resamples=10_000, seed=0) -> dict:

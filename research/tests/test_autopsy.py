@@ -5,8 +5,9 @@ import json
 import pytest
 import torch
 
+from research.analysis.stats import _diffs
 from research.autopsy import report, undo
-from research.autopsy.mve import expected_branches, parser
+from research.autopsy.mve import _resume_mismatch, expected_branches, parser
 from research.autopsy.probes import data_order, nudge_ulp, ulp_placebo
 
 
@@ -212,6 +213,58 @@ def test_report_zero_pert_check_borrowed_floor_and_release_rows(tmp_path):
     assert abs(sealed["spike"]["_d_end"]["B0"] - 5.0) < 1e-6  # D = 0.5 over sigma = 0.1
     rows = [json.loads(line) for line in open(tmp_path / "out" / "chaos_forks.jsonl")]
     assert len(rows) == 4 and {r["arm"] for r in rows} == {"zero", "w"}
+
+
+def _core_result(inject, b1, vals):
+    argv = ["mve", "--config", "x", "--kind", "corrupt_batch", "--inject-step", str(inject), "--taus", "0"]
+    argv += ["--c2-taus", "0"]
+    branches = {n: {"val": {"99": x}, "survival": 1} for n, x in vals.items()}
+    return {
+        "stamp": {"argv": argv, "cfg": {"seed": 0, "optim": {"betas": [b1, 0.95]}}},
+        "horizons": [99],
+        "branches": branches,
+    }
+
+
+def test_report_beta_arms_keep_one_experiment_per_group(tmp_path):
+    runs = {
+        "a": _core_result(10, 0.8, {"B*": 2.0, "B0": 2.5, "U_mv@0": 2.1}),  # share 0.8
+        "b": _core_result(10, 0.95, {"B*": 2.0, "B0": 2.5, "U_mv@0": 2.3}),  # share 0.4
+        "c": _core_result(20, 0.95, {"B*": 2.0, "B0": 2.5, "U_mv@0": 2.0}),  # another phase: must not overwrite b
+        "d": _core_result(10, 0.5, {"B*": 2.0, "B0": 2.5}),  # no undo arm, so no share: must not join a and b
+    }
+    for name, res in runs.items():
+        json.dump(res, open(tmp_path / f"{name}.json", "w"))
+    report.main([str(tmp_path)], str(tmp_path / "out"))
+    arms = json.load(open(tmp_path / "out" / "sealed.json"))["_beta_arms"]
+    assert list(arms) == ["corrupt_batch_w1_inj10_seed0_b2=0.95_core"]
+    group = arms["corrupt_batch_w1_inj10_seed0_b2=0.95_core"]
+    assert group["indirect_share_by_beta1"] == pytest.approx({"0.8": 0.8, "0.95": 0.4})
+    assert group["beta1_by_indirect_share"] == [0.95, 0.8]
+
+
+def test_report_refuses_two_results_with_one_name_but_allows_overlapping_roots(tmp_path):
+    res = _core_result(10, 0.9, {"B*": 2.0, "B0": 2.5})
+    for d in ("a", "b"):
+        (tmp_path / d).mkdir()
+        json.dump(res, open(tmp_path / d / "same.json", "w"))
+    report.main([str(tmp_path / "a"), str(tmp_path / "a")], str(tmp_path / "out"))  # one file listed twice is fine
+    with pytest.raises(SystemExit, match="share the instance name same"):
+        report.main([str(tmp_path / "a"), str(tmp_path / "b")], str(tmp_path / "out"))
+
+
+def test_stats_collapses_clusters_before_counting_them():
+    assert _diffs([1.0, 3.0, 5.0], [0.0, 0.0, 0.0], clusters=[1, 1, 2]).tolist() == [2.0, 5.0]
+    with pytest.raises(ValueError, match="clusters"):
+        _diffs([1.0, 3.0], [0.0, 0.0], clusters=[7, 7])
+
+
+def test_resume_mismatch_names_what_changed():
+    old = {"cfg": {"betas": [0.9, 0.95]}, "git_sha": "a", "argv": ["/box/mve.py", "--seed", "0"]}
+    assert _resume_mismatch(old, {**old, "cfg": {"betas": (0.9, 0.95)}, "argv": ["mve.py", "--seed", "0"]}) == []
+    assert _resume_mismatch(old, {**old, "git_sha": "b"}) == ["git_sha"]
+    assert _resume_mismatch(old, {**old, "argv": ["mve.py", "--seed", "1"]}) == ["argv"]
+    assert _resume_mismatch(old, {**old, "cfg": {}, "git_sha": "b"}) == ["cfg", "git_sha"]
 
 
 def test_report_floor_and_dose_units():

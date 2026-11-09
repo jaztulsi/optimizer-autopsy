@@ -72,6 +72,13 @@ def _stamp(cfg: dict) -> dict:
     }
 
 
+def _resume_mismatch(old: dict, new: dict) -> list[str]:
+    """Which of cfg / commit / command line differ between a result file's stamp and this run."""
+    new = json.loads(json.dumps(new))  # a stored stamp has been through JSON
+    bad = [k for k in ("cfg", "git_sha") if old.get(k) != new.get(k)]
+    return bad + ["argv"] * (old["argv"][1:] != new["argv"][1:])  # argv[0] is the interpreter's view of the script
+
+
 def placebo_branches(cfg, at, k, channels, data_dir=None, data_forks=0):
     """{name: Branch} for the chaos floor, all forks of B* from step `at`: `Pl_0` (no nudge: must replay B*
     exactly), `Pl_<ch>#i` K 1-ulp placebos per channel (w / g / opt -> sigma_chaos(h)) and `Dord#i`
@@ -284,12 +291,13 @@ def run_instance(args) -> str:
         save(snap, snap_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if os.path.exists(out_path):  # resume: the tag doesn't encode lr / schedule / clip / steps, so check the cfg
+    stamp = _stamp(cfg)
+    if os.path.exists(out_path):  # resume: the tag doesn't encode lr / schedule / arms, and report.py reads argv
         res = json.load(open(out_path))
-        if res["stamp"].get("cfg") != json.loads(json.dumps(cfg)):
-            raise SystemExit(f"{out_path} was written with a different cfg: resume would mix runs; use a new --out")
+        if bad := _resume_mismatch(res["stamp"], stamp):
+            raise SystemExit(f"{out_path} differs in {', '.join(bad)}: resume would mix runs; use a new --out")
     else:
-        res = {"stamp": _stamp(cfg), "branches": {}}
+        res = {"stamp": stamp, "branches": {}}
     steps = cfg["train"]["max_steps"] - args.inject_step
     last = args.inject_step + steps - 1
     horizons = sorted({min(args.inject_step + h - 1, last) for h in args.horizons} | {last})

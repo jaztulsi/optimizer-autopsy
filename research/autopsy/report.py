@@ -176,16 +176,21 @@ def _fork_rows(tag: str, res: dict):
 def main(roots: list[str], out: str, unseal: bool = False) -> None:
     out_names = {"report.json", "sealed.json"}
     files = sorted(
-        f
-        for root in roots
-        for f in glob.glob(os.path.join(root, "**", "*.json"), recursive=True)
-        if os.path.basename(f) not in out_names
+        {
+            os.path.realpath(f)  # a set of real paths: overlapping roots list a file once
+            for root in roots
+            for f in glob.glob(os.path.join(root, "**", "*.json"), recursive=True)
+            if os.path.basename(f) not in out_names
+        }
     )
-    runs = {}
+    runs, paths = {}, {}
     for f in files:
         res = json.load(open(f))
         if "branches" in res:
-            runs[os.path.basename(f)[: -len(".json")]] = res
+            tag = os.path.basename(f)[: -len(".json")]
+            if tag in paths:
+                raise SystemExit(f"two result files share the instance name {tag}: {paths[tag]} and {f}")
+            paths[tag], runs[tag] = f, res
     floors: dict = {}  # own w-channel end floors, lent to same-trunk instances that ran no placebos
     for res in runs.values():
         sig = _instance(res)[0]["sigma_unit"]["value"]
@@ -196,13 +201,17 @@ def main(roots: list[str], out: str, unseal: bool = False) -> None:
         inst[tag], sealed[tag] = _instance(res, floors.get(_floor_key(res)))
         hz = [h for h in sealed[tag] if h.isdigit()]
         end = sealed[tag][max(hz, key=int)] if hz else {}
-        key = f"{inst[tag]['kind']}_seed{inst[tag]['seed']}_b2={inst[tag]['betas'][1]}"
-        beta.setdefault(key, {})[inst[tag]["betas"][0]] = end.get("indirect_share")
+        if end.get("indirect_share") is not None:  # a group is one experiment, differing only in beta1
+            a = parser().parse_args(res["stamp"]["argv"][1:])
+            fault = f"-{a.fault_target}-i{a.fault_index}-bit{a.fault_bit}" if a.fault_bit is not None else ""
+            seed, (b1, b2) = inst[tag]["seed"], inst[tag]["betas"]
+            key = f"{a.kind}{fault}_w{a.width}_inj{a.inject_step}_seed{seed}_b2={b2}_{a.battery}"
+            beta.setdefault(key, {})[b1] = end["indirect_share"]
     # beta1 arms (Fig 2): indirect share at the end horizon per beta1, and its ordering -- sealed
     sealed["_beta_arms"] = {
         k: {
             "indirect_share_by_beta1": v,
-            "beta1_by_indirect_share": sorted((b for b in v if v[b] is not None), key=v.get),
+            "beta1_by_indirect_share": sorted(v, key=v.get),
         }
         for k, v in beta.items()
         if len(v) > 1
