@@ -319,3 +319,55 @@ def test_repair_battery_times_detector_arms_at_the_rml_lag(monkeypatch):
     assert seen["detector_t0"] == 163 == undo.undo_step(160, 3) - 1  # RML acts at the top of 164
     mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3, detector_t0=170)
     assert seen["detector_t0"] == 170
+
+
+def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_path, monkeypatch):
+    # The whole driver on a 1-layer GPT: horizons line up across branches, and a resumed run still has Brollback_k.
+    import numpy as np
+
+    from research.autopsy import mve
+    from research.baselines.rollback import ROLLBACK_K as K
+
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    for split in ("train", "val"):
+        np.random.default_rng(0).integers(0, 16, size=8000, dtype=np.uint16).tofile(tmp_path / f"{split}.bin")
+    inj, budget, lag, wasted = K + 1, 6, 1, 2  # the detector sees step inj + lag, so inj..t0 are wasted
+    cfg = {
+        "seed": 0,
+        "model": {
+            "n_layer": 1,
+            "n_head": 2,
+            "n_embd": 16,
+            "block_size": 8,
+            "vocab_size": 16,
+            "dropout": 0.0,
+            "bias": False,
+        },
+        "optim": {"lr": 3e-3, "weight_decay": 0.1, "betas": [0.9, 0.95], "grad_clip": 1.0},
+        "train": {"batch_size": 4, "grad_accum": 1, "max_steps": inj + budget},
+    }
+    (tmp_path / "cfg.yaml").write_text(json.dumps(cfg))  # JSON is valid YAML
+    out = tmp_path / "out"
+    argv = ["--config", str(tmp_path / "cfg.yaml"), "--kind", "corrupt_batch", "--inject-step", str(inj)]
+    argv += ["--battery", "repair", "--lag", str(lag), "--horizons", "4"]
+    argv += ["--data-dir", str(tmp_path), "--out", str(out), "--skip-preflight"]
+
+    mve.main(argv)
+    path = next(out.glob("*.json"))
+    res = json.loads(path.read_text())
+    br = res["branches"]
+    assert br["B*"]["horizon_shift"] == 0
+    assert br["Brollback"]["horizon_shift"] == wasted
+    assert br["Brollback_k"]["horizon_shift"] == K + wasted
+    assert len(br["Brollback_k"]["train_losses"]) == budget - wasted  # matched compute
+    want = {str(h) for h in res["horizons"]}
+    assert len(want) == 2 and all(set(br[n]["val"]) == want for n in ("B*", "Brollback", "Brollback_k"))
+
+    kept = br.pop("Brollback_k")
+    path.write_text(json.dumps(res))
+    mve.main(argv)  # resume: the rollback snapshot comes back from its own file
+    assert json.loads(path.read_text())["branches"]["Brollback_k"]["val"] == kept["val"]
+
+    next(out.glob("*.rollback.safetensors")).unlink()
+    with pytest.raises(SystemExit, match="Brollback_k"):
+        mve.main(argv)

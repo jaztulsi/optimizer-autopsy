@@ -178,7 +178,8 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     RML@lag = full m+v undo; RML-cool = m+v undo + global cooldown; RML-sel = m undo + v undo on the top
     1% of coordinates by x_i (docs/prereg_v2.md H-E, H-F). Edit stats land in extra[name].
     `detector_t0` defaults to the step the same detector lag implies (window end + lag), so the detector-timed
-    baselines (skip-step, rollback) act on the same information as RML instead of dropping out of the battery."""
+    baselines (skip-step, rollback) act on the same information as RML instead of dropping out of the battery.
+    `snap["rollback_snapshot"]` (set by run_instance) adds Brollback_k."""
     from research.autopsy import undo
     from research.harness.fork import Branch, compose, make_baseline_branches, make_branches
 
@@ -188,7 +189,11 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
         detector_t0 = at - 1  # the detector saw this step's loss; RML acts at the top of the next one
     clip = cfg["optim"].get("grad_clip") or 1.0
     br = make_branches(cfg, recipe, clip_norm=0.5 * clip)
-    br.update(make_baseline_branches(cfg, recipe, detector_t0=detector_t0, **snap["meta"].get("baseline_priming", {})))
+    priming = snap["meta"].get("baseline_priming", {})
+    rollback_snapshot = snap.get("rollback_snapshot")
+    br.update(
+        make_baseline_branches(cfg, recipe, detector_t0=detector_t0, rollback_snapshot=rollback_snapshot, **priming)
+    )
     extra = {} if extra is None else extra
 
     def sel(log, out):
@@ -255,6 +260,7 @@ def run_instance(args) -> str:
 
     from research.analysis.eval import heldout_steps, horizon_probe
     from research.autopsy.faults import parity_residual
+    from research.baselines.rollback import ROLLBACK_K
     from research.configs import load_config
     from research.data.prepare import resolve_data_dir
     from research.harness.determinism import seed_everything
@@ -281,13 +287,22 @@ def run_instance(args) -> str:
     tag = f"{kind}_w{args.width}_inj{args.inject_step}_seed{cfg['seed']}_b{b1}-{b2}_{args.battery}"
     os.makedirs(args.out, exist_ok=True)
     out_path, snap_path = os.path.join(args.out, f"{tag}.json"), os.path.join(args.out, f"{tag}.snap.safetensors")
+    rollback_path = os.path.join(args.out, f"{tag}.rollback.safetensors")  # snapshot.save drops Brollback_k's snapshot
+    repair = args.battery == "repair"
 
     # An optim.schedule needs nothing here: trunk.train_forward applies it, so prime_trunk, B* and every fork get it.
     if os.path.exists(snap_path):  # resume: seed once ourselves, reuse the primed pre-spike snapshot
         seed_everything(cfg.get("seed", 1337), deterministic=True)
         snap = load(snap_path)
+        if repair:
+            if not os.path.exists(rollback_path):
+                raise SystemExit(f"{rollback_path} is missing: Brollback_k can't run; use a new --out to prime again")
+            snap["rollback_snapshot"] = load(rollback_path)
     else:
-        snap = prime_trunk(cfg, data_dir, args.inject_step, meta={"instance": tag})
+        k = ROLLBACK_K if repair else None
+        snap = prime_trunk(cfg, data_dir, args.inject_step, meta={"instance": tag}, rollback_k=k)
+        if repair:  # before snap_path, so a snap on disk means its rollback file is there too
+            save(snap["rollback_snapshot"], rollback_path)
         save(snap, snap_path)
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -311,9 +326,11 @@ def run_instance(args) -> str:
             return
         vals: dict = {}
         t = time.time()
-        # A rollback branch runs steps - wasted, so horizon h is probed at matched compute: step h - wasted
-        wasted = getattr(br, "wasted_steps", 0)
-        on_step = horizon_probe(data_dir, val, cfg["train"]["batch_size"], [h - wasted for h in horizons], vals)
+        # A rollback branch runs steps - wasted, so horizon h is probed at matched compute: step h - shift,
+        # where shift = wasted (Brollback) or k + wasted (Brollback_k, which also starts k steps earlier)
+        wasted = br.wasted_steps
+        shift = wasted + (snap["step"] - br.snapshot["step"] if br.snapshot is not None else 0)
+        on_step = horizon_probe(data_dir, val, cfg["train"]["batch_size"], [h - shift for h in horizons], vals)
         pr: dict = {}  # {step: {"m", "v"}} parity residuals: fault kinds' B* and B0 only
         if args.kind in FAULTS and name in ("B*", "B0"):
             par = parity_residual(pr)
@@ -321,18 +338,19 @@ def run_instance(args) -> str:
             br = replace(br, pre_step=compose(_prime_parity(par, args.inject_step), br.pre_step))
         r = run_branch(data_dir, snap, br, steps, device=device, seed=False, on_step=on_step)
         res["branches"][name] = {
-            "val": {str(k + wasted): v for k, v in vals.items()},
+            "val": {str(k + shift): v for k, v in vals.items()},
             "survival": r["survival"],
             "final_train_loss": r["final"],
             "train_losses": r["losses"],
             "seconds": round((time.time() - t) * steps / (steps - wasted), 1),
             "wasted_steps": wasted,
+            "horizon_shift": shift,
             "metrics": extra.get(name, {}),
         }
         if pr:
             res["branches"][name]["parity"] = _parity_summary(pr, args.inject_step)
         json.dump(res, open(out_path, "w"), indent=1)
-        print(f"[{tag}] {name}: val@end={vals.get(last - wasted)} survival={r['survival']}", flush=True)
+        print(f"[{tag}] {name}: val@end={vals.get(last - shift)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":
         for name, br in repair_battery(cfg, recipe, data_dir, snap, args.lag, args.detector_t0, extra).items():
