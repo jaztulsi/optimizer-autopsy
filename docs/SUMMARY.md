@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-11-05. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-08. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
@@ -198,6 +198,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 - **Speed** [V]: 22.2 ms/step solo for the proxy at batch 64, ≈ 33 ms/step per deterministic fork when forks share
   the GPU, and ≈ 1.3× throughput from packing two forks. That is ≈ 43 s (0.012 GPU-h) per end-of-schedule proxy
   branch.
+- **GPU budget:** 20 MI300X-hours in total, about 3 used so far.
 - **Pilot** [V, exploratory]: 120 of 120 branches with 0 crashes. Width-1 spikes at step 160, seed 0, constant LR,
   with `corrupt_batch` and `repeat_ngram` at β1 = 0.9, `lr_bump`, and `corrupt_batch` at β1 = 0.8 and 0.95.
   - **Spikes this small mostly wash out.** Lasting damage was 0.0003–0.0117 nats, while the 1-ulp chaos scale
@@ -223,6 +224,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-05 | LR schedule moved into the training loop; `lr_bump` and the cooldown arm now scale it |
 | 11-05 | Bit-flip faults in g, m and v, plus a parity residual; `mve` skips the undo arms that equal B0 for m / v flips |
 | 11-05 | `mve` refuses to resume a result file written under a different config |
+| 11-08 | That refusal now also covers a different commit or command line; `report` keeps β1 groups per experiment and stops on two result files with one name |
 
 ### 8 · Where things live
 

@@ -1,5 +1,5 @@
 # OPTIMIZER AUTOPSY — PLAN V8
-### Current source of truth · 2026-10-22 (state updated 2026-10-29) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
+### Current source of truth · 2026-10-22 (state updated 2026-11-08) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
 
 > **Read this first, every session.** V8 supersedes V7 ([`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md)) where
 > they differ. V7 §4's locked decisions (spike design, branch menu, ROCm tolerance, natural-spike rule, ZClip/AdaGC
@@ -24,7 +24,7 @@
 > - **[A]** an assumption, such as a cost before `step_timer`;
 > - **[UNV]** not confirmed, so it supports no claim.
 >
-> **State (2026-10-29):** T0 bring-up and an *exploratory* T1 pilot ran on the AMD MI300X on 2026-10-27 (§0.1, §3).
+> **State (2026-11-08):** T0 bring-up and an *exploratory* T1 pilot ran on the AMD MI300X on 2026-10-27 (§0.1, §3).
 > Every other number in this plan is still a prediction or a proposal. The next run is governed by
 > [`docs/prereg_v2.md`](docs/prereg_v2.md). A short (< 2,000 characters) and a long summary of the project (idea,
 > approach, implementation, results) are in [`docs/SUMMARY.md`](docs/SUMMARY.md).
@@ -254,13 +254,13 @@ steer the framing.
 | Tab 2 | C-1…C-4 with CIs, Holm-adjusted, per spike type, never pooled | — | all | — |
 | App. | M2 parity (clip-matched); localization vs the oracle (exploratory); the pre-registration text and tag | exploratory | M2 (2) | BH |
 
-**Writing order** (it can start before the GPU; jaz to approve): related work (corpus 02–13) → method (harness,
+**Writing order** (it can start before the GPU; Jasraj to approve): related work (corpus 02–13) → method (harness,
 estimands, the M1/M3/M4 definitions) → pre-registration appendix → intro around the placeholder abstract. Results get
-filled in as gates pass. Reviewer simulation at week 8.
+filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 
 ---
 
-## 3 · Verified state on 2026-10-29 (first written 2026-10-22)
+## 3 · Verified state on 2026-11-08 (first written 2026-10-22)
 
 | Piece | State | Evidence |
 |---|---|---|
@@ -275,7 +275,8 @@ filled in as gates pass. Reviewer simulation at week 8.
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
 | LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CI-tested (fdff507); **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
 | Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML in `autopsy/` covers part of C3. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
-| Toy HVP | PR #15 open; needs changes before merge | branch `avyank/toy-hvp` |
+| Toy HVP | PR #15 open; needs changes before merge. Avyank's week 2–3 work is not on GitHub as of 2026-11-08 | branch `avyank/toy-hvp` |
+| Figures and paper | `analysis/figures.py` is a stub, and its TODO names predate §2.6. No manuscript in the repo yet. Owner: Eknoor (§11.1) | `research/analysis/figures.py` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
 
 ---
@@ -289,8 +290,12 @@ filled in as gates pass. Reviewer simulation at week 8.
 | **P3** | **NeurIPS 2027 datasets/benchmarks track** (the 2026 track was "Evaluations & Datasets", with Croissant + RAI metadata [V]) | **SpikeState**: ≥ 200 spike instances with (w, m, v, v̄) snapshots, clean twins, oracle maps and a leaderboard; plus the open autopsy toolkit (fork engine, undo-log wrapper, integrity scanner). **Privacy:** optimizer state leaks training tokens (seU1LYAiwm), so release only public-data runs and document the risk | Tier 3 (reuse) | planned |
 | fallbacks | TMLR (rolling); ICLR 2027 / ICML 2027 workshops | any subset that is complete | any | — |
 
-**Rule:** P1 must be submittable on **P1-core alone**: ≤ 20 MI300X-h [A]. That fits the 15 h ask and Avneh's
-~10 h comment. P2 and P3 reuse P1's harness and every instance P1 produces.
+**Rule:** P1 must be submittable on **P1-core alone**: ≤ 20 MI300X-h [A]. That was set against the 15 h ask and
+Avneh's ~10 h comment. P2 and P3 reuse P1's harness and every instance P1 produces.
+
+**Against the real budget (2026-11-08):** 20 h is the whole allocation and about 3 are used. At the measured cost the
+proxy forks alone are ≈ 19 h (§2.5), so the P1-core list below does not fit as written, and P1-stretch needs new hours.
+§8 lists what fits.
 - **P1-core:**
   - T0/T1 validity;
   - 2×2 undo × τ ∈ {0, 10, 30} × 3 spike types × n = 10, plus the M1 kernel on a subset;
@@ -609,7 +614,7 @@ report.
 2027).
 - **Status:** [V-abstract]. The OpenReview API records (title, abstract, TLDR, keywords, submission numbers #17880
   and #36730) are saved in `master-research/raw/openreview/*.json` (git-excluded), and both sessions read them.
-- **Full texts are blocked** by OpenReview's browser check, so **jaz must read them in a browser** (§13).
+- **Full texts are blocked** by OpenReview's browser check, so **Jasraj must read them in a browser** (§13).
 - **Two abstract lines that sit close to us:**
   - P0oFJZXAh8: "extended continuations reveal effects that outlast inherited moment differences". We read that as
     memory-written lasting damage, but for checkpoint transplants, not spikes [I].
@@ -704,6 +709,12 @@ batch 64, and ≈ 0.012 GPU-h per end-of-schedule proxy branch when forks share 
 rates are not measured yet. At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $290 and
 2,000 h ≈ $5.8k; the GPU itself is free to us.
 
+**Budget (2026-11-08): we have 20 MI300X-hours in total, about 3 already used [V].** The tiers below are full-program
+estimates, so T2 as written (50–80 h) does not fit and T3 and T4 need new hours. What fits, from the measured proxy
+cost [I]: the Δ = 0 re-run and the baseline GPU checks (< 1 h), prereg-v2 (≈ 2 h), the chaos-floor benchmark (≈ 7 h),
+which leaves ≈ 7 h for seed replication and the repair battery. 124M n = 5 (6–8 h) or Pythia-160M (≈ 4 h) would have
+to displace something on that list.
+
 ### 8.1 Tiers (each tier is a complete, publishable unit)
 
 | Tier | Goal | Contents | GPU-h [A] | Feeds |
@@ -775,6 +786,10 @@ research/tests/test_autopsy.py    CPU tests (§9.2); run in GitHub CI only
 
 Starter-code sketches for every helper above are in `master-research/output/08_blueprint.md` §4. They have not been
 run.
+
+**Where C2/C3 code goes:** the V8 helpers above (`autopsy/oracle.py`, `localize.py`, `repair.py`) are not written yet.
+The older stubs in `research/localizer/` (`curvature.py`, `snr.py`, `poison.py`) and `research/repair/operator.py`
+stay. The HVP belongs in `localizer/curvature.py`. Whoever writes a piece first says in its PR which home it uses.
 
 ### 9.2 Tests
 
@@ -887,16 +902,92 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 
 | Week | Dates | Work | Owner |
 |---|---|---|---|
-| 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B. **Done:** T0/G0, an exploratory T1 pilot, the §9.3 fixes except two (§9.3), the pipeline pushed (PR #18), prereg-v2 drafted. **Not done:** EleutherAI email, OPEN-1B check | spike (jaztulsi) + harness |
-| 2 | Nov 2 | prereg-v2 sign-off and tag → chaos floor + dose sweep + repair battery (H-A…H-F) → G1–G3 | spike |
-| 3–4 | Nov 9–20 | Realistic proxy + mid rung; QK-Norm / untied; β cross; SDC recipes; stress re-search | spike + baselines (Eddie) |
-| 5–6 | Nov 23–Dec 4 | M4 interference + M3 refractory forks → G4; oracle/localizers only if ahead (exploratory); Pythia converter + census (G8) | C2 owner [TBD] |
-| 7–8 | Dec 7–18 | Repairs + full baseline battery → G5; E1 scaling-law fit | C3 owner [TBD] + Eddie |
-| 9 | Dec 21 | 124M n = 5; Pythia-160M; G6/G7 | spike |
-| 10 | Dec 28 | Buffer, reruns, figures | all |
-| 11–12 | Jan 4–15 | Writing; reviewer simulation; ablation fill-ins | all |
+| 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B. **Done:** T0/G0, an exploratory T1 pilot, the §9.3 fixes except two (§9.3), the pipeline pushed (PR #18), prereg-v2 drafted. **Not done:** EleutherAI email, OPEN-1B check | Jasraj |
+| 2 | Nov 2 | prereg-v2 sign-off and tag → chaos floor + dose sweep + repair battery (H-A…H-F) → G1–G3. **Not run as of Nov 8** | Jasraj |
+| 3–4 | Nov 9–20 | Realistic proxy + mid rung; QK-Norm / untied; β cross; SDC recipes; stress re-search | Jasraj + Eddie |
+| 5–6 | Nov 23–Dec 4 | M4 interference + M3 refractory forks → G4; oracle/localizers only if ahead (exploratory); Pythia converter + census (G8) | Avyank (localizers) + Jasraj (forks) |
+| 7–8 | Dec 7–18 | Repairs + full baseline battery → G5; E1 scaling-law fit | Eddie + Jasraj |
+| 9 | Dec 21 | 124M n = 5; Pythia-160M; G6/G7 | Jasraj |
+| 10 | Dec 28 | Buffer, reruns, figures | Eknoor (figures), Jasraj (reruns) |
+| 11–12 | Jan 4–15 | Writing; reviewer simulation; ablation fill-ins | Eknoor (builds the paper), all (send their sections) |
 | 13 | Jan 18–22 | **ICML 2027 submission** (dates [UNV]) | all |
 | — | Feb–May 2027 | T3 → **NeurIPS 2027** P2 + P3 | all |
+
+**Budget check.** Weeks 3–9 are the T2 program, and T2 as written does not fit the 20 MI300X-hours (§8). Only §8's list
+is funded. The 5 Nov review parked the SDC work as P3. Jasraj picks what else drops once prereg-v2 has reported.
+**§11.2 is the working schedule for Nov 9–Dec 31.** The table above stays as the full T2 scope, and §11.2 wins where
+they differ.
+
+### 11.1 · Who does what (2026-11-08)
+
+The team is four people: **Jasraj, Eddie, Avyank and Eknoor**. This replaces the role table from plan V3 (11 roles, 9
+people, Sep 14–Dec 13, a 30-hour grant, 124M on free Kaggle). Every V3 role now has one owner below, so most people
+hold more than one. Items marked *(proposed)* need that person's OK (§13).
+
+| Person | Owns | V3 roles folded in | Backup |
+|---|---|---|---|
+| **Jasraj** (lead) | Harness (C1); spike pipeline; `research/autopsy/` (C-1…C-3 measurement, chaos floor, report); every MI300X run and the GPU-hour ledger; prereg sign-off; final call on scope | Spike Engineer; AMD/ROCm Port Engineer; Calibration and Attribution Engineer; 124M Robustness Driver; Project and Compute Coordinator; Theory Lead until someone takes it *(proposed)* | Eddie (harness) |
+| **Eddie** | `research/baselines/`, `Brollback`, the C-4 comparators; the C3 operators beyond RML (§6.5) *(proposed)* | Baselines Engineer; Repair Operator Lead | Jasraj |
+| **Avyank** | C2 localizer (§6.4, `research/localizer/`); tests and analysis for `research/analysis/stats.py` *(proposed, from `docs/p1_upgrades.md`)* | Localizer Lead; Stats and Eval Lead | Jasraj |
+| **Eknoor** | **The paper:** builds the manuscript, Figs 1–6 and Tabs 1–2 (§2.6), and the scripts that make them from run outputs; collects every owner's section | Figures Lead; the write-up assembly from the Coordinator role | Jasraj |
+
+**Next steps, in order:**
+
+| Person | Step | Done when | Waits on |
+|---|---|---|---|
+| **Jasraj** | 1. Commit the open fixes to `report.py`, `stats.py`, `mve.py`, then merge PR #18 | CI green on #18 | Eddie's review |
+| | 2. Settle the torch pin, amend and tag prereg-v2, confirm the Exea grant terms | tag `prereg-v2` exists | Jasraj |
+| | 3. MI300X: re-run G0 on the changed loop, stages 0–4, then the prereg-v2 run (≈ 3 h) | Δ = 0 log and report committed | step 2; session go-ahead |
+| | 4. Wire `Brollback_k` into `mve` (horizons at `k + wasted`, pass `rollback_k`), unless Eddie takes it | CPU test in CI | PR #20 merged |
+| | 5. Chaos-floor benchmark (≈ 7 h), then decide how the last ≈ 7 h is spent | `chaos_forks.jsonl` committed | step 3 |
+| **Eddie** | 1. Review PR #18 | review posted | — |
+| | 2. Land PR #20 and run `research/gpu/baseline_gpu_session.sh` once (stage 3), timing agreed with Jasraj | logs committed, replay bitwise | MI300X access |
+| | 3. C3: `band_clamp` first (§6.5 makes it required), then the other §6.5 operators and U4 in `docs/p1_upgrades.md` | CPU tests in CI | — |
+| **Avyank** | 1. Push the week 2–3 work to a branch (`avyank/week2-3`); it was not on GitHub as of Nov 8 | branch visible | — |
+| | 2. Clear PR #15's merge blockers (`.DS_Store`, import-time seed, a real asserting test, name-keyed `hvp` on the GPT loss) | CI green on #15 | step 1 |
+| | 3. Pick the next piece: `test_stats.py` for `stats.py` (critical path), `snr.py` (closer to P1-core), or finishing `curvature.py` (P1-stretch) | CPU tests in CI | talk to Jasraj |
+| **Eknoor** | 1. Send Jasraj a GitHub username (not a repo collaborator yet) and work on a branch | invite accepted | — |
+| | 2. Replace the stubs in `research/analysis/figures.py` with Figs 1–6 and Tabs 1–2, built on dummy data in the format `autopsy/report.py` writes (`report.json`, `sealed.json`, `chaos_forks.jsonl`). Fig 6 may end up proxy-only under the 20 h budget | one command makes every figure from a results folder | step 1 |
+| | 3. Start the manuscript in the repo from §2.6, keeping both abstracts. Writing order: related work → method → prereg appendix → intro | draft builds | step 1 |
+| | 4. Collect sections: instrument, spikes and theory from Jasraj; baselines and repair from Eddie; localizer and stats from Avyank. Fill in results as gates pass | full draft for the reviewer simulation (weeks 11–12) | gates G1–G5 |
+
+**Working rules:**
+- All work goes through a branch and a PR. Nobody pushes to `main`.
+- Training, forks and eigensolves run only on the MI300X. Tests and lint run in GitHub CI.
+- Every GPU run needs Jasraj's go-ahead and a cost against §8's budget.
+- Real effects stay in `sealed.json`, unopened, until prereg-v2 is tagged and its run reports. Figures use dummy data until then.
+- The owner decides how their area is built. A change to someone else's area starts as review feedback.
+- When a step finishes, update this table and `docs/status.html`.
+
+**What changed from V3:** the v̄ accumulator is done (`spikes/capture.py`); the calibration sweep became the chaos floor
+(`docs/chaos_floor.md`); Kaggle is paused, so the free-tier 124M track is gone; Lanczos and the HVP are P1-stretch (§4),
+and P1-core uses the oracle and no-HVP localizers; the deadline moved from Dec 13 to January.
+
+### 11.2 · Week by week to Dec 31 (2026-11-08)
+
+**Goal: frozen results and a complete paper draft by Dec 31.** January is for the reviewer simulation, fixes and the
+ICML submission. Each week runs Monday to Sunday. Roles marked *(proposed)* in §11.1 still need that person's OK.
+
+| Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
+|---|---|---|---|---|---|---|
+| **Nov 9–15** | ≈ 1 h | Commit the open fixes, merge PR #18. Settle the torch pin, amend and tag prereg-v2, confirm the Exea terms. Re-run G0 and stages 0–4 | Review PR #18. Land PR #20. Run `baseline_gpu_session.sh` in the same MI300X session | Push the week 2–3 work to a branch. Clear PR #15's blockers. Confirm the role and pick the next piece | Send a GitHub username, accept the invite. Write a dummy-data generator in the `report.py` format. Set up the manuscript from §2.6 with both abstracts | #18 and #20 merged; prereg-v2 tagged; Δ = 0 on the changed loop |
+| **Nov 16–22** | ≈ 2 h | Wire `Brollback_k` into `mve`, then run prereg-v2 (H-A…H-F). Commit the report, then read G1–G3 | `band_clamp` with CPU tests | `test_stats.py`; power and TOST checks for `stats.py` | Figs 1–3 on dummy data. Draft related work | prereg-v2 report committed; positive or null framing chosen |
+| **Nov 23–29** | ≈ 7 h | Chaos-floor benchmark (K = 111). Decide how the last hours are split | The other §6.5 operators and the remaining Fig 5 comparators | `snr.py` and the no-HVP localizer, with the §6.4 `Localization` output | Figs 4–5 and Tabs 1–2 on dummy data. Real data into Figs 1–3. Draft the method section | `chaos_forks.jsonl` committed; split of the last hours decided |
+| **Nov 30–Dec 6** | ≈ 2.5 h | Seed replication; C-3 interference probes if the split includes them | Repair operators and comparators merged | Oracle (`group_test`) and localizers merged. Mixed model and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts. One command makes every figure | Code frozen for the last GPU run |
+| **Dec 7–13** | ≈ 3.5 h | Final battery: repair operators, band-clamp, localizers against the oracle. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines and repair section | Run the statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve hour is left |
+| **Dec 14–20** | 0 | Instrument, spike and theory sections | Baselines and repair sections to Eknoor | Localizer and statistics sections to Eknoor; Tab 2 final | Results section; assemble draft 1 | Draft 1 has every section |
+| **Dec 21–27** | ≤ 1 h reserve | Read draft 1. Reruns only if a result needs one | Check every repair and baseline number against the results files | Check every statistic against the results files | Draft 2 from everyone's comments | Every number traced to a results file |
+| **Dec 28–31** | 0 | Final scope check. Bring the plan, status page and instrument release up to date | Confirm baselines and repair reproduce from the repo | Confirm the statistics reproduce from the repo | Complete draft. All figures rebuilt from the final results | **Results frozen; complete paper draft** |
+
+**GPU ledger [I]:** about 3 h used + 1 + 2 + 7 + 2.5 + 3.5 + 1 reserve = 20 h. These are estimates from the measured
+proxy cost, and each session still needs Jasraj's go-ahead. Nothing is spare beyond the reserve hour.
+
+**What this leaves out:** 124M, Pythia-160M and the mid rung are not funded, so G6 and G7 don't run and Fig 6 stays
+proxy-only unless new hours arrive. The SDC work stays parked.
+
+**If something slips:** the runs form a chain: tag, G0, prereg-v2, chaos floor, last battery. A failed gate routes as in
+§8.3. A null result switches to the null abstract and keeps this schedule. A slip of up to two weeks comes out of
+Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
 
 ---
 
@@ -911,7 +1002,7 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 | Scale critique (F1) | L0/L1/L2 framing, the held-out-rung law, Pythia borrowed trunks, 124M n = 5 |
 | Cause vs carrier (Marin, Tang, Li 2026) | Claim "damage *carried* in state", with QK-Norm arms. **Marin is a direct counter-case:** it inferred by elimination that its spikes were "rooted in the model's attention stack rather than in optimizer state", and an optimizer-state rebuild ("necromancy") relapsed [V]. Our factorial tests exactly this split, and the QK-Norm arm reports it either way |
 | Concurrent work | Re-run the kill-searches monthly; the ~2026-11-22 concurrent-work cutoff from wave 1 [I] |
-| Bus factor 1 (spike role) | Assign C2/C3 owners in week 1 |
+| Bus factor 1 (spike role) | C2/C3 owners proposed in §11.1; Eddie backs up the harness; the spike role still has one person |
 
 ### 12.5 · Anticipated objections and where the paper answers them (drafted by the reviewer session)
 
@@ -928,14 +1019,14 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 | 9 | "The theory is trivial EMA algebra" | The closed form is credited (Patitucci & Mokhtari Thm 3.3). The contribution is the *loss-space* test of its predictions: ordering across β1, refractory recovery time, interference sign |
 | 10 | "Loss ≠ weight drift, so the r-law prediction is loose" | Pre-registered as a *direction* (ordering), not a value. Measured vs predicted is plotted honestly (Fig 2) |
 | 11 | "Cost vs rollback" | Fig 5's GPU-s axis; RML is O(\|flagged\|) memory and FLOPs |
-| 12 | "Thresholds chosen after the fact" | Git tag `prereg-v1` before T1 (+ OSF if jaz approves); the null-version abstract is kept in the repo |
+| 12 | "Thresholds chosen after the fact" | Git tag `prereg-v1` before T1 (+ OSF if Jasraj approves); the null-version abstract is kept in the repo |
 | 13 | "Small n" | n is locked from a pilot SD (n = max(10, ⌈8.6(σ̂/δ)²⌉)); data-order seeds; a mixed model; never pooled across types |
 | 14 | "Results depend on the horizon" | Primary = end of schedule; Δ(h) curves in the appendix |
 
 ---
 
 ## 13 · Open issues and sign-offs
-- **MUST-READ for jaz, in a browser** (both Claude sessions are blocked by OpenReview's browser check). Save each
+- **MUST-READ for Jasraj, in a browser** (both Claude sessions are blocked by OpenReview's browser check). Save each
   PDF into `master-research/raw/openreview/`.
   1. **pAjrfibDB9**, "Understanding and Mitigating AdamW Loss Spikes" (#36730). Do the replay sections measure
      *lasting* held-out Δ per spike? If yes, C-1 must be re-scoped. The abstract only scores "immediate loss".
@@ -946,7 +1037,7 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
   4. **Biswas**, NeurIPS 2026 OPT workshop (OpenReview VJFfO4tLMB): the exact protection law (H12, A9).
   5. **"Arnold's Bifurcation Principle … Early Warning of Second-Moment Collapse Preceding Loss Spikes"** (2026,
      found on OpenAlex). Check it before claiming H9.
-- **Jaz decides (the agents wait):**
+- **Jasraj decides (the agents wait):**
   - **(a) Build the code now?** The critical path, all writable and CI-testable before the GPU, never run locally:
     eval.val_loss → RML/undo → mve driver → stats → oracle → localizers.
   - **(b) Pre-registration:** a git tag `prereg-v1` on §7.0/§7.2 before T1, plus an OSF/AsPredicted entry (an
@@ -956,8 +1047,9 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
     or bump the pin and re-run G0. The pilot ran with `--skip-preflight`.
   - **(b3) Reviews:** PR #18 (`plan-v8` → `main`), PR #20 (`Brollback`; it touches `trunk.py` and `fork.py`, so it
     needs a GPU replay check) and PR #15 (needs fixes).
-  - **(c) Owners** for C2/C3, stats and writing.
-  - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6).
+  - **(c) Owners** for C2/C3, stats and writing: proposed in §11.1 (2026-11-08); each person confirms.
+  - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6). Eknoor
+    leads it (§11.1).
 - **Team sign-off** on §7.2 thresholds, §9.4 changes and C2/C3 owners.
 - **Read in full before writing:**
   - Xu 2026 and Xie 2026 (abstract-level only so far);
@@ -969,6 +1061,11 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 ---
 
 ## 14 · Change log
+- **2026-11-08 (roles and consistency; the science is unchanged):**
+  - Added the four-person role split and next steps (§11.1), which replaces the V3 role table.
+  - Recorded the 20 MI300X-hour budget (§8) and made §4's P1-core rule agree with it.
+  - Said where C2/C3 code lives (§9.1).
+  - Added the week-by-week schedule for all four people through Dec 31 (§11.2).
 - **2026-10-29 (state update; the plan is unchanged):**
   - Added §0.1, refreshed §3, and recorded the T0/T1 status in §4, §8 and §11.
   - Added the measured fork cost to §2.5 and §8, the fix status to §9.3, and the prereg-v2 pointers to §6.3, §7.2

@@ -4,6 +4,10 @@
 
 **Update 2026-10-29:** only Part D steps 1–2 and an exploratory slice of step 6 have run (MI300X, 2026-10-27;
 see Part D and [`SUMMARY.md`](SUMMARY.md)). Nothing else in this file has been run.
+
+**Update 2026-11-08:** cost figures below were written before `step_timer` ran. Measured cost is ≈ 0.012 GPU-h per
+1,840-step proxy fork, and the whole budget is 20 MI300X-hours (about 3 used). Price anything here against
+`PLAN_V8.md` §8 first.
 - Every algorithm is a design, and every prediction is a hypothesis.
 - Every novelty verdict is **pending** until the reviewer session's kill-search (`master-research/output/13_reviewer_*.md`)
   comes back.

@@ -153,6 +153,9 @@ intervention.
 | T3 | Pythia ladder to 2.8B, μP collapse, held-out-rung prediction, OPEN-1B released states (use depends on its skip protocol), SDC, other optimizers | 200–450 | **P2 · NeurIPS 2027**, **P3 · SpikeState (datasets track)** |
 | T4 | Own instrumented 1B trunks on an 8× node; Pythia-6.9B on one 192 GB card; RL fine-tuning / ViT | 500–2,000 | follow-ups |
 
+**Budget:** we have 20 MI300X-hours in total, about 3 used so far. T2 as written does not fit, and T3 and T4 need new
+hours (PLAN_V8 §8).
+
 A single MI300X (192 GB) holds fp32 weights, gradients, m and v for models up to about 7B. That lets forks stay
 single-GPU, which avoids multi-GPU reduction-order nondeterminism. Venue dates are unofficial until the CFPs are
 out.
@@ -193,7 +196,7 @@ optimizer-autopsy/
 │   ├── localizer/ repair/    C2 / C3 (unbuilt; see PLAN V8 §6.4–6.5)
 │   ├── analysis/             Held-out eval, stats (partial), attribution gate
 │   ├── theory/               Closed-form predictions (to fill)
-│   ├── experiments/          proxy/ and llm124m/ configs + drivers
+│   ├── experiments/          proxy/ and llm124m/ configs (drivers are TODO stubs)
 │   ├── gpu/                  step_timer, cross-process gate, older evidence scripts (all run on the MI300X)
 │   └── tests/                CPU tests (run in GitHub CI)
 ├── results/                  Committed run evidence: CUDA era, plus mi300x_2026-10-27/ (T0 + T1 pilot)
@@ -227,8 +230,8 @@ python -m research.autopsy.mve --config results/mi300x_2026-10-27/t1_pilot/confi
 The pilot config is the proxy config with `max_steps: 2000`, which prereg-v2 also uses. The repo's
 `research/experiments/proxy/config.yaml` says 5000.
 
-The next session's run order is on the status page (`docs/status.html`, on `main`). The prereg-v2 run waits for its
-git tag.
+The next session's run order is on the status page ([`docs/status.html`](docs/status.html)). The prereg-v2 run waits
+for its git tag.
 
 Secrets are never committed. `research/harness/secrets.py` resolves `HF_TOKEN` / `WANDB_API_KEY` at runtime, and a
 CI test fails the build if a token literal reaches the tree.
@@ -237,7 +240,8 @@ CI test fails the build if a token literal reaches the tree.
 
 Work through PRs, under your own identity. CI (ruff, tests, gitleaks) must be green. Don't modify
 `research/harness/determinism.py` or `preflight.py` without flagging it first. See [`CLAUDE.md`](CLAUDE.md) and
-[`CONTRIBUTORS.md`](CONTRIBUTORS.md).
+[`CONTRIBUTORS.md`](CONTRIBUTORS.md). Who does what, and each person's next steps, is in
+[`PLAN_V8.md`](PLAN_V8.md) §11.1.
 
 ## License
 

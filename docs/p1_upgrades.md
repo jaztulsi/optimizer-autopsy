@@ -25,12 +25,12 @@ measured co-tenant throughput.
 - **4–5 decide whether reviewers believe it.**
 - **6–10 add breadth.** Skip any of them that slips past the ICML deadline.
 
-**Owners (proposal):**
+**Owners (proposal; the current split for the whole project is `PLAN_V8.md` §11.1):**
 - **Jasraj:** 1 and 7 (dose and phase recipes, natural spikes, the capture fix).
 - **Eddie:** 4 (rollback arm, StableAdamW, prevention arms).
 - **Avyank:** 2 and 8 (power, TOST, mixed model, the law).
 - **Us (the Claude sessions):** 3, 5, 6, 9 and 10 (code, GPU runs on the MI300X, report).
-- **jaz:** signs off prereg-v2 before any run of 1–3.
+- **Jasraj:** signs off prereg-v2 before any run of 1–3.
 
 **Kill-search log (this pass, three standard web queries, abstracts only):**
 - threshold: no hit (closest is 2602.02400);
@@ -42,5 +42,5 @@ Second pass, 2026-10-28, three more queries:
 - #10 PARTIAL / NEW application, as in the table.
 
 OpenReview could not be searched: a `site:openreview.net` query returned no OpenReview pages, and the browser check
-still blocks direct fetches (§13). An OpenReview pass by jaz in a browser is still open for #1, #3, #6, #8 and #10.
+still blocks direct fetches (§13). An OpenReview pass by Jasraj in a browser is still open for #1, #3, #6, #8 and #10.
 None of these is in `references.bib` until verified at the source.

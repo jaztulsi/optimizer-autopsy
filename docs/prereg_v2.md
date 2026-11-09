@@ -1,4 +1,4 @@
-# Pre-registration v2: spike damage against the chaos floor (DRAFT, needs jaz's sign-off + `git tag prereg-v2`)
+# Pre-registration v2: spike damage against the chaos floor (DRAFT, needs Jasraj's sign-off + `git tag prereg-v2`)
 
 Written 2026-10-27 after the first MI300X session, **before** any run it governs. Freeze it by tagging the commit
 that contains this file; nothing below may change after the tag.

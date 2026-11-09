@@ -2,6 +2,9 @@
 
 *Draft for team review · 2026-10-19 · nothing in here has been implemented yet; every fix is a proposal.*
 
+*Update 2026-11-08: the rows keep their original wording. Owners are now proposed in `PLAN_V8.md` §11.1. Compute is
+20 MI300X-hours in total (about 3 used), and access works, so the older compute figures below are out of date.*
+
 > **Update 2026-10-22.** The governing plan is now [`PLAN_V8.md`](../PLAN_V8.md).
 > - **Folded into V8:** A1–A3 → V8 §9.3; the thresholds → V8 §7.2; B-items → V8 §6.7 / §9.4; the five investment
 >   areas → the V8 tiers (§8).
@@ -164,7 +167,7 @@ Everything must be re-verified on our MI300X, and none of it is in the harness y
 - **Precedent, weaker than it looks:** Asadi et al. (NeurIPS 2023) found a second-moment-only reset "quite
   effective" in deep RL. But their method also resets Adam's step counter, and they used β2 = 0.999 (about
   1,000 steps of memory) against our 0.95 (about 20). So it doesn't transfer directly.
-- **Cost:** V6 budget, 70 h C2 + 60 h C3.
+- **Cost:** V6 budget, 70 h C2 + 60 h C3 (more than the 20 GPU-hours we have in total).
 - **First step:** settle the localization output contract (CLAUDE.md §7.2) and the HVP math-backend check (A7).
 
 ### 2.4 Strengthen the comparison set
@@ -214,7 +217,7 @@ Everything must be re-verified on our MI300X, and none of it is in the harness y
 | **Quality gates** | ruff 0.16.2 (pre-commit + CI), gitleaks, CPU pytest in CI, sloppylint 0.5.1 (installed, not in CI) | every PR |
 | **Pinned dev tools** | `requirements-dev.txt`: statsmodels, curvlinops 3.0.1, hessian-eigenthings 1.0.0a5, pyhessian 0.1 | stats, C2 curvature |
 | **Built into PyTorch** | `torch.func` (HVP), `sdpa_kernel` (math backend), `torch.optim.Muon`, `torch.optim.Adafactor` | C2, control optimizers — no new deps |
-| **Compute** | MI300X via Avneh (access being set up); V7 ask 15 GPU-h now, ~100 total. Kaggle on hold. | everything GPU-bound |
+| **Compute** | MI300X via Avneh (access working since 2026-10-27; 20 GPU-h in total, about 3 used; the V7 ask was 15 GPU-h now, ~100 total). Kaggle on hold. | everything GPU-bound |
 | **Reference code** | CLAUDE.md §4 repos (curvlinops, eigenthings, PyHessian, SPAM, ZClip, AdaGC, EoS, nanoGPT, LLM360 K2) | reimplementation checks |
 | **Claude toolbox** | Deep Research skills (`/research` → `/research-deep` → `/research-report`) and `web-search-agent` (used for this doc); Explore/Plan agents (repo audits); graphify (knowledge graph of repo + papers); `gh` (PRs, invites, branch protection); browser automation; Google Drive / Claude Docs connectors; Artifacts (shareable pages, e.g. a battery-results dashboard) | research, audits, team sharing |
 
@@ -232,7 +235,7 @@ Everything must be re-verified on our MI300X, and none of it is in the harness y
 ## 5 · Open questions for the team
 1. Natural spikes: define a B\* or drop them from Gate B (A4)?
 2. τ, `Bs` clip value, eval horizon, n_min: accept the A3 starting proposal?
-3. Who owns the harness, C2, C3 and analysis? What are Orange-neon's and tanishp3280's roles?
+3. Who owns the harness, C2, C3 and analysis? What are Orange-neon's and tanishp3280's roles? *(Answered 2026-11-08: owners are proposed in `PLAN_V8.md` §11.1; the two are listed as earlier collaborators in `CONTRIBUTORS.md`.)*
 4. Is the MI300X an AMD Developer Cloud VM (credit-limited, destroyed on expiry) or a dedicated machine?
 
 ## 6 · How this doc was made

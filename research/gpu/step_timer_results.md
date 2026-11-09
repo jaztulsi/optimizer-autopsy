@@ -161,6 +161,9 @@ but not yet built.
 
 ### Open question to resolve before this number is used (flagged, not resolved)
 
+*Update 2026-11-08: Kaggle is paused, so a 124M run would go on the MI300X. The whole budget is 20 MI300X-hours
+(`PLAN_V8.md` §8). The text below is kept as written at the time.*
+
 BUILD_PLAN.md **Task 22** frames the 124M check as running **"on Kaggle within free limits"**, with an
 explicit **weekly Kaggle total vs the 30 h cap**, disconnect-survival checkpointing every ~1000 steps, and
 "across sessions if needed" — i.e. it was written for **free-tier Kaggle spread over multiple weeks**, not

@@ -4,9 +4,9 @@ Fork training at the moment a loss spike hits, measure who wrote the lasting dam
 memory of it), and undo it.
 Plan: [PLAN_V8.md](../PLAN_V8.md) · state: [docs/SUMMARY.md](../docs/SUMMARY.md) · site: <https://jaztulsi.github.io/optimizer-autopsy/> · reuse map: [EXTERNAL_TOOLS.md](EXTERNAL_TOOLS.md)
 
-All code lives under `research/`. The repo-root `index.html` is the GitHub Pages site, so leave it alone.
+All code lives under `research/`. The repo-root `index.html` is the GitHub Pages site, so it stays at the root.
 
-## Layout and status (2026-10-29)
+## Layout and status (2026-11-08)
 
 | Package | Role | Status |
 |---|---|---|
