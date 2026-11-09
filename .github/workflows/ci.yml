@@ -1,6 +1,6 @@
 name: CI
 
-# Cheap CPU gates before any code reaches a Kaggle GPU:
+# Cheap CPU gates before any code reaches a GPU:
 #   lint (ruff) · secret scan (gitleaks) · secret-hygiene + bitwise-determinism tests.
 # Deliberately does NOT run harness.preflight (check_env asserts installed == the GPU-image
 # pins, which won't hold on a CPU runner).
