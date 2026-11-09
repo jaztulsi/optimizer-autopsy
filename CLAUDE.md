@@ -20,7 +20,7 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-11-08; GPU budget is 20 MI300X-hours in total, roles are in PLAN_V8 §11.1):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-09; GPU budget is 20 MI300X-hours in total, roles are in PLAN_V8 §11.1):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the

@@ -6,7 +6,7 @@ Plan: [PLAN_V8.md](../PLAN_V8.md) · state: [docs/SUMMARY.md](../docs/SUMMARY.md
 
 All code lives under `research/`. The repo-root `index.html` is the GitHub Pages site, so it stays at the root.
 
-## Layout and status (2026-11-08)
+## Layout and status (2026-11-09)
 
 | Package | Role | Status |
 |---|---|---|

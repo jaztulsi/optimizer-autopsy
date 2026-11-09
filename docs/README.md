@@ -2,8 +2,8 @@
 
 | Read | File | What it is |
 |---|---|---|
-| **start** | [`SUMMARY.md`](SUMMARY.md) | **The whole project in one file (updated 2026-11-08):** a short version under 2,000 characters, then a long version covering the idea, approach, tests, what's new, implementation, MI300X results and what changed since V8. It deliberately leaves out papers, timelines and owners; those stay in PLAN_V8 |
-| **1st** | [`../PLAN_V8.md`](../PLAN_V8.md) | **Governing plan** (2026-10-22; state updated 2026-11-08): question, novelty ledger, methodology, pre-registration, compute ladder, timeline, who does what (§11.1), idea portfolio |
+| **start** | [`SUMMARY.md`](SUMMARY.md) | **The whole project in one file (updated 2026-11-09):** a short version under 2,000 characters, then a long version covering the idea, approach, tests, what's new, implementation, MI300X results and what changed since V8. It deliberately leaves out papers, timelines and owners; those stay in PLAN_V8 |
+| **1st** | [`../PLAN_V8.md`](../PLAN_V8.md) | **Governing plan** (2026-10-22; state updated 2026-11-09): question, novelty ledger, methodology, pre-registration, compute ladder, timeline, who does what (§11.1), idea portfolio |
 | 2nd | [`../CLAUDE.md`](../CLAUDE.md) | Guardrails and harness interfaces (binding for every session) |
 | 3rd | [`prereg_v2.md`](prereg_v2.md) | **Next GPU run's pre-registration** (draft, needs sign-off + `git tag prereg-v2`): dose × phase × placebo × cooldown, H-A…H-F, the repair battery |
 | 3b | [`chaos_floor.md`](chaos_floor.md) | Chaos-floor benchmark (implemented 2026-10-29, not run): 1-ulp placebo forks in the weight / gradient / optimizer-state arms × 3 phases, data-order forks, zero-perturbation check, release table, run commands |

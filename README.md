@@ -162,12 +162,12 @@ out.
 
 ## Status
 
-*As of 2026-11-08. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
+*As of 2026-11-09. The full state is in [`docs/SUMMARY.md`](docs/SUMMARY.md).*
 
 ```
 Instrument (C1)      ####################  built; Δ==0 on CUDA and on the AMD MI300X (in- and cross-process)
-Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); rollback (PR #20); never GPU-run
-Spike pipeline       ################----  pushed (PR #18); 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run
+Baselines            ################----  SPAM · ZClip · AdaGC · skip-step · v-reset · v̄ (PR #14); rollback (PR #20, lands after #18); never GPU-run
+Spike pipeline       ################----  PR #18 reviewed, not merged; 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run
 P1 autopsy code      ##############------  RML undo · probes · placebo floor · dose · cooldown · driver; core battery ran
 Instrument fixes     ##################--  held-out Δ ✓ · Bs clip ✓ · lr_bump schedule ✓ · battery errors ✓; Δ==0 re-run owed
 T1 pilot             ####################  exploratory: damage at the ~0.003-nat chaos floor; one β1 = 0.8 hint for C-2

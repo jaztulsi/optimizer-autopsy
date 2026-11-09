@@ -1,5 +1,5 @@
 # OPTIMIZER AUTOPSY — PLAN V8
-### Current source of truth · 2026-10-22 (state updated 2026-11-08) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
+### Current source of truth · 2026-10-22 (state updated 2026-11-09) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
 
 > **Read this first, every session.** V8 supersedes V7 ([`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md)) where
 > they differ. V7 §4's locked decisions (spike design, branch menu, ROCm tolerance, natural-spike rule, ZClip/AdaGC
@@ -24,7 +24,7 @@
 > - **[A]** an assumption, such as a cost before `step_timer`;
 > - **[UNV]** not confirmed, so it supports no claim.
 >
-> **State (2026-11-08):** T0 bring-up and an *exploratory* T1 pilot ran on the AMD MI300X on 2026-10-27 (§0.1, §3).
+> **State (2026-11-09):** T0 bring-up and an *exploratory* T1 pilot ran on the AMD MI300X on 2026-10-27 (§0.1, §3).
 > Every other number in this plan is still a prediction or a proposal. The next run is governed by
 > [`docs/prereg_v2.md`](docs/prereg_v2.md). A short (< 2,000 characters) and a long summary of the project (idea,
 > approach, implementation, results) are in [`docs/SUMMARY.md`](docs/SUMMARY.md).
@@ -260,14 +260,14 @@ filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 
 ---
 
-## 3 · Verified state on 2026-11-08 (first written 2026-10-22)
+## 3 · Verified state on 2026-11-09 (first written 2026-10-22)
 
 | Piece | State | Evidence |
 |---|---|---|
 | C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/gpu/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
 | AMD MI300X | Provided by Avneh. **First session 2026-10-27:** T0 passed, T1 pilot ran. The box has torch 2.14 while the pin is 2.10, so the pilot ran with `--skip-preflight`. Pin decision open | `results/mi300x_2026-10-27/` |
-| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Pushed on `plan-v8` (**PR #18 open**, unreviewed). `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check **crashed on the MI300X** (eps read back as a string); the fix is committed (f751e14), but the GPU re-run is pending | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
-| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; **never run on a GPU**. `Brollback` (rollback-and-skip at matched compute) is in **PR #20, open** | `research/baselines/` |
+| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Pushed on `plan-v8` (**PR #18 open**, not merged). Eddie reviewed the baseline and C3 parts on 2026-11-09 with no blockers; that review predates the code fixes in dde818a. CI is green at 0ff3109 (lint, 85 tests, secret scan). `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check **crashed on the MI300X** (eps read back as a string); the fix is committed (f751e14), but the GPU re-run is pending | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
+| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; **never run on a GPU**. `Brollback` (rollback-and-skip at matched compute) is in **PR #20, open**; CI green at 60e0a3d, and it lands right after #18 | `research/baselines/` |
 | P1 autopsy code | RML undo (m / v / m+v, top-k v, cooldown), planted probes (parity, dose, interference, refractory), 1-ulp placebo floor in the w and g channels, the GPU driver and a sealed report. CI-tested. The core battery ran in the pilot; the placebo, dose and cooldown arms have not run | `research/autopsy/`, `research/tests/test_autopsy.py` |
 | Held-out eval | `val_loss` / `horizon_probe` on slots token-disjoint from the probe slots (fixes A2 in §9.3). Ran in the pilot | `research/analysis/eval.py` |
 | T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
@@ -935,13 +935,13 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 
 | Person | Step | Done when | Waits on |
 |---|---|---|---|
-| **Jasraj** | 1. Commit the open fixes to `report.py`, `stats.py`, `mve.py`, then merge PR #18 | CI green on #18 | Eddie's review |
+| **Jasraj** | 1. Merge PR #18 (the fixes to `report.py`, `stats.py`, `mve.py` are committed in dde818a; CI green) | #18 merged | Eddie's review ✅ (2026-11-09, no blockers) |
 | | 2. Settle the torch pin, amend and tag prereg-v2, confirm the Exea grant terms | tag `prereg-v2` exists | Jasraj |
 | | 3. MI300X: re-run G0 on the changed loop, stages 0–4, then the prereg-v2 run (≈ 3 h) | Δ = 0 log and report committed | step 2; session go-ahead |
-| | 4. Wire `Brollback_k` into `mve` (horizons at `k + wasted`, pass `rollback_k`), unless Eddie takes it | CPU test in CI | PR #20 merged |
+| | 4. Wire `Brollback_k` into `mve` (horizons at `k + wasted`, pass `rollback_k`). `snapshot.save` drops the rollback snapshot, so a resumed run needs it saved as its own file, like the v̄ file | CPU test in CI | PR #20 merged |
 | | 5. Chaos-floor benchmark (≈ 7 h), then decide how the last ≈ 7 h is spent | `chaos_forks.jsonl` committed | step 3 |
-| **Eddie** | 1. Review PR #18 | review posted | — |
-| | 2. Land PR #20 and run `research/gpu/baseline_gpu_session.sh` once (stage 3), timing agreed with Jasraj | logs committed, replay bitwise | MI300X access |
+| **Eddie** | 1. Review PR #18 ✅ (2026-11-09: no blockers; 85 tests pass on #18 + #20 combined) | review posted | — |
+| | 2. Land PR #20 right after #18 and re-run its CI, then run `research/gpu/baseline_gpu_session.sh` once on the merged code (stage 3), timing agreed with Jasraj. With #20 or right after: an oracle-branch set, a v̄ source for `Bvbar` in `mve` (needed for the final battery), and rollback checks that work under an LR schedule (before T2) | logs committed, replay bitwise | PR #18 merged; MI300X access |
 | | 3. C3: `band_clamp` first (§6.5 makes it required), then the other §6.5 operators and U4 in `docs/p1_upgrades.md` | CPU tests in CI | — |
 | **Avyank** | 1. Push the week 2–3 work to a branch (`avyank/week2-3`); it was not on GitHub as of Nov 8 | branch visible | — |
 | | 2. Clear PR #15's merge blockers (`.DS_Store`, import-time seed, a real asserting test, name-keyed `hvp` on the GPT loss) | CI green on #15 | step 1 |
@@ -970,7 +970,7 @@ ICML submission. Each week runs Monday to Sunday. Roles marked *(proposed)* in �
 
 | Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
 |---|---|---|---|---|---|---|
-| **Nov 9–15** | ≈ 1 h | Commit the open fixes, merge PR #18. Settle the torch pin, amend and tag prereg-v2, confirm the Exea terms. Re-run G0 and stages 0–4 | Review PR #18. Land PR #20. Run `baseline_gpu_session.sh` in the same MI300X session | Push the week 2–3 work to a branch. Clear PR #15's blockers. Confirm the role and pick the next piece | Send a GitHub username, accept the invite. Write a dummy-data generator in the `report.py` format. Set up the manuscript from §2.6 with both abstracts | #18 and #20 merged; prereg-v2 tagged; Δ = 0 on the changed loop |
+| **Nov 9–15** | ≈ 1 h | Merge PR #18 (fixes committed, Eddie's review posted). Settle the torch pin, amend and tag prereg-v2, confirm the Exea terms. Re-run G0 and stages 0–4 | Land PR #20 right after #18 and re-run its CI. Run `baseline_gpu_session.sh` on the merged code in the same MI300X session. Fixes from the #18 review | Push the week 2–3 work to a branch. Clear PR #15's blockers. Confirm the role and pick the next piece | Send a GitHub username, accept the invite. Write a dummy-data generator in the `report.py` format. Set up the manuscript from §2.6 with both abstracts | #18 and #20 merged; prereg-v2 tagged; Δ = 0 on the changed loop |
 | **Nov 16–22** | ≈ 2 h | Wire `Brollback_k` into `mve`, then run prereg-v2 (H-A…H-F). Commit the report, then read G1–G3 | `band_clamp` with CPU tests | `test_stats.py`; power and TOST checks for `stats.py` | Figs 1–3 on dummy data. Draft related work | prereg-v2 report committed; positive or null framing chosen |
 | **Nov 23–29** | ≈ 7 h | Chaos-floor benchmark (K = 111). Decide how the last hours are split | The other §6.5 operators and the remaining Fig 5 comparators | `snr.py` and the no-HVP localizer, with the §6.4 `Localization` output | Figs 4–5 and Tabs 1–2 on dummy data. Real data into Figs 1–3. Draft the method section | `chaos_forks.jsonl` committed; split of the last hours decided |
 | **Nov 30–Dec 6** | ≈ 2.5 h | Seed replication; C-3 interference probes if the split includes them | Repair operators and comparators merged | Oracle (`group_test`) and localizers merged. Mixed model and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts. One command makes every figure | Code frozen for the last GPU run |
@@ -1045,8 +1045,9 @@ Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
     next MI300X run.
   - **(b2) torch pin:** the box has torch 2.14 and `research/requirements.txt` pins 2.10. Pull the pinned container,
     or bump the pin and re-run G0. The pilot ran with `--skip-preflight`.
-  - **(b3) Reviews:** PR #18 (`plan-v8` → `main`), PR #20 (`Brollback`; it touches `trunk.py` and `fork.py`, so it
-    needs a GPU replay check) and PR #15 (needs fixes).
+  - **(b3) Reviews:** PR #18 (`plan-v8` → `main`) is reviewed by Eddie (2026-11-09, no blockers) and waits on
+    Jasraj's merge. PR #20 (`Brollback`; it touches `trunk.py` and `fork.py`, so it needs a GPU replay check) lands
+    right after #18, and that check runs once on the merged code. PR #15 needs fixes.
   - **(c) Owners** for C2/C3, stats and writing: proposed in §11.1 (2026-11-08); each person confirms.
   - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6). Eknoor
     leads it (§11.1).
@@ -1061,6 +1062,10 @@ Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
 ---
 
 ## 14 · Change log
+- **2026-11-09 (review state; the science is unchanged):**
+  - Eddie reviewed PR #18 with no blockers, and the merge order is #18, then #20, with the baseline GPU check once on
+    the merged code (§11.1, §11.2, §13).
+  - The open fixes are committed (dde818a); CI is green at 0ff3109 with 85 tests.
 - **2026-11-08 (roles and consistency; the science is unchanged):**
   - Added the four-person role split and next steps (§11.1), which replaces the V3 role table.
   - Recorded the 20 MI300X-hour budget (§8) and made §4's P1-core rule agree with it.

@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-11-08. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-09. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
