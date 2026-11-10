@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/shared-docker/optimizer-autopsy/research/autopsy/mve.py", line 468, in <module>
+    main()
+  File "/shared-docker/optimizer-autopsy/research/autopsy/mve.py", line 464, in main
+    print(run_instance(args))
+          ^^^^^^^^^^^^^^^^^^
+  File "/shared-docker/optimizer-autopsy/research/autopsy/mve.py", line 303, in run_instance
+    snap = prime_trunk(cfg, data_dir, args.inject_step, meta={"instance": tag}, rollback_k=k)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/shared-docker/optimizer-autopsy/research/harness/fork.py", line 262, in prime_trunk
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+  File "/shared-docker/optimizer-autopsy/research/harness/trunk.py", line 175, in run_trunk
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+  File "/shared-docker/optimizer-autopsy/research/harness/determinism.py", line 47, in seed_everything
+    _assert_preconditions()
+  File "/shared-docker/optimizer-autopsy/research/harness/determinism.py", line 32, in _assert_preconditions
+    raise RuntimeError(
+RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+GPU: AMD Instinct MI300X VF

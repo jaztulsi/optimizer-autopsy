@@ -20,13 +20,13 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-11-09; GPU budget is 20 MI300X-hours in total, roles are in PLAN_V8 §11.1):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-10; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
 exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
-bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate must
-pass again on the changed loop before new GPU data counts. The next run is `docs/prereg_v2.md`, which needs sign-off and a git tag first. C2 (localizer)
+bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate re-passed on the changed loop on 2026-11-10.
+`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). C2 (localizer)
 and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 
@@ -209,8 +209,8 @@ steps=None, start_step=None, device=None, on_step=None, grad_hook=None, pre_step
 - **Update 2026-10-08:** `research/spikes/capture.py` now keeps `v̄` and saves the fork-time copy plus t0 / fork /
   matched-normal snapshots per spike, and `spikes/k2.py` records them in the K2 manifest (`vbar_uri`,
   `normal_snapshot_uris`). The paragraph below describes the gap it fills. **2026-10-29:** its `--selfcheck`
-  crashed on the MI300X (eps read back as a string). The fix (f751e14) is committed, but the GPU re-run is still
-  pending.
+  crashed on the MI300X (eps read back as a string). The fix (f751e14) passed its self-check on the MI300X on
+  2026-11-10. The full capture battery has not run.
 - **`v̄` (pre-spike running average of `v`) does NOT exist yet.** PLAN_V6 §3.6 defines the poison score
   against a pre-spike running-average `v̄` and thresholds "derived from matched *normal* training steps."
   Nothing captures that: `snapshot.capture` grabs `v` at **one** step, proxy `config.yaml` has

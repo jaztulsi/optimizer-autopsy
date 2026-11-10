@@ -1,0 +1,41 @@
+{
+ "tags": [
+  "a",
+  "b",
+  "c"
+ ],
+ "recipes": {
+  "noop": {
+   "cross_process_equal": true,
+   "in_process_equal": true,
+   "max_abs_dloss": 0.0,
+   "ms_per_step": [
+    50.81,
+    43.27,
+    29.86
+   ]
+  },
+  "lr_bump": {
+   "cross_process_equal": true,
+   "in_process_equal": true,
+   "max_abs_dloss": 0.0,
+   "ms_per_step": [
+    46.1,
+    45.21,
+    29.92
+   ]
+  },
+  "corrupt_batch": {
+   "cross_process_equal": true,
+   "in_process_equal": true,
+   "max_abs_dloss": 0.0,
+   "ms_per_step": [
+    43.94,
+    49.06,
+    29.93
+   ]
+  }
+ },
+ "PASS": true
+}
+XPROC GATE PASS

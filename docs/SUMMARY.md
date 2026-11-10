@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-11-09. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-10. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
@@ -28,13 +28,12 @@ interference between two spikes, and RML repair vs baselines such as skip-step.
 **What's new.** Each part has precedent; new is the causal, time-resolved split of a spike's lasting damage into
 direct, m-echo and v-stall parts.
 
-**Built and run (2026-11-05).**
-- Harness: Δ = 0 on CUDA and AMD MI300X, in and across processes.
-- Autopsy code: RML undo, planted probes, placebo floor.
-- MI300X pilot (exploratory, 120 branches): width-1 spikes left 0.0003–0.0117 nats, about the chaos floor
-  (≤ 0.0027). In the one clear case, undoing m+v removed ~98%; undoing v alone made it worse (n = 1).
-- New, CI-tested: an in-loop LR schedule (cosine / WSD); bit-flip faults in g, m, v.
-- Next: a spike-dose sweep in chaos units, with a v-cooldown arm.
+**Built and run (2026-11-10).**
+- Harness: Δ = 0 on CUDA and AMD MI300X, including the current loop.
+- Pre-registered dose sweep (proxy, seed 0): at realistic dose (c = 1) damage is ≤ 0.0024 nats, so the frozen outcome
+  "no lasting damage at realistic dose" applies.
+- At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
+- RML at lag 3 closed 68% at step 1800 (bar: 80%).
 - Not built: localizer, repair module, theory.
 
 ---
@@ -109,12 +108,13 @@ used as a feasibility check on edited states.
 | C-3 | Spike interference, with no state patching | Opposite-sign pairs interfere less than same-sign pairs for Δt ≤ 13 |
 | C-4 | Retroactive repair at a detector-timed lag | RML matches the best non-oracle baseline and beats skip-step on the same spikes |
 
-**The next experiment** ([`prereg_v2.md`](prereg_v2.md)) is a dose sweep on `corrupt_batch`:
+**The experiment run on 2026-11-10** ([`prereg_v2.md`](prereg_v2.md), results in
+[`prereg_v2_results.md`](prereg_v2_results.md)) is a dose sweep on `corrupt_batch`:
 - planted dose c ∈ {1, 3, 10, 30};
 - three phases of training (descent, plateau, late);
 - none / undo-m / undo-v / undo-m+v, plus the global-cooldown arm;
 - β1 ∈ {0.8, 0.95} at c = 10;
-- 8 placebos per phase in the weight and gradient channels.
+- 16 placebos per phase as written (8 at steps 160 and 1000 in the actual run, because of a hardware deadline).
 
 It asks:
 - **H-A, H-A2:** Is there a **forgetting threshold**, the smallest dose c\* whose damage clears chaos, and does it
@@ -167,11 +167,11 @@ AdaGC, and rollback-and-skip at matched compute.
 | Harness: determinism, name-keyed (w, m, v) snapshots (fp32, tied weights once), trunk with hooks, fork + Δ = 0 gate | ✅ GPU-verified on T4, P100 and the MI300X | `research/harness/` |
 | Cross-process + co-tenancy gate through spike windows | ✅ MI300X: 3 processes bitwise equal | `research/gpu/xproc_gate.py` |
 | Spike recipes + detector (`lr_bump`, `corrupt_batch`, `repeat_ngram`, `v_inflate`, `tiny_eps`, precision) | ✅ CI; three recipes ran on the MI300X | `research/spikes/` |
-| Spike capture (v̄, t0 / fork / matched-normal snapshots) | ◐ The self-check crashed on the MI300X (eps read back as a string). Fix committed (f751e14); not yet re-run on the GPU | `research/spikes/capture.py` |
-| Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; not yet run on a GPU | `research/baselines/` |
-| Rollback-and-skip at matched compute | ◐ written and CI-tested (PR #20, not merged); `Brollback_k` wiring into `mve` in PR #21 | branches `baselines/rollback-skip`, `autopsy/brollback-k-wiring` |
-| Autopsy code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, placebo floor, dose meter, GPU driver `mve`, sealed report | ◐ CI-tested; the core battery ran on the MI300X; the placebo, dose and cooldown arms have not run yet | `research/autopsy/` |
-| Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ implemented 2026-10-29, not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
+| Spike capture (v̄, t0 / fork / matched-normal snapshots) | ✅ Self-check passed on the MI300X from the tag (2026-11-10). The full capture battery has not run | `research/spikes/capture.py` |
+| Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; ran on the MI300X in the repair battery (2026-11-10), default settings | `research/baselines/` |
+| Rollback-and-skip at matched compute | ◐ CI-tested (PR #20, not merged); `Brollback_k` wiring in PR #21; both ran on the MI300X from the tag | branches `baselines/rollback-skip`, `autopsy/brollback-k-wiring` |
+| Autopsy code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, placebo floor, dose meter, GPU driver `mve`, sealed report | ✅ CI-tested; placebo, dose, cooldown and repair arms ran on the MI300X (2026-11-10) | `research/autopsy/` |
+| Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ K = 8 and K = 16 ran on the MI300X; data-order forks at step 1800 only; K = 111 not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
 | Stats (TOST, bootstrap, Holm), attribution | ◐ partial | `research/analysis/` |
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
@@ -182,9 +182,9 @@ AdaGC, and rollback-and-skip at matched compute.
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15) | — |
 
 **Known code issues:**
-- `trunk.train_forward` changed (the schedule), so the Δ = 0 gate has to pass again on the GPU before new data counts.
 - `mve` still runs the planted (phase B) arms for `sdc_grad`; at bit 30 on a GPU that plants a reversed gradient.
-- The box runs torch 2.14 while the repo pins 2.10, so the pilot skipped the environment preflight.
+- Three tests seed twice in one process, so they fail on a GPU machine (they pass in CI).
+- `trunk.py`'s `main --config` calls the environment check after CUDA starts and crashes there.
 
 ### 6 · Results so far (AMD MI300X, 2026-10-27)
 
@@ -198,7 +198,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 - **Speed** [V]: 22.2 ms/step solo for the proxy at batch 64, ≈ 33 ms/step per deterministic fork when forks share
   the GPU, and ≈ 1.3× throughput from packing two forks. That is ≈ 43 s (0.012 GPU-h) per end-of-schedule proxy
   branch.
-- **GPU budget:** 20 MI300X-hours in total, about 3 used so far.
+- **GPU budget:** 20 MI300X-hours in total, about 5.1 used so far.
 - **Pilot** [V, exploratory]: 120 of 120 branches with 0 crashes. Width-1 spikes at step 160, seed 0, constant LR,
   with `corrupt_batch` and `repeat_ngram` at β1 = 0.9, `lr_bump`, and `corrupt_batch` at β1 = 0.8 and 0.95.
   - **Spikes this small mostly wash out.** Lasting damage was 0.0003–0.0117 nats, while the 1-ulp chaos scale
@@ -208,6 +208,22 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
   - Its thresholds were fixed after the data existed, so it is a pilot and confirms nothing.
 - **What it changed:** a measured chaos floor comes before any reading of an effect, and the spike dose has to
   rise until damage clears that floor. Hence the dose sweep in §3.
+
+**Pre-registered dose sweep (MI300X, 2026-11-10; proxy, seed 0, `corrupt_batch`).** Full tables and deviations:
+[`prereg_v2_results.md`](prereg_v2_results.md).
+- **Realistic dose (c = 1):** damage was +0.0005, −0.0001 and +0.0024 nats at steps 160, 1000 and 1800, all below 0.01.
+  The frozen outcome "no lasting damage at realistic dose" applies.
+- **Dose response:** damage rises with dose in every phase and reaches 0.01 nats at c = 10 to 30.
+- **Protective v (C-2):** at c ≥ 10, undoing v alone is 2.2× to 24× worse than doing nothing (6 of 6). The strict test
+  across all doses fails, 9 of 11.
+- **Memory writes the damage:** at c ≥ 10, undoing m+v removes 73–103% (6 of 6). The strict test fails, 8 of 11.
+- **β1 ordering (C-1):** the memory share did not rise with β1 (0.72, 0.73, 0.67). D(τ) and interference (C-3) were
+  not run.
+- **Cooldown:** a global LR cooldown does not replace v by the frozen rule, but it recovers 25–93% of what undo-v loses.
+- **Repair (C-4), c = 1, lag 3:** RML closes 68% at step 1800 (bar: 80%). At this dose the damage is too small to rank
+  repairs.
+- **Ruler:** 10 data-order forks at step 1800 (exploratory) have an SD of 0.0047 nats, about 170,000 times the 1-ulp
+  floor there. In that unit, c = 1 damage is 0.5σ and c = 30 damage is 5.2σ.
 
 ### 7 · What is new since PLAN_V8 (2026-10-22)
 
@@ -225,13 +241,14 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-05 | Bit-flip faults in g, m and v, plus a parity residual; `mve` skips the undo arms that equal B0 for m / v flips |
 | 11-05 | `mve` refuses to resume a result file written under a different config |
 | 11-08 | That refusal now also covers a different commit or command line; `report` keeps β1 groups per experiment and stops on two result files with one name |
+| 11-10 | prereg-v2 amended, tagged and run on the MI300X (dose, undo, cooldown and repair arms, 3 phases); Δ = 0 re-passed on the changed loop |
 
 ### 8 · Where things live
 
 | Need | File |
 |---|---|
 | Full design, math, novelty ledger, all hypotheses | [`PLAN_V8.md`](../PLAN_V8.md) |
-| Next experiment, written down before it runs | [`prereg_v2.md`](prereg_v2.md) |
+| The frozen experiment, and its results | [`prereg_v2.md`](prereg_v2.md), [`prereg_v2_results.md`](prereg_v2_results.md) |
 | The ten new directions | [`p1_upgrades.md`](p1_upgrades.md) |
 | Invented algorithms and experiment families | [`EXPERIMENT_CATALOG.md`](EXPERIMENT_CATALOG.md) |
 | Harness interfaces and guardrails | [`CLAUDE.md`](../CLAUDE.md) |

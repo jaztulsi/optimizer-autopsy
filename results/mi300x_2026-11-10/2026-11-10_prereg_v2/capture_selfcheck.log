@@ -1,0 +1,2 @@
+capture selfcheck OK on GPU: fork@40 t0=40 replay max|Δ|=0 over 1 steps
+selfcheck rc=0

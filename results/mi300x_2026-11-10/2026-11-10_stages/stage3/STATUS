@@ -1,0 +1,13 @@
+Tue Nov 10 02:35:18 UTC 2026
+commit ebfc7ed Docs: record the Brollback_k wiring as written in PR 21
+python /opt/venv/bin/python3
+torch 2.10.0+rocm7.14.1 hip 7.14.60850 gpu AMD Instinct MI300X VF
+fork_selfcheck rc=0
+xproc_prime rc=0
+xproc_fork_a_concurrent rc=0
+xproc_fork_b_concurrent rc=0
+xproc_fork_c_solo rc=0
+xproc_compare rc=0
+baseline_gpu_checks rc=0
+Tue Nov 10 02:36:39 UTC 2026
+ALL CHECKS PASS -> post /shared-docker/runs/2026-11-10_stages/stage3

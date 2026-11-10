@@ -1,0 +1,55 @@
+{
+ "device": "cuda",
+ "gpu": "AMD Instinct MI300X VF",
+ "torch": "2.10.0+rocm7.14.1",
+ "hip": "7.14.60850",
+ "tiny_cpu_wiring_check": false,
+ "grad_accum": 40,
+ "brollback_rebuild": {
+  "PASS": true,
+  "data_skip": 3,
+  "brollback": {
+   "PASS": true,
+   "wasted_steps": 3,
+   "horizon_shift": 3,
+   "steps_run": 3,
+   "losses_equal_rebuild": true,
+   "losses_equal_rerun": true,
+   "max_abs_w_vs_rebuild": 0.0,
+   "max_abs_w_vs_rerun": 0.0,
+   "losses": [
+    10.861789536476135,
+    10.861607360839844,
+    10.861976647377015
+   ]
+  },
+  "brollback_k": {
+   "PASS": true,
+   "wasted_steps": 3,
+   "horizon_shift": 6,
+   "steps_run": 3,
+   "losses_equal_rebuild": true,
+   "losses_equal_rerun": true,
+   "max_abs_w_vs_rebuild": 0.0,
+   "max_abs_w_vs_rerun": 0.0,
+   "losses": [
+    10.862804508209228,
+    10.863191843032837,
+    10.862872457504272
+   ]
+  }
+ },
+ "data_offset": {
+  "PASS": true,
+  "losses_equal": true,
+  "max_abs_w": 0.0,
+  "max_abs_v": 0.0,
+  "losses": [
+   10.864597201347351,
+   10.86308970451355,
+   10.86409888267517,
+   10.863913702964783
+  ]
+ },
+ "PASS": true
+}

@@ -6,14 +6,14 @@ Plan: [PLAN_V8.md](../PLAN_V8.md) · state: [docs/SUMMARY.md](../docs/SUMMARY.md
 
 All code lives under `research/`. The repo-root `index.html` is the GitHub Pages site, so it stays at the root.
 
-## Layout and status (2026-11-09)
+## Layout and status (2026-11-10)
 
 | Package | Role | Status |
 |---|---|---|
-| `harness/` | **C1**, the instrument: determinism, preflight, secrets, name-keyed `(w,m,v)` snapshots, trunk and fork runs, the Δ = 0 gate, the LR schedule (`schedule.py`: warmup + cosine / WSD, set inside the training loop) | ✅ Δ = 0 on T4, P100 and the AMD MI300X; `schedule.py` has CPU tests (CI-tested), not GPU-run |
-| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor (weight / gradient / optimizer-state arms, zero-perturbation check, data-order forks, `--battery chaos`), dose meter, the GPU driver `mve`, the sealed report + chaos-fork release table, bit-flip fault recipes + the parity residual (`faults.py`) | ◐ CI-tested; the core battery ran in the 2026-10-27 pilot; placebo, dose, cooldown and chaos arms not yet GPU-run; `faults.py` has CPU tests (CI-tested), not GPU-run |
-| `spikes/` | Spike recipes (`lr_bump` multiplies the schedule; `sdc_grad` / `v_bitflip` / `m_bitflip` come from `autopsy/faults.py`), detector, capture driver (v̄ + snapshots), natural-spike search, K2 manifest | ◐ 3 recipes ran on the MI300X; capture self-check fix awaits a GPU re-run |
-| `baselines/` | skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step, as fork interventions | ◐ CI-tested; never GPU-run; `Brollback` in PR #20, its `mve` wiring in PR #21 |
+| `harness/` | **C1**, the instrument: determinism, preflight, secrets, name-keyed `(w,m,v)` snapshots, trunk and fork runs, the Δ = 0 gate, the LR schedule (`schedule.py`: warmup + cosine / WSD, set inside the training loop) | ✅ Δ = 0 on T4, P100 and the AMD MI300X; `schedule.py` has CPU tests (CI-tested), not GPU-run (prereg-v2 is constant-LR) |
+| `autopsy/` | P1 code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, 1-ulp placebo floor (weight / gradient / optimizer-state arms, zero-perturbation check, data-order forks, `--battery chaos`), dose meter, the GPU driver `mve`, the sealed report + chaos-fork release table, bit-flip fault recipes + the parity residual (`faults.py`) | ◐ CI-tested; core, placebo, dose, cooldown, chaos (K ≤ 16) and repair arms GPU-run on the MI300X (2026-11-10); `faults.py` has CPU tests (CI-tested), not GPU-run |
+| `spikes/` | Spike recipes (`lr_bump` multiplies the schedule; `sdc_grad` / `v_bitflip` / `m_bitflip` come from `autopsy/faults.py`), detector, capture driver (v̄ + snapshots), natural-spike search, K2 manifest | ◐ 3 recipes ran on the MI300X; capture self-check passed on the MI300X (2026-11-10) |
+| `baselines/` | skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step, as fork interventions | ◐ CI-tested; ran on the MI300X in the repair battery at default settings (2026-11-10); `Brollback` in PR #20, its `mve` wiring in PR #21 |
 | `analysis/` | held-out eval (token-disjoint slots), stats, attribution, figures | ◐ eval done; stats partial; figures stub |
 | `localizer/` | **C2**: which state coordinates carry the damage (SNR, curvature, poison score) | ⬜ stubs (output contract: PLAN_V8 §6.4) |
 | `repair/` | **C3**: edit the localized optimizer state | ⬜ stub; RML in `autopsy/` covers part of it |

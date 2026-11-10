@@ -1,0 +1,9 @@
+prereg start 02:58:39 code d823a4b tag prereg-v2 dirty 0
+launched main_inj160 02:58:39 vram=36
+launched main_inj1000 02:59:19 vram=45
+launched main_inj1800 02:59:59 vram=36
+launched repair_inj160 03:00:40 vram=46
+launched repair_inj1000 03:01:20 vram=55
+launched repair_inj1800 03:02:00 vram=64
+launched beta0.8 03:02:40 vram=73
+PREREG_EXIT

@@ -709,7 +709,8 @@ batch 64, and ≈ 0.012 GPU-h per end-of-schedule proxy branch when forks share 
 rates are not measured yet. At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $290 and
 2,000 h ≈ $5.8k; the GPU itself is free to us.
 
-**Budget (2026-11-08): we have 20 MI300X-hours in total, about 3 already used [V].** The tiers below are full-program
+**Budget (updated 2026-11-10): we have 20 MI300X-hours in total, about 5.1 used [V].** The list below predates the
+2026-11-10 session, which covered the Δ = 0 re-run and prereg-v2. The tiers below are full-program
 estimates, so T2 as written (50–80 h) does not fit and T3 and T4 need new hours. What fits, from the measured proxy
 cost [I]: the Δ = 0 re-run and the baseline GPU checks (< 1 h), prereg-v2 (≈ 2 h), the chaos-floor benchmark (≈ 7 h),
 which leaves ≈ 7 h for seed replication and the repair battery. 124M n = 5 (6–8 h) or Pythia-160M (≈ 4 h) would have
@@ -903,7 +904,7 @@ The tools below (none found in our bounded searches, §5) each ship with tests a
 | Week | Dates | Work | Owner |
 |---|---|---|---|
 | 1 | Oct 26 | T0 bring-up + G0. §9.3 fixes. Commit §7.2. Push the spike pipeline PR. Email EleutherAI. Check OPEN-1B. **Done:** T0/G0, an exploratory T1 pilot, the §9.3 fixes except two (§9.3), the pipeline pushed (PR #18), prereg-v2 drafted. **Not done:** EleutherAI email, OPEN-1B check | Jasraj |
-| 2 | Nov 2 | prereg-v2 sign-off and tag → chaos floor + dose sweep + repair battery (H-A…H-F) → G1–G3. **Not run as of Nov 8** | Jasraj |
+| 2 | Nov 2 | prereg-v2 sign-off and tag → chaos floor + dose sweep + repair battery (H-A…H-F) → G1–G3. **Run 2026-11-10 (seed 0, cut by a hardware deadline; `docs/prereg_v2_results.md`). The third outcome applies** | Jasraj |
 | 3–4 | Nov 9–20 | Realistic proxy + mid rung; QK-Norm / untied; β cross; SDC recipes; stress re-search | Jasraj + Eddie |
 | 5–6 | Nov 23–Dec 4 | M4 interference + M3 refractory forks → G4; oracle/localizers only if ahead (exploratory); Pythia converter + census (G8) | Avyank (localizers) + Jasraj (forks) |
 | 7–8 | Dec 7–18 | Repairs + full baseline battery → G5; E1 scaling-law fit | Eddie + Jasraj |
@@ -978,6 +979,8 @@ ICML submission. Each week runs Monday to Sunday. Roles marked *(proposed)* in �
 | **Dec 14–20** | 0 | Instrument, spike and theory sections | Baselines and repair sections to Eknoor | Localizer and statistics sections to Eknoor; Tab 2 final | Results section; assemble draft 1 | Draft 1 has every section |
 | **Dec 21–27** | ≤ 1 h reserve | Read draft 1. Reruns only if a result needs one | Check every repair and baseline number against the results files | Check every statistic against the results files | Draft 2 from everyone's comments | Every number traced to a results file |
 | **Dec 28–31** | 0 | Final scope check. Bring the plan, status page and instrument release up to date | Confirm baselines and repair reproduce from the repo | Confirm the statistics reproduce from the repo | Complete draft. All figures rebuilt from the final results | **Results frozen; complete paper draft** |
+
+**GPU ledger update (2026-11-10) [V]:** about 5.1 h used, so about 14.9 h remain. The lines below were written before that session.
 
 **GPU ledger [I]:** about 3 h used + 1 + 2 + 7 + 2.5 + 3.5 + 1 reserve = 20 h. These are estimates from the measured
 proxy cost, and each session still needs Jasraj's go-ahead. Nothing is spare beyond the reserve hour.

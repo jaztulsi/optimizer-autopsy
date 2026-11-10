@@ -1,0 +1,19 @@
+Tue Nov 10 02:35:18 UTC 2026
+commit ebfc7ed Docs: record the Brollback_k wiring as written in PR 21
+python /opt/venv/bin/python3
+torch 2.10.0+rocm7.14.1 hip 7.14.60850 gpu AMD Instinct MI300X VF
+fork_selfcheck rc=0
+fork determinism GATE OK on cuda: 15 steps, noop-vs-noop max|Δ|=0
+fork selfcheck OK on cuda: trunk->capture->save/load->noop gate, max|Δ|=0
+xproc_prime rc=0
+xproc_fork_a_concurrent rc=0
+xproc_fork_b_concurrent rc=0
+xproc_fork_c_solo rc=0
+xproc_compare rc=0
+XPROC GATE PASS
+baseline_gpu_checks rc=0
+brollback_rebuild: PASS {"PASS": true, "data_skip": 3, "brollback": {"PASS": true, "wasted_steps": 3, "horizon_shift": 3, "steps_run": 3, "losses_equal_rebuild": true, "losses_equal_rerun": true, "max_abs_w_vs_rebuild": 0.0, "max_abs_w_vs_rerun": 0.0, "losses": [10.861789536476135, 10.861607360839844, 10.861976647377015]}, "brollback_k": {"PASS": true, "wasted_steps": 3, "horizon_shift": 6, "steps_run": 3, "losses_equal_rebuild": true, "losses_equal_rerun": true, "max_abs_w_vs_rebuild": 0.0, "max_abs_w_vs_rerun": 0.0, "losses": [10.862804508209228, 10.863191843032837, 10.862872457504272]}}
+data_offset: PASS {"PASS": true, "losses_equal": true, "max_abs_w": 0.0, "max_abs_v": 0.0}
+BASELINE GPU CHECKS PASS on cuda
+Tue Nov 10 02:36:39 UTC 2026
+ALL CHECKS PASS -> post /shared-docker/runs/2026-11-10_stages/stage3
