@@ -458,9 +458,11 @@ def main(argv=None):
         ap.error("--kind is required unless --battery chaos")
 
     if not args.skip_preflight:
-        from research.harness.preflight import check_env
-
-        check_env()  # entrypoint: pinned env + determinism before any CUDA work
+        # entrypoint: pinned env + determinism before any CUDA work. In a child process, because check_env ends by
+        # touching the GPU and seed_everything refuses to start in a process where CUDA is already initialized.
+        subprocess.run(
+            [sys.executable, "-c", "from research.harness.preflight import check_env; check_env()"], check=True
+        )
     print(run_instance(args))
 
 

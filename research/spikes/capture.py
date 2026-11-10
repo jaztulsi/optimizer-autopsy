@@ -289,8 +289,9 @@ def _battery_specs(out_root: str) -> list[dict]:
 
 
 def _selfcheck() -> None:
-    """GPU-only end-to-end check on a tiny synthetic shard: capture an lr_bump spike, then prove the saved
-    fork snapshot is fork-ready -- replaying the recipe from it must reproduce the trunk's losses bitwise."""
+    """GPU-only end-to-end check on a tiny synthetic shard: capture a corrupt_batch spike, then prove the saved
+    fork snapshot is fork-ready -- replaying the recipe from it must reproduce the trunk's losses bitwise.
+    Not lr_bump: on this memorized data a big LR just lowers the loss further, so nothing spikes (MI300X, Nov 2026)."""
     import tempfile
 
     import numpy as np
@@ -336,17 +337,17 @@ def _selfcheck() -> None:
             "overrides": {"train.batch_size": 16},
             "knobs": {"save_every": 10, "normal_gap": 5},
             "recipe": {
-                "kind": "lr_bump",
+                "kind": "corrupt_batch",
                 "inject_step": inject,
                 "width": 3,
-                "params": {"factor": 100.0},
+                "params": {},
                 "min_lead": 2,
                 "allow_at_peak": False,
                 "peak_offset": 0,
             },
         }
         run = run_one(spec)
-        assert len(run["losses"]) == 80 and run["triggers"], "no trigger captured -- lr x100 should fire"
+        assert len(run["losses"]) == 80 and run["triggers"], "no trigger captured -- a random-token batch should fire"
         tr = run["triggers"][0]
         assert tr["fork_step"] == inject <= tr["t0"], tr
         t0_snap, fork_snap = load(tr["t0_snapshot"]), load(tr["fork_snapshot"])
@@ -358,7 +359,7 @@ def _selfcheck() -> None:
         from research.configs import load_config
 
         cfg = load_config(cfg_path, {"train.batch_size": 16, "seed": 0})
-        recipe = induce("lr_bump", cfg, inject_step=inject, width=3, factor=100.0)
+        recipe = induce("corrupt_batch", cfg, inject_step=inject, width=3)
         k_steps = tr["t0"] + 1 - inject
         replay = run_fork(cfg, d, fork_snap, steps=k_steps, seed=False, pre_step=recipe.pre_step)
         delta = max(abs(a - b) for a, b in zip(replay, run["losses"][inject : tr["t0"] + 1]))
