@@ -30,6 +30,7 @@ Derived quantities (kernel, Shapley, interference, chi, stats) are computed offl
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
@@ -62,6 +63,8 @@ def _stamp(cfg: dict) -> dict:
     return {
         "git_sha": git("rev-parse", "HEAD"),
         "git_dirty": bool(git("status", "--porcelain")),
+        # hash of the uncommitted edits to tracked files (new untracked files are not in `git diff HEAD`)
+        "git_diff": hashlib.sha256(d.encode()).hexdigest()[:16] if (d := git("diff", "HEAD")) else None,
         "argv": sys.argv,
         "cfg": cfg,
         "torch": torch.__version__,
@@ -73,9 +76,9 @@ def _stamp(cfg: dict) -> dict:
 
 
 def _resume_mismatch(old: dict, new: dict) -> list[str]:
-    """Which of cfg / commit / command line differ between a result file's stamp and this run."""
+    """Which of cfg / commit / uncommitted diff / command line differ between a result file's stamp and this run."""
     new = json.loads(json.dumps(new))  # a stored stamp has been through JSON
-    bad = [k for k in ("cfg", "git_sha") if old.get(k) != new.get(k)]
+    bad = [k for k in ("cfg", "git_sha", "git_diff") if old.get(k) != new.get(k)]
     return bad + ["argv"] * (old["argv"][1:] != new["argv"][1:])  # argv[0] is the interpreter's view of the script
 
 
