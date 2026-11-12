@@ -8,6 +8,6 @@ labels: bug
 
 **Expected**
 
-**Repro** (command, config, device — CPU / Kaggle T4 / etc.)
+**Repro** (command, config, device — CI CPU / MI300X / etc.)
 
 **Logs / Δ** (paste the relevant output; redact any secrets)

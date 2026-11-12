@@ -20,13 +20,16 @@ import torch
 
 from research.data.prepare import get_batch, resolve_data_dir
 from research.harness.determinism import seed_everything
+from research.harness.schedule import lr_at
 from research.model.nanogpt import GPT, GPTConfig
 
 
 def _grad_norm(params, clip: float) -> float:
-    """Total grad L2 norm; also clips in place when clip>0 (0/None -> measure only)."""
-    max_norm = clip if clip and clip > 0 else float("inf")
-    return float(torch.nn.utils.clip_grad_norm_(params, max_norm))
+    """Total grad L2 norm; also clips in place when clip>0. Clip off (0/None) only measures: `clip_grad_norm_`
+    with max_norm=inf would scale by inf/inf = NaN once the norm overflows, wiping every gradient."""
+    if clip and clip > 0:
+        return float(torch.nn.utils.clip_grad_norm_(params, clip))
+    return float(torch.nn.utils.get_total_norm([p.grad for p in params if p.grad is not None]))
 
 
 def build_model_opt(cfg: dict, device: str):
@@ -66,6 +69,8 @@ def train_forward(
     `pre_step(step, ctx)` (spike-induction injection point, Task 8) fires at the TOP of each step with
     a mutable ctx = {model, opt, cfg, batch, autocast_dtype}; a recipe may mutate `opt` (LR/eps),
     override the batch (ctx["batch"]=(x,y)), or force reduced precision (ctx["autocast_dtype"]="float16").
+    It may also set ctx["data_offset"] = k to read step `step + k`'s data slots instead of step `step`'s
+    (every microbatch shifts, so it holds under grad_accum > 1) -- the data skip of rollback-and-skip.
     Default None is a pure no-op -- the trunk/resume/fork paths are byte-for-byte unchanged.
 
     `pre_opt_step(step, ctx)` (Task 15 baselines) fires after accumulation + global clip, right before
@@ -74,15 +79,24 @@ def train_forward(
     for a change that must last exactly one step (e.g. SPAM scaling the LR). Setting ctx["skip_update"]
     = True skips `opt.step()` for this step entirely (w, m, v and Adam's step count untouched; the
     batch is still consumed, so the data stream stays aligned). Default None: unchanged.
+
+    A cfg with `optim.schedule` (warmup + cosine / WSD, harness/schedule.py) sets every group's LR to
+    `lr_at(step, cfg)` at the top of each step, before `pre_step`, so an LR recipe scales the schedule.
+    No schedule key: untouched.
     """
     block = model.cfg.block_size
     t = cfg["train"]
     batch = t["batch_size"]
     grad_accum = t.get("grad_accum", 1)
     grad_clip = cfg["optim"].get("grad_clip", 0.0)
+    sched = cfg["optim"].get("schedule")
 
     losses: list[float] = []
     for step in range(start_step, start_step + steps):
+        if sched:  # before pre_step, so lr_bump / cooldown multiply the scheduled LR
+            lr_now = lr_at(step, cfg)
+            for g in opt.param_groups:
+                g["lr"] = lr_now
         ctx = None
         if pre_step is not None or pre_opt_step is not None:
             ctx = {"model": model, "opt": opt, "cfg": cfg, "batch": None, "autocast_dtype": None}
@@ -91,9 +105,10 @@ def train_forward(
         opt.zero_grad(set_to_none=True)
         total_loss = 0.0
         acc = None  # manual grad accumulator, only when grad_accum > 1
+        data_step = step + (ctx.get("data_offset", 0) if ctx is not None else 0)
         for micro in range(grad_accum):
             # Each microbatch is a distinct, reproducible data slot (pure function of gstep).
-            gstep = step * grad_accum + micro
+            gstep = data_step * grad_accum + micro
             if ctx is not None and ctx["batch"] is not None:
                 x, y = ctx["batch"]  # perturbation override (e.g. corrupt-batch spike recipe)
             else:

@@ -1,0 +1,15 @@
+FAIL research/tests/test_autopsy.py::test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes
+=========================== short test summary info ============================
+FAILED research/tests/test_autopsy.py::test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes
+1 failed in 24.72s
+FAIL research/tests/test_baselines.py::test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe
+=========================== short test summary info ============================
+FAILED research/tests/test_baselines.py::test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe
+1 failed in 2.35s
+PASS research/tests/test_baselines.py::test_reused_branch_starts_from_primed_state_every_run
+PASS research/tests/test_baselines.py::test_brollback_branch_is_matched_compute_rollback_on_unseen_data
+FAIL research/tests/test_baselines.py::test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute
+=========================== short test summary info ============================
+FAILED research/tests/test_baselines.py::test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute
+1 failed in 2.39s
+PASS research/tests/test_determinism.py::test_bitwise_replay

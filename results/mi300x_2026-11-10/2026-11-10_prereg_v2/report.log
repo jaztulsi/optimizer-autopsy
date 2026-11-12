@@ -1,0 +1,72 @@
+# Instrument report (effects sealed in sealed.json until the prereg tag)
+
+| instance | done/exp | non-survivors | P+ vs B0 max abs val | s/branch | B* val@end |
+|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | 12/12 | - | 0.00037805557250969457 | 136.5 | 2.7946564292907716 |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | 9/12 | - | 0.00046373367309548996 | 178.5 | 2.882377052307129 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 27/27 | - | 9.536743172944284e-08 | 98.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 17/27 | - | 0.0001307201385500889 | 193.2 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 60/60 | - | 1.907348634588857e-08 | 37.4 | 2.833148365020752 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | 15/0 | - | None | 169.2 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | 15/0 | - | None | 259.5 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | 15/0 | - | None | 56.1 | 2.833148365020752 |
+
+| instance | sigma_chaos @end: w | g | opt | data-order | zero-pert max abs D | sigma unit |
+|---|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 2.7086141440124646e-08 | 3.0755072579119685e-08 | - | - | 0.0 | 2.7086141440124646e-08 (own) |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | - | - | - | - | - | 2.7086141440124646e-08 (borrowed) |
+
+# Instrument report (effects sealed in sealed.json until the prereg tag)
+
+| instance | done/exp | non-survivors | P+ vs B0 max abs val | s/branch | B* val@end |
+|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | 12/12 | - | 0.00037805557250969457 | 136.5 | 2.7946564292907716 |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | 12/12 | - | 0.00046373367309548996 | 153.4 | 2.882377052307129 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 27/27 | - | 9.536743172944284e-08 | 98.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 24/27 | - | 0.0001307201385500889 | 158.7 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 60/60 | - | 1.907348634588857e-08 | 37.4 | 2.833148365020752 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | 15/0 | - | None | 169.2 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | 15/0 | - | None | 259.5 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | 15/0 | - | None | 56.1 | 2.833148365020752 |
+
+| instance | sigma_chaos @end: w | g | opt | data-order | zero-pert max abs D | sigma unit |
+|---|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 2.7086141440124646e-08 | 3.0755072579119685e-08 | - | - | 0.0 | 2.7086141440124646e-08 (own) |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | - | - | - | - | - | 2.7086141440124646e-08 (borrowed) |
+
+# Instrument report (effects sealed in sealed.json until the prereg tag)
+
+| instance | done/exp | non-survivors | P+ vs B0 max abs val | s/branch | B* val@end |
+|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | 12/12 | - | 0.00037805557250969457 | 136.5 | 2.7946564292907716 |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | 12/12 | - | 0.00046373367309548996 | 153.4 | 2.882377052307129 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 27/27 | - | 9.536743172944284e-08 | 98.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 27/27 | - | 0.0001307201385500889 | 146.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 60/60 | - | 1.907348634588857e-08 | 37.4 | 2.833148365020752 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | 15/0 | - | None | 169.2 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | 15/0 | - | None | 259.5 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | 15/0 | - | None | 56.1 | 2.833148365020752 |
+
+| instance | sigma_chaos @end: w | g | opt | data-order | zero-pert max abs D | sigma unit |
+|---|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 2.7086141440124646e-08 | 3.0755072579119685e-08 | - | - | 0.0 | 2.7086141440124646e-08 (own) |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | - | - | - | - | - | 2.7086141440124646e-08 (borrowed) |
+

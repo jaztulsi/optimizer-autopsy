@@ -1,0 +1,17 @@
+GPU: AMD Instinct MI300X VF
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] B0: val@end=2.8330064868927 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] B*: val@end=2.833148365020752 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bg: val@end=2.835065622329712 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bs: val@end=2.8359947967529298 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bskipstep_det: val@end=2.8360541820526124 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Brollback: val@end=2.8331118965148927 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Brollback_k: val@end=2.841753101348877 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bskipstep: val@end=2.8362882995605467 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bvreset: val@end=2.88602614402771 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bspam: val@end=2.8819015502929686 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Bzclip: val@end=2.833006582260132 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] Badagc: val@end=2.8397265529632567 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] RML@3: val@end=2.8354195594787597 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] RML-cool@3: val@end=2.8351280212402346 survival=1
+[corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair] RML-sel@3: val@end=2.8348368263244628 survival=1
+/shared-docker/runs/2026-11-10_prereg_v2/repair_inj1000/corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair.json

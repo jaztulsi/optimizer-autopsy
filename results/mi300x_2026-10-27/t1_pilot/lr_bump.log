@@ -1,0 +1,15 @@
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] B*: val@end=2.832665271759033 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] B0: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@0: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@1: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@2: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@4: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@8: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@16: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@32: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_mv@64: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_m@0: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_v@0: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_m@10: val@end=2.8334794902801512 survival=1
+[lr_bump_w1_inj160_seed0_b0.9-0.95_core] U_v@10: val@end=2.8334794902801512 survival=1
+/shared-docker/runs/t1_pilot/lr_bump/lr_bump_w1_inj160_seed0_b0.9-0.95_core.json

@@ -1,0 +1,13 @@
+prereg2 start 03:20:34 code d823a4b
+launched beta0.8 03:44:51
+launched beta0.95 03:48:06
+main_inj1000 rc=0 04:06:31
+beta0.8 rc=0 04:12:44
+report rc=0 04:16:05
+beta0.95 rc=0 04:19:21
+report rc=0 04:25:05
+main_inj160 rc=0 04:26:47
+report rc=0 04:32:05
+REPORTS_DONE
+PREREG2_DONE 04:32:05
+PREREG2_EXIT

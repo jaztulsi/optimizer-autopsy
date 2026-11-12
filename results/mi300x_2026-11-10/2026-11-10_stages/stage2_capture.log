@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 395, in <module>
+    main()
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 377, in main
+    _selfcheck()
+  File "/shared-docker/optimizer-autopsy/research/spikes/capture.py", line 349, in _selfcheck
+    assert len(run["losses"]) == 80 and run["triggers"], "no trigger captured -- lr x100 should fire"
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: no trigger captured -- lr x100 should fire

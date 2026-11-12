@@ -54,7 +54,7 @@ Repos/libraries mapped to the pipeline tasks, so we **wrap proven code instead o
 |---|---|---|
 | karpathy/nanoGPT | REFERENCE | Diff our `model/nanogpt.py` against upstream for drift. |
 | karpathy/build-nanogpt | REFERENCE | Commit-by-commit build-up — bisect a subtle attention/init bug against known-good. |
-| KellerJordan/modded-nanogpt | REFERENCE | Throughput tricks (fused ops, muP scaling) to shrink the 124M GPU-hour budget under Kaggle's 30h/wk cap. |
+| KellerJordan/modded-nanogpt | REFERENCE | Throughput tricks (fused ops, muP scaling) to shrink the 124M GPU-hour budget (written for Kaggle's 30h/wk cap; Kaggle is paused, and the budget is now 20 MI300X-hours). |
 | karpathy/llm.c | REFERENCE | C/CUDA fallback if Python overhead ever bottlenecks 124M. |
 
 ## Task 6 / 7 — harness spine (snapshot, determinism)
@@ -78,7 +78,7 @@ Repos/libraries mapped to the pipeline tasks, so we **wrap proven code instead o
 
 | Tool | Adopt | Note |
 |---|---|---|
-| kaggle/kaggle-api | **WRAP** | Already wired — our headless compute path. |
+| kaggle/kaggle-api | **PAUSED** | Was our headless GPU path. Kaggle is paused (Oct 2026); GPU work runs on the MI300X. |
 | huggingface_hub multi-commit/large-folder | WRAP | See Task 6 above. |
 
 ---
