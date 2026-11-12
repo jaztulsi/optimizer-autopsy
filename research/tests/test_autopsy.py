@@ -265,6 +265,9 @@ def test_resume_mismatch_names_what_changed():
     assert _resume_mismatch(old, {**old, "git_sha": "b"}) == ["git_sha"]
     assert _resume_mismatch(old, {**old, "argv": ["mve.py", "--seed", "1"]}) == ["argv"]
     assert _resume_mismatch(old, {**old, "cfg": {}, "git_sha": "b"}) == ["cfg", "git_sha"]
+    # same commit, different uncommitted edits (Eddie, PR #18 review); stamps from before the hash read None
+    assert _resume_mismatch(old, {**old, "git_diff": "3f2a"}) == ["git_diff"]
+    assert _resume_mismatch({**old, "git_diff": "3f2a"}, {**old, "git_diff": "3f2a"}) == []
 
 
 def test_report_floor_and_dose_units():
