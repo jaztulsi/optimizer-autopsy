@@ -170,6 +170,9 @@ only.
 
 Two tests this adds (proposals):
 - **Extrapolated judge.** On the saved seed-0 horizons, fit each arm's excess loss over the early horizons and pick
-  by the predicted end value. Wrong if that pick's regret is higher than the plain pick's. No GPU.
+  by the predicted end value. Wrong if that pick's regret is higher than the plain pick's. No GPU. Not run yet: it
+  needs a curve fit, and only `jq` runs on the workstation. The plain check was run on 2026-11-13
+  (`rml3_method.md` §2.3): a 20-step horizon picked SPAM once and ended 0.049 nats worse than doing nothing; a
+  100-step horizon did no harm.
 - **Or's supervisor as a baseline.** It runs beside the tournament in the online demonstration. The tournament is
   wrong if its end damage is not below the supervisor's at equal compute.

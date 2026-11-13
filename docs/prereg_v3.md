@@ -130,8 +130,9 @@ step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
 5. Who wires `Bspam_clip` and `Bspam_reset`, and where (`fork.make_baseline_branches` or `mve.repair_battery`).
 6. Whether to log the 10%, 50% and 90% quantiles of x on the hit support as well as x̄ (a logging change only).
 7. The exclusion threshold of 0.3 nats.
-8. Whether the report keeps the per-horizon values for the dose and remedy arms. They are measured already, and the
-   exploratory regret analysis in `novelty/rml3_method.md` §2.3 needs them. No extra GPU.
+8. Whether the raw fork files stay committed beside the report. They hold every arm's held-out loss at each horizon
+   and its training-loss trace; the sealed report keeps per-horizon values only for the four undo arms. The
+   exploratory regret analysis in `novelty/rml3_method.md` §2.3 was run from them. No extra GPU.
 
 ## Budget [estimates, not measured]
 Basis: the v2 session ran roughly 200,000 fork-steps in 2.1 GPU-hours, by my reconstruction of what it ran, which

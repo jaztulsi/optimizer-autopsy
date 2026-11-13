@@ -20,7 +20,8 @@ The brief names "V6". `PLAN_V8.md` governs and keeps V6's four components: **C1*
 
 How the three fit together: K1 is the repair that runs all the time. K2 is the safety net that runs when a spike
 gets through anyway, and K1 is one item on its menu. K3 is offline science that says whether any repair has room to
-do better than the menu.
+do better than the menu. An offline check on seed 0 (§2.3) narrows K2: it works as insurance against a harmful
+remedy, it needs a horizon near 100 steps, and it did not beat the best fixed remedy.
 
 **What changes from RML-1 and RML-2.**
 
@@ -164,9 +165,12 @@ replay the next stretch once per remedy on the same data, score each on fresh ba
 winner. Because the replay starts before the spike, every remedy acts at the spike step itself, with hindsight.
 Because "do nothing" is on the menu, the choice is never worse than doing nothing at the horizon judged.
 
-Seed 0 shows why a fixed rule is not enough. At realistic dose and step 1000, undoing m alone left the loss
-0.117 nats above the clean run 19 steps later, ten times the spike's own excess of 0.0115, and 0.005 at the end.
-At step 160 the same arm was the best one at +19 steps. No single remedy was safe in all three phases.
+Seed 0 shows what it is for, and what it is not for (§2.3). Some remedies are harmful in one phase and harmless in
+another. Undoing m alone left the loss 0.117 nats above the clean run 19 steps after the spike at step 1000, ten
+times the spike's own excess of 0.0115, while at step 160 it was the best undo arm at that horizon. A full moment
+reset helped at step 160 and hurt at steps 1000 and 1800. But ZClip and the three RML variants never ended more than
+0.003 nats above doing nothing in any phase. So the tournament is insurance against a harmful remedy. It is not a
+source of gain when a safe remedy is already known.
 
 ### 2.2 The rule
 ```
@@ -182,10 +186,13 @@ on detector fire at t0, flagged step s:
 - **Judge:** a fixed set of fresh batches, the same for every arm.
 - **δ:** twice the spread of the same comparison among placebo forks at that point of training (the floor curve, E3
   in prereg-v3).
-- **H:** a multiple of v's memory, 1/(1−β2) steps. Short rollouts are known to favour greedy choices
-  [V, 1803.02021], so H is the quantity under test.
+- **H:** five times v's memory, 5/(1−β2) steps (100 at β2 = 0.95). Short rollouts are known to favour greedy
+  choices [V, 1803.02021]. The first proposal was one v-memory; the offline check in §2.3 shows that is too short.
+- **Free judge (to test):** the mean training loss over the rollout. Every arm sees the same batches, each for the
+  first time, so it is a paired held-out estimate that costs no extra forward pass.
 - **Extrapolated judge (optional):** fit each arm's excess loss over the rollout and predict its end value, as
-  AutoLRS does for candidate learning rates [abs, 2105.10762]. It can be tested offline on the saved horizons.
+  AutoLRS does for candidate learning rates [abs, 2105.10762]. Not run yet: it needs a curve fit, and only `jq`
+  runs on the workstation.
 
 ### 2.3 The experiment
 **Offline, no extra GPU.** Every fork in the battery already records the held-out loss at fixed horizons for every
@@ -193,28 +200,48 @@ arm. So for each instance: pick the arm that looks best at horizon H, then read 
 - regret(H) = end damage of the pick − end damage of the best arm;
 - harm(H) = end damage of the pick − end damage of "none".
 
-**Pilot on seed 0** (real spike, the four undo arms; held-out loss minus the clean run, nats):
+**Offline check on seed 0 (run 2026-11-13; exploratory).** Data: the raw fork files of the prereg-v2 run
+(`results/mi300x_2026-11-10/2026-11-10_prereg_v2/`, the `*_core.json` and `*_repair.json` files). They hold every
+arm's held-out loss 1, 20, 100 and 200 steps into the fork and at the end, and its training-loss trace. Script:
+`tournament_offline.jq` (`jq` only; nothing else ran). Nineteen events, all from one trunk:
+- the real spike at steps 160, 1000 and 1800, with 17 arms (four undo arms and thirteen remedies);
+- the real spike at β1 = 0.8 and 0.95, with the four undo arms;
+- fourteen planted-dose events with five arms (none, undo-m, undo-v, undo-m+v, cooldown).
 
-| Step | Arm | +19 | +99 | +199 | End |
-|---|---|---|---|---|---|
-| 160 | none | 0.0068 | 0.0040 | 0.0038 | 0.0005 |
-| 160 | undo-m | 0.0005 | 0.0011 | −0.0006 | 0.0013 |
-| 160 | undo-v | 0.0083 | 0.0049 | 0.0041 | 0.0023 |
-| 160 | undo-m+v | 0.0016 | 0.0016 | −0.0000 | 0.0021 |
-| 1000 | none | 0.0012 | −0.0012 | 0.0016 | −0.0001 |
-| 1000 | undo-m | **0.1173** | 0.0235 | 0.0220 | 0.0050 |
-| 1000 | undo-v | 0.0016 | −0.0007 | 0.0025 | −0.0004 |
-| 1000 | undo-m+v | 0.0024 | 0.0050 | 0.0033 | 0.0026 |
-| 1800 | none | 0.0000 | 0.0028 | — | 0.0024 |
-| 1800 | undo-m | 0.0008 | 0.0010 | — | 0.0023 |
-| 1800 | undo-v | 0.0011 | 0.0025 | — | 0.0040 |
-| 1800 | undo-m+v | 0.0004 | 0.0016 | — | 0.0020 |
+The pick is the arm with the lowest held-out loss at H. All values are nats against the clean run.
 
-Source: `sealed.json`, the `c2` entries per horizon. A pick at +19 steps would have chosen undo-m, none and none.
-Its regret at the end is 0.0008, 0.0003 and 0.0005 nats (from the unrounded values), and it never chooses the arm
-that ended worst. This is one
-seed, four arms, and differences mostly inside the scatter between arms; it shows the analysis is possible, not that
-the method works. The 0.117 figure is unexplained and should be looked at before anything is built on it.
+| Menu | H | Events | Mean regret | Worst regret | Mean harm vs none | Worst harm | End damage: pick / none / best arm |
+|---|---|---|---|---|---|---|---|
+| Real spike, 17 arms | 20 | 3 | 0.0184 | 0.0492 | +0.0164 | **+0.0489** | 0.0173 / 0.0009 / −0.0011 |
+| Real spike, 17 arms | 100 | 3 | 0.0020 | 0.0033 | 0.0000 | +0.0030 | 0.0009 / 0.0009 / −0.0011 |
+| Real spike, 17 arms | 200 | 2 | 0.0020 | 0.0033 | +0.0002 | +0.0030 | 0.0004 / 0.0002 / −0.0015 |
+| Planted dose, 5 arms | 20 | 14 | 0.0034 | 0.0130 | −0.0063 | +0.0009 | 0.0044 / 0.0107 / 0.0011 |
+| Planted dose, 5 arms | 100 | 14 | 0.0033 | 0.0130 | −0.0063 | +0.0009 | 0.0044 / 0.0107 / 0.0011 |
+| Planted dose, 5 arms | 200 | 10 | 0.0011 | 0.0056 | −0.0081 | +0.0009 | 0.0025 / 0.0106 / 0.0014 |
+
+What it shows:
+1. **A horizon of 20 steps is too short.** At step 1000 the pick at H = 20 was SPAM, whose moment reset fell on
+   that step. SPAM was 0.0085 nats *below* the clean run at H = 20, 0.0245 above it at H = 100, and 0.0488 above
+   it at the end. That is the short-horizon bias in a single event. The thresholds first proposed at H = 20 fail
+   on seed 0: T1 and T3 fail outright, and the harm T2 guards against occurs at step 1000.
+2. **At 100 steps it does no harm on this seed.** The worst harm over all nineteen events is 0.0030 nats, and no
+   pick is one of the damaging arms (v reset, SPAM, AdaGC, rollback-k).
+3. **At realistic dose it gains nothing.** The pick ends at 0.0009 nats, the same as doing nothing. The best fixed
+   arm (ZClip) ends 0.001 nats below doing nothing on average. This agrees with prereg-v2.
+4. **At amplified dose a fixed rule beats it.** Always applying the exact undo of m and v ends at 0.0020 nats on
+   average. The tournament at H ≤ 100 ends at 0.0044, because a short horizon favours undoing m alone (worst
+   regret 0.0130, at step 1000 and c = 30). Against doing nothing (0.0107) it recovers 66% of the available gain at
+   H ≤ 100 and 88% at H = 200.
+5. **A free judge did as well.** Picking by mean training loss over the rollout gave a mean regret of 0.0024
+   (H = 20) and 0.0020 (H = 100) on the real spike, and did not pick SPAM at H = 20. On the dose events it gave
+   0.0025, 0.0034 and 0.0014 at H = 20, 100 and 200, against 0.0034, 0.0033 and 0.0011 for the held-out judge. One
+   event carries the difference at H = 20. Using only the second half of the rollout did worse (it picked AdaGC
+   twice, with harm up to 0.0103).
+
+Limits of this check: one seed, and the nineteen events share one trunk, so they are not independent. H = 100 was
+chosen after seeing this data, so only new seeds can test it. The rollback arms are compared at matched compute
+and are left out of the training-loss judge, because their data stream is shifted. The dose arms use the exact
+undo, which a replay can recompute. The 0.117-nat transient from undoing m alone at step 1000 is still unexplained.
 
 **Online demonstration.** Three seeds, two phases, the menu above plus two arms known to do harm on seed 0 (v reset
 and SPAM), to check that the tournament rejects them. The accept-or-rollback supervisor of Or 2026
@@ -223,12 +250,16 @@ and SPAM), to check that the tournament rejects them. The accept-or-rollback sup
 ### 2.4 What would prove it wrong
 | # | Prediction | Wrong if |
 |---|---|---|
-| T1 | A rollout of one v-memory picks well | mean regret at H = 20 steps exceeds 0.003 nats over seeds 1 to 7 |
-| T2 | It does no harm | the pick ends more than 0.005 nats worse than "none" in more than one of seven seeds, in either phase |
-| T3 | It rejects harmful remedies | v reset or SPAM is picked in any event where it ends more than 0.01 nats worse than "none" |
+| T1 | A rollout of five v-memories picks well | on the real spike, mean regret at H = 100 steps exceeds 0.003 nats over seeds 1 to 7 |
+| T2 | It does no harm | the pick at H = 100 ends more than 0.005 nats worse than "none" in more than one of seven seeds, in either phase |
+| T3 | It rejects harmful remedies | at H = 100, v reset or SPAM is picked in any event where it ends more than 0.01 nats worse than "none" |
+
+History, so the change is on record: T1 to T3 were first proposed at H = 20. Seed 0 fails them there (§2.3).
+H = 100 was chosen after seeing seed 0, so seed 0 cannot count as a test of it. No claim is made that the tournament
+beats the best fixed remedy; on seed 0 it does not (§2.3, point 4).
 
 ### 2.5 Cost
-Per spike: (menu size) × (steps since the snapshot + H). With five arms, N = 50 and H = 20 that is at most 350 steps
+Per spike: (menu size) × (steps since the snapshot + H). With five arms, N = 50 and H = 100 that is at most 750 steps
 per spike. PaLM's manual remedy restarts about 100 steps back and skips 200 to 500 batches [L]. Memory: one extra
 copy of (w, m, v) while training. The offline analysis costs nothing; the online demonstration is under 0.2 GPU-hours
 at proxy scale [estimate].
@@ -369,7 +400,7 @@ Section numbers refer to `PLAN_V8.md` §6. **NEW** marks additions. Everything n
 | Clip family (global clip, ZClip, AdaGC, GradientStabilizer) | shrinks good and bad rows together; the bad share still enters m and v | A1 with A5 |
 | SPAM | clips coordinates, then resets all moments on a clock | prereg-v3 P5; T3 |
 | Rollback | exact, but recomputes and needs a snapshot | the tournament includes it and reports cost beside damage |
-| Any single remedy | safe in one phase, harmful in another (seed 0, §2.1) | T2 |
+| A remedy of unknown quality | can be harmless in one phase and harmful in another (seed 0, §2.3) | T2, T3 |
 
 ### §6.8 Metrics
 - **NEW:** verdict accuracy by row type; retention on the hard set; regret and harm at horizon H; prediction
@@ -430,6 +461,6 @@ Tests run in CI; the GPU self-checks are the finite-difference check for the cos
    restore. This is my reading of the gap [I]; the searches found no counter-example.
 3. **The first experiment to run.** `repeat_ngram` at 25% of rows against `hard_rows` at 25%, steps 1000 and 1800,
    one seed first: do the verdicts separate the two (A1, A2)? It needs the hooks-only build, about 20 forks, and
-   under 0.2 GPU-hours [estimate]. If the verdicts do not separate, Appeal is dropped and K2 becomes the lead.
-   Before any GPU: run the offline regret analysis for K2 on the existing seed-0 files in the analysis code, which
-   costs nothing.
+   under 0.2 GPU-hours [estimate]. If the verdicts do not separate, Appeal is dropped. K2 would not carry the
+   work alone: its offline check has been run (§2.3) and supports it as insurance at H = 100, not as a source of
+   gain.
