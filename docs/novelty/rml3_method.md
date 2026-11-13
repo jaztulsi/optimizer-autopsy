@@ -15,7 +15,7 @@ The brief names "V6". `PLAN_V8.md` governs and keeps V6's four components: **C1*
 | | What it is | Borrowed from | Extends | Novelty after today's searches |
 |---|---|---|---|---|
 | **K1 Appeal** | Withhold the gradient share of flagged examples, keep a record, and add it back into m and v exactly if later batches agree with it | private training (ghost norms), data valuation (gradient alignment), databases (undo log) | C3 repair, the detector | The combination was **not found**. Its scoring machinery is taken |
-| **K2 Tournament** | After a spike, replay a short menu of remedies from a snapshot on the same data and keep the best. "Do nothing" is always on the menu | population-based training, model-predictive control, speculative execution | C1 becomes a controller; C3 | **Partial**: one 2026 paper chooses loss schedules by 8-step rollouts |
+| **K2 Tournament** | After a spike, replay a short menu of remedies from a snapshot on the same data and keep the best. "Do nothing" is always on the menu | population-based training, model-predictive control, speculative execution | C1 becomes a controller; C3 | **Partial**: one 2026 paper chooses loss schedules by 8-step rollouts; another supervises training with accept-or-rollback and a bound on degradation |
 | **K3 Ceiling** | The gradient of final loss with respect to (w, m, v) bounds what any state edit can gain; its predictions plus a few exact forks give valid intervals | metagradients, prediction-powered inference | C2 localizer, theory | **Partial**: the gradient exists in two 2026 papers; the ceiling and the intervals were not found |
 
 How the three fit together: K1 is the repair that runs all the time. K2 is the safety net that runs when a spike
@@ -30,8 +30,10 @@ do better than the menu.
 | RML-2 (`method.md`) | innovation, no twin needed | coordinates | forecast arms it; later gradients give a verdict | none |
 | **RML-3** | the flagged examples' share | **examples**, then coordinates | later batches, calibrated against ordinary examples | **the tournament** |
 
-RML-1 stays unchanged as the measuring instrument. RML-2's forecast layer keeps one job: deciding when the
-tournament's snapshot is worth keeping.
+RML-1 stays unchanged as the measuring instrument. RML-2's forecast idea (a tiny model that scores risk before the
+spike) becomes a layer of three small predictors: when to arm, which rows look odd, and which remedy to try first.
+Its design and prior-art check are in `appeal_build_plan.md` §10. Forecasting itself is already published and is
+not claimed.
 
 **An honest limit before the details.** On the proxy at β2 = 0.95 a real spike leaves almost nothing to repair
 (`docs/prereg_v2_results.md`). So none of the tests below is "lower final loss than skip-step". They test
@@ -182,6 +184,8 @@ on detector fire at t0, flagged step s:
   in prereg-v3).
 - **H:** a multiple of v's memory, 1/(1−β2) steps. Short rollouts are known to favour greedy choices
   [V, 1803.02021], so H is the quantity under test.
+- **Extrapolated judge (optional):** fit each arm's excess loss over the rollout and predict its end value, as
+  AutoLRS does for candidate learning rates [abs, 2105.10762]. It can be tested offline on the saved horizons.
 
 ### 2.3 The experiment
 **Offline, no extra GPU.** Every fork in the battery already records the held-out loss at fixed horizons for every
@@ -213,7 +217,8 @@ seed, four arms, and differences mostly inside the scatter between arms; it show
 the method works. The 0.117 figure is unexplained and should be looked at before anything is built on it.
 
 **Online demonstration.** Three seeds, two phases, the menu above plus two arms known to do harm on seed 0 (v reset
-and SPAM), to check that the tournament rejects them.
+and SPAM), to check that the tournament rejects them. The accept-or-rollback supervisor of Or 2026
+[page, 2601.17483] runs beside it as a baseline.
 
 ### 2.4 What would prove it wrong
 | # | Prediction | Wrong if |
@@ -232,6 +237,9 @@ at proxy scale [estimate].
 | Work | What it has | What it lacks |
 |---|---|---|
 | Guo 2026 [abs, 2608.24593] | chooses among candidate interventions by 8-step AdamW rollouts on committed future batches | the candidates are loss schedules; no spike trigger, no remedies, no "do nothing" guarantee, 8 steps only |
+| Or 2026 [page, 2601.17483] | a supervisor that accepts or rolls back each update from a snapshot of weights and optimizer state, triggered by a held-out probe loss, with a bound on how far the probe loss can rise | it evaluates only accept and rollback and names richer strategies as future work; remedies are never compared |
+| AutoLRS [abs, 2105.10762] | tries each candidate learning rate for a few steps and extrapolates the validation loss | scheduled, learning rates only, no spike trigger |
+| Jiang et al. 2026 [abs, 2608.04408] | replays error states through continuation and rollback branches and lets the outcomes steer training | the states are a student's reasoning steps in distillation, not optimizer state |
 | Population Based Training [V, 1711.09846] | copy the better member and continue | not triggered by spikes; perturbs hyperparameters |
 | K2-V2 [snip, 2512.06201] | a rule: narrow spikes continue, wide ones roll back | no comparison of what each choice would have done |
 | Ling [snip]; PaLM [L] | one fixed remedy | no choice |
@@ -303,12 +311,15 @@ largest engineering risk.
 
 Three passes: my own 13 searches and 5 page reads, the arXiv listing for 63 ids, and an independent checker that
 was told to assume each idea already exists and made 18 web calls to show it. Its notes
-are in `master-research/raw/novelty-2026-11/results/kill_4_rml3.md` (a local file, not in git). All reading was at abstract or snippet depth.
+are in `master-research/raw/novelty-2026-11/results/kill_4_rml3.md` (a local file, not in git). A fourth pass on
+2026-11-13 (8 searches, 12 abstracts from the arXiv listing, 2 page reads) covered the forecast layer and found
+two more neighbours of the tournament (Or 2026, AutoLRS). All reading was at abstract or snippet depth.
 
 | Approach | Verdict | Most damaging prior work | What may still be claimed |
 |---|---|---|---|
 | K1 Appeal | **Not found as a combination.** Parts are taken | Filter-then-Weight and GREATS (the scoring); Ling (a second chance for skipped data) | "A sample rejection that is revised later, from the training stream itself, and applied exactly to Adam's state." Never "the first per-example method" |
-| K2 Tournament | **Partial** | Guo 2026 (choice by short rollouts) | "Spike-triggered choice among remedies by exact replay, with a do-nothing bound and a measured short-horizon regret" |
+| K2 Tournament | **Partial** | Or 2026 (rollback supervisor with a bound; names richer strategies as future work); Guo 2026 (choice by short rollouts) | "Spike-triggered choice among several remedies by exact replay on the same batches, with a measured short-horizon regret." A bound on degradation is not new |
+| Forecast layer (`appeal_build_plan.md` §10) | Forecasting and small-model scoring are **already done**; the remedy policy is **partial**; a forecast-started tournament was **not found** | six forecasters including TIC; RHO-LOSS; Jiang 2026 | only the couplings listed in the build plan §10.2 |
 | K3 Ceiling | **Partial** | Xu 2026 and Guo 2026 (the costate itself) | "A first-order ceiling on state repair, and valid intervals for patch effects." The costate is not ours |
 
 What the searches do not cover: full texts; OpenReview submissions from the last two months; code repositories.
@@ -347,7 +358,8 @@ Section numbers refer to `PLAN_V8.md` §6. **NEW** marks additions. Everything n
 ### §6.7 Baselines
 - **Unchanged:** skip-step (oracle and detector-timed), clip, SPAM, ZClip, AdaGC, rollback. GradientStabilizer is in
   the ledger and not yet in the battery.
-- **NEW:** trim without appeal; oracle row mask; the two split SPAM arms from prereg-v3.
+- **NEW:** trim without appeal; delayed keep; oracle row mask; the two split SPAM arms from prereg-v3; the
+  accept-or-rollback supervisor of Or 2026.
 
 **How each baseline is expected to be beaten, and the test that decides it [I, not results].**
 

@@ -119,9 +119,10 @@ A5; the GPU run, with the session go-ahead.
 
 ## 10. The forecast layer (added 2026-11-12 at Jasraj's request; design only)
 
-**Prior art for this section was not checked.** Five searches were attempted and all failed at the usage limit.
-Nothing here may be called novel until they are run. Forecasting spikes from AdamW state is already published
-(Kim S. 2026, *Transport Instability Coordinates*; `method.md` §5), so forecasting itself is not claimed.
+**Prior art was checked on 2026-11-13** (8 searches, 12 abstracts from the arXiv listing, 2 page reads; §10.1).
+The short version: forecasting spikes and scoring text with a small model are both already done, so neither is
+claimed. Two couplings were not found: starting the tournament from a forecast, before the spike, and training the
+remedy policy on the forks' own outcomes. "Not found" is bounded by these searches.
 
 Three small predictors, each with one job. All are cheap: free statistics and a tiny model.
 
@@ -138,6 +139,37 @@ Three small predictors, each with one job. All are cheap: free statistics and a 
   one recipe held out; F2 does not raise A1 and A2 above the later-batch evidence alone; F3's first pick has a
   higher regret than always choosing "do nothing".
 - **Limits [I]:** a pure bad batch has no warning sign, so F1 cannot see it and the flag at the step itself does
-  that job. The proxy has few natural spikes to learn from. Filtering data by a small reference model's perplexity
-  exists as a pruning method (from memory, unverified).
+  that job. The proxy has few natural spikes to learn from.
 - **File, as a later unit:** `research/autopsy/forecast.py` (features in `on_step`, a pure scoring function).
+
+### 10.1 Closest work, what each leaves open, and what the plan takes from it
+
+Depth: **[page]** the paper's page read through a page reader; **[abs]** abstract read; **[snip]** search snippet
+only.
+
+| Work | What it does | What it leaves open | What the plan takes |
+|---|---|---|---|
+| Or 2026, [2601.17483](https://arxiv.org/abs/2601.17483) [page] | A supervisor that accepts or rolls back each update. Its snapshot holds weights and optimizer state. The trigger is a held-out probe loss against its moving average, and the probe loss can rise by at most ε per accepted step. Tested by scaling gradients 300 times for 10 steps (ResNet-18, a character-level Transformer) | It says it evaluates only accept and rollback, and leaves richer strategies to future work. Remedies are never compared | It becomes a baseline arm and a menu item. The tournament is the richer strategy. A bounded-degradation guarantee is theirs, not ours |
+| AutoLRS, Jin et al. 2021, [2105.10762](https://arxiv.org/abs/2105.10762) [abs] | Tries each candidate learning rate for a few steps and fits an exponential model to predict the validation loss further out | It runs on a schedule, over learning rates only, with no spike trigger | An extrapolated judge for the tournament: fit each arm's excess loss and predict its end value |
+| Jiang et al. 2026, [2608.04408](https://arxiv.org/abs/2608.04408) [abs] | Replays error states through continuation and rollback branches. The labels (recoverable, irreversible, ambiguous) steer training | The states are a student's reasoning steps in distillation, not optimizer state | F3 gets an "ambiguous" class and may abstain |
+| RAIL, Zhang et al. 2026, [2608.05080](https://arxiv.org/abs/2608.05080) [abs] | A contextual-bandit controller that learns where to intervene in rollouts | It sees only the chosen arm's outcome | Forks give every arm's outcome on the same batches, so F3 is ordinary supervised learning |
+| Forecasters: TIC ([link](https://icml.cc/virtual/2026/80057)) [snip]; Wortsman et al. 2023 (`method.md` §2.6) [snip]; RKSP [2602.22988](https://arxiv.org/abs/2602.22988) [abs]; Spectral Alignment [2510.04202](https://arxiv.org/abs/2510.04202) [abs]; Collapse Index [2604.26984](https://arxiv.org/abs/2604.26984) [abs]; R-Metric, Fatima 2025 ([link](https://aclanthology.org/2025.emnlp-industry.193/)) [page] | Predict instability from optimizer state, spectra, topology or mixed signals. R-Metric reports a mean lead of 255 steps | What to do with the warning is unspecified, or it is one fixed action (RKSP reshapes spectra) | Any of them can serve as F1. The plan claims none |
+| Proactive checkpointing in HPC: Bouguerra et al. 2013; Behera et al. 2020 [snip] | A predicted hardware failure triggers a checkpoint. Recall matters more than precision | Hardware faults, not training dynamics | F1(a) is this idea, transferred. Tune F1 for recall at a compute budget |
+| Small-model text scores: Ankner et al. [2405.20541](https://arxiv.org/abs/2405.20541) [abs]; prior-based filtering [2509.18577](https://arxiv.org/abs/2509.18577) [abs]; RHO-LOSS [2206.07137](https://arxiv.org/abs/2206.07137) [abs] | Prune or select data by a small model's perplexity, by token-frequency priors, or (RHO-LOSS, during training) by a small model's irreducible loss | The decision is final and is not tied to spikes | F2's score is theirs. Token-frequency priors are the cheapest version |
+
+### 10.2 What may be claimed
+
+| Piece | Verdict |
+|---|---|
+| Forecasting instability (F1) | **Already done**: the six works above, two of them on loss spikes specifically (TIC, Wortsman et al.). Not claimed |
+| A forecast that keeps a snapshot (F1a) | **A transfer** from HPC proactive checkpointing. Not claimed |
+| A tournament started by a forecast, before the spike (F1c) | **Not found** (3 searches) |
+| Scoring rows with a small model (F2) | **Already done**, offline and during training. Not claimed |
+| A row prior and later-batch evidence in one reversible verdict; routing data against state (F2) | **Not found** (1 search here, 1 earlier for `method.md` §5) |
+| A controller trained on branch outcomes (F3) | **Partial**: it exists for LLM post-training (Jiang 2026, RAIL). For optimizer-state remedies it was not found (2 searches) |
+
+Two tests this adds (proposals):
+- **Extrapolated judge.** On the saved seed-0 horizons, fit each arm's excess loss over the early horizons and pick
+  by the predicted end value. Wrong if that pick's regret is higher than the plain pick's. No GPU.
+- **Or's supervisor as a baseline.** It runs beside the tournament in the online demonstration. The tournament is
+  wrong if its end damage is not below the supervisor's at equal compute.

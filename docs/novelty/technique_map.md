@@ -153,6 +153,9 @@ instrument, **C2** the localizer, **C3** the repair, and the theory. Everything 
 | PaLM | "No principled mitigation" | ledger (its Sec. 5.1) | the tournament |
 | SPAM | No number separates its clip from its reset | ledger G13 | prereg-v3 P5 |
 | Guo 2026 | Eight-step horizons, loss schedules only | abs | the tournament (long horizons, remedies, exact replay); the costate ceiling |
+| Or 2026 ([2601.17483](https://arxiv.org/abs/2601.17483)) | Evaluates only accept and rollback; richer strategies are named as future work | page (added 2026-11-13) | the tournament's menu; also a new baseline |
+| AutoLRS ([2105.10762](https://arxiv.org/abs/2105.10762)) | Short trials with extrapolation, but on a schedule and for learning rates only | abs (added 2026-11-13) | the tournament's extrapolated judge |
+| Jiang et al. 2026 ([2608.04408](https://arxiv.org/abs/2608.04408)) | Branch outcomes steer training, but for a student's reasoning steps, not optimizer state | abs (added 2026-11-13) | the remedy policy (build plan §10) |
 | Xu 2026 | The costate predicts signs; no spikes, no best edit | abs | the costate ceiling |
 | Metagradient descent | Needs "smooth" training; does not say where training is smooth | abs | the measured chaos floor says where a costate can be trusted |
 | Short-horizon bias (Wu et al.) | The bias is shown for learning rates, on short rollouts | id only | measured for remedies against end-of-run truth |
