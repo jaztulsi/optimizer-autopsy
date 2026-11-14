@@ -5,6 +5,10 @@ that can be built, after reading the harness (`harness/trunk.py`, `harness/fork.
 `spikes/induce.py`, `model/nanogpt.py`). Where the two files differed, §1 was updated to match this one.
 **[I]** marks my inference.*
 
+> **Status after review (2026-11-13).** An adversarial review (`rml3_method.md` §8) gated this plan. Only the
+> measurement hook is built first: row losses, the flag, per-row and shadow gradients, and the evidence score.
+> Everything else here waits for the kill test in `rml3_method.md` §8.2, which needs Jasraj's go-ahead.
+
 ## 1. Scope
 
 **In this unit**
@@ -31,27 +35,29 @@ wants it. Moving one file later is cheap.
 |---|---|---|---|
 | 1 | Two closures, a `pre_step` and a `pre_opt_step`, share one state dict. The state resets when the step counter goes backwards | `fork.run_branch` deep-copies `pre_opt_step`. A function copies to itself, so closures keep sharing state; a bound method would not (`undo.py` says the same) | none |
 | 2 | The spike recipe runs first and Appeal second, through `fork.compose` | `compose` is order-sensitive. Appeal reads `ctx["batch"]` if a recipe set it, and otherwise fetches the aligned slot with `get_batch`. The data cursor never moves | none |
-| 3 | Rows are flagged by a robust z-score inside their own batch (median and median absolute deviation of that batch's row losses) | A fork starts at the spike step (`mve` forks from the snapshot at `inject_step`), so there is no history to score against | **changed**: was a running window with a conformal threshold |
+| 3 | Rows are flagged by a robust z-score inside their own batch (median and median absolute deviation of that batch's row losses), on either side: junk the model can copy would score low | A fork starts at the spike step (`mve` forks from the snapshot at `inject_step`), so there is no history to score against | **changed**: was a running window with a conformal threshold |
 | 4 | If more than half the rows are flagged, Appeal does nothing | The median is no longer robust, and masking every row makes the loss a mean over zero tokens. Whole-batch events belong to skip-step and the tournament | new |
 | 5 | Withholding sets the flagged rows' targets to −1 | The loss ignores target −1 and averages over the rest (`nanogpt.py`), so Adam is fed the mean of the kept rows: a trimmed mean, not a partial sum | restore formula now weights by row counts |
 | 6 | The flagged rows' gradient comes from a separate forward and backward pass on those rows, taken with `torch.autograd.grad` | `pre_step` fires before `zero_grad`; this route never touches `p.grad` | none |
-| 7 | The reference is taken at the flagged step: eight random groups of kept rows, each the size of the flagged group | The verdict needs a reference K steps later, and the fork has no earlier steps to build one from. Same step, same weights, same size and same later batches make it a matched control | **changed**: was a periodic shadow record |
+| 7 | The reference is taken at the flagged step: sixteen single kept rows chosen at random (a fixed cap), shared by that step's flagged rows | The verdict needs a reference K steps later, and the fork has no earlier steps to build one from. Same step, same weights, same size and same later batches make it a matched control | **changed**: was a periodic shadow record |
 | 8 | Evidence is a cosine in Adam's scaling, summed over the K later steps | Hard rows have large gradients. A score divided by the record's squared norm would penalise them for size alone | **changed**: was divided by the squared norm |
-| 9 | φ = clip((p − 0.05) / 0.20, 0, 1), where p is the share of shadow groups scoring lower | With eight groups, φ is 0, 0.375 or 1 | fixed on 2026-11-12 (the draft could go negative) |
+| 9 | φ = clip((p − 0.05) / 0.20, 0, 1), where p is the share of shadows scoring lower | With sixteen shadows, φ takes five values from 0 to 1 | fixed on 2026-11-12 (the draft could go negative) |
 | 10 | The restore reuses `undo.undo` with the entry (ĝ_0 − ĝ_φ, ĝ_0² − ĝ_φ²) | That function already subtracts (1 − β)·β^age times the entry and keeps v at or above zero. Fired at step s + K before the update, the moments are those left by step s + K − 1, so the decay power is K − 1 | **changed**: the draft said β^K |
 | 11 | The kept mean before the clip is ĝ_0 / c, with c = min(1, clip / (norm + 1e-6)) from `ctx["grad_norm"]`. ĝ_φ is clipped again with the same formula | This is what `clip_grad_norm_` applies | detail |
 | 12 | One parameter, `force_phi`, gives two control arms: 0 is trimming without appeal; 1 is "delayed keep" (always restore) | Delayed keep prices the K-step delay by itself | new arm |
 | 13 | A `flag_fn` override lets the caller name the flagged rows | It separates testing the verdict from testing the detector. The first experiment knows which rows it injected | new |
 | 14 | Gradient accumulation above 1 raises an error | The batch override applies to every micro-batch | limit |
 | 15 | `train_forward`, `determinism.py`, `preflight.py` and both requirements files are not touched | hooks only | none |
+| 16 | One record per flagged row, not one per flagged group | A group verdict cannot separate junk rows from hard rows in the same batch, which is the only case where Appeal can beat a fixed policy | **changed after the review** |
+| 17 | Every comparison between arms is read against matched placebo forks (the same number of rows withheld at the same steps, chosen at random) | Arms that withhold different rows are different runs; their scatter is set by the perturbation, not by the 1-ulp floor | **changed after the review** |
 
 ## 4. Interface (names only)
 
 | Name | Does |
 |---|---|
 | `row_losses(model, x, y)` | Mean loss per row. One forward pass, no gradients, eval mode, so it draws nothing from the RNG |
-| `flag_rows(losses, z)` | Boolean mask of rows whose robust z-score exceeds `z` |
-| `make(data_dir, lag=10, z=6.0, n_shadow=8, lo=0.05, hi=0.25, seed=0, flag_fn=None, force_phi=None)` | Returns `(pre_step, pre_opt_step, state)` |
+| `flag_rows(losses, z)` | Boolean mask of rows whose robust z-score exceeds `z` in absolute value |
+| `make(data_dir, lag=10, z=6.0, n_shadow=16, lo=0.05, hi=0.25, seed=0, flag_fn=None, force_phi=None)` | Returns `(pre_step, pre_opt_step, state)` |
 | `state["verdicts"]` | One entry per closed record: step, rows, n, φ, p, the record's score, the shadow scores |
 | `state["batch_events"]` | Steps where more than half the batch was flagged and Appeal stood aside |
 
@@ -64,6 +70,9 @@ wiring is a later unit.
   training rows, scored at the current weights. Default: 25% of rows, from a pool of four batches.
 - The pool comes from data slots beyond `max_steps`, which the run never trains on otherwise. It never comes from
   the validation split, because the held-out probe has to stay held out.
+- Each step gets its own slots, so rows never repeat across the steps of a sustained stream. The recipe raises if
+  the pool would wrap into data the run trains on. A 100-step stream needs 400 fresh batches; the shard size has
+  to be confirmed before the kill test.
 - No random numbers are drawn; the choice is fixed by the weights.
 - The clean counterfactual is unchanged: the same run with the recipe left out.
 - The recipe list in `induce._selfcheck` grows from 9 to 10.
@@ -88,6 +97,9 @@ does not mean Appeal works.
 
 ## 7. Order of work
 
+**Gate (after the review).** First only the measurement hook: `row_losses`, `flag_rows`, per-row and shadow
+gradients, and the evidence score, with tests 1, 2 and 6. Steps 2 to 5 wait for the kill test.
+
 1. The pure pieces (`row_losses`, `flag_rows`, cosine, verdict) with tests 1 and 6.
 2. The two hooks with tests 2 to 5, 7 and 8.
 3. `hard_rows` with test 9 and the self-check list.
@@ -100,9 +112,10 @@ A5; the GPU run, with the session go-ahead.
 ## 8. Cost
 
 - Every step: one extra forward pass without gradients (about a third of a step [I]).
-- A flagged step: one small backward pass for the flagged rows and one per shadow group.
-- Memory: about eleven gradient-sized vectors for K steps at the defaults (the flagged share, eight shadow groups,
-  ĝ_0 and the scaling P). Fine at proxy scale; at 124M it would need sketches.
+- A flagged step: one single-row backward pass per flagged row and per shadow.
+- Memory: n + M + 2 gradient-sized vectors per flagged step, held for K steps (n flagged rows, M = 16 shadows, ĝ_0
+  and the scaling P). Under sustained contamination with 16 flagged rows and K = 10 that is about 340 vectors,
+  near 4 GB at proxy size [I]. At 124M it would need factored storage.
 
 ## 9. Open questions
 
@@ -123,6 +136,10 @@ A5; the GPU run, with the session go-ahead.
 The short version: forecasting spikes and scoring text with a small model are both already done, so neither is
 claimed. Two couplings were not found: starting the tournament from a forecast, before the spike, and training the
 remedy policy on the forks' own outcomes. "Not found" is bounded by these searches.
+
+**After the review (`rml3_method.md` §8):** F1 and F3 are parked, because a bad batch has no warning sign on this
+proxy and F3 depended on the tournament. F2 stays inside Appeal's flag as an unclaimed engineering choice. Flag
+rates are reported with and without it, since a random n-gram is extreme under token statistics by construction.
 
 Three small predictors, each with one job. All are cheap: free statistics and a tiny model.
 

@@ -5,6 +5,11 @@ unless it cites the seed-0 files. The survey behind it is `technique_map.md` (75
 Labels: **[V]** id and title checked today; **[abs]** abstract read today; **[snip]** search snippet only;
 **[L]** in `gap_ledger.md`; **[I]** my inference; **[S]** speculative; **UNVERIFIED** could not be checked.*
 
+> **Status after review (2026-11-13).** A second session attacked this proposal as opposing counsel (§8). What is
+> left: **K1 Appeal, changed, and gated on a kill test.** K2 is kept only as an evaluation metric. K3 and two of
+> the three forecast predictors are parked. Sections 2 and 3 stay for the record. No code beyond a measurement
+> hook is to be written until the kill test passes.
+
 The brief names "V6". `PLAN_V8.md` governs and keeps V6's four components: **C1** the fork-and-compare instrument,
 **C2** the localizer, **C3** the repair, and the theory. Each addition below names the component it extends.
 
@@ -58,17 +63,22 @@ state (the same identity RML uses to remove a step, run in the other direction).
 ### 1.2 Inputs, what is logged, what is computed
 - **Inputs:** the batch (B rows), per-row losses ℓ_i, the final gradient ĝ and the pre-update m, v at each step.
 - **Flag.** Score each row by a robust z-score of its loss against the median and spread of its own batch. A fork
-  starts at the spike step, so there is no history to score against. Rows above a threshold q are flagged. If more
-  than half the batch is flagged it is a whole-batch event, and Appeal leaves it to skip-step or the tournament.
+  starts at the spike step, so there is no history to score against. Rows beyond a threshold q on either side are
+  flagged: junk that the model can copy from context would score low, not high (§8). A tiny model of the data
+  (token statistics) adds a second score that does not depend on the live model; it is an engineering choice and
+  is not claimed. If more than half the batch is flagged it is a whole-batch event, and Appeal leaves it to
+  skip-step.
   Later refinements: a threshold set from the ranks of recent scores, so that a chosen fraction α of ordinary rows
   is flagged (conformal calibration [V, 2107.07511]), and per-row gradient norms from the ghost-norm trick
   [V, 1510.01799; 2110.05679] as a stronger score at higher cost.
-- **Record** (one per flagged step): the flagged rows' mean gradient g_F; the gradient ĝ_0 that Adam was actually
-  fed; the clip factor; the number of flagged rows n. Two vectors on the support. At scale g_F can be stored as per-token factors,
-  which is where the low-rank idea in V6 fits (K9 in the map).
-- **Shadow records.** At the same step, also record the mean gradient of M random groups of kept rows (M = 8), each
-  the size of the flagged group, without withholding anything. They share the step, the weights, the group size
-  and the later batches with the flagged record, so they are the matched reference for the verdict.
+- **Record** (one per flagged **row**, changed after the review): that row's gradient g_i. Once per flagged step:
+  the gradient ĝ_0 that Adam was actually fed, the clip factor and the number of flagged rows n. One record for the
+  whole flagged group cannot tell junk rows from hard rows inside the same batch, and that is the only case where
+  Appeal can beat a fixed policy (§8). At scale the row gradients can be stored as per-token factors, which is
+  where the low-rank idea in V6 fits (K9 in the map).
+- **Shadow records.** At the same step, also record the gradients of M single kept rows chosen at random (M = 16,
+  a fixed cap), without withholding anything. They are shared by all of that step's flagged rows. They have the
+  same step, weights, size and later batches as the flagged records, so they are the matched reference.
 - **Evidence.** For each open record R at step s + k, for k = 1 to K:
   T_R += ⟨ĝ_{s+k}, g_R⟩_P / (‖ĝ_{s+k}‖_P · ‖g_R‖_P), with P = 1/(√v + ε) taken from the pre-spike v.
   This is a cosine in Adam's own scaling: the first-order drop in the current batch's loss per unit of step length
@@ -82,36 +92,36 @@ state (the same identity RML uses to remove a step, run in the other direction).
 pre_step(step, ctx):                          # top of the step; may replace the batch
     x, y = the aligned batch for this step
     ℓ    = per-row loss (one forward pass, no gradients, eval mode so it draws nothing from the RNG)
-    F    = rows whose score exceeds q ;  n = |F|
-    if F:        g_F = gradient of the mean loss over the rows in F    # torch.autograd.grad; p.grad is untouched
+    F    = rows whose score is beyond q on either side ;  n = |F|
+    if F:        for i in F:  open.append(Record(step, row i, g_i = gradient of row i's loss))   # autograd.grad
                  y[F] = −1 ;  ctx["batch"] = (x, y)    # the loss ignores target −1 and averages over the kept rows
-                 open.append(Record(step, g_F, n))
-                 repeat M times:  open.append(Record(step, mean gradient of n random kept rows, n, shadow of F))
+                 repeat M times:  open.append(Record(step, gradient of one random kept row, shadow))
 
 pre_opt_step(step, ctx):                      # sees the final gradient ĝ and the pre-update m, v
-    for R in open:
-        if R.step == step and not R.shadow:   R.g0, R.clip = ĝ, clip factor
-        elif R.step < step:                   R.T += <ĝ, R.g>_P / (‖ĝ‖_P ‖R.g‖_P)
-    for R in open, not a shadow, with step − R.step == K:
-        p = share of R's own shadow records with T below R.T
-        φ = clip((p − 0.05) / 0.20, 0, 1)
-        ḡ = R.g0 / R.clip                               # the kept rows' mean, before the clip
-        ĝ_φ = clip( ((B − n)·ḡ + φ·n·R.g) / (B − n + φ·n) )    # φ = 1 gives the full-batch gradient
-        m += β1^(K−1) (1−β1) (ĝ_φ − R.g0)               # the edit fires before step s+K's own update
-        v += β2^(K−1) (1−β2) (ĝ_φ² − R.g0²)
-        close R and its shadows
+    if this step was flagged:                 g0[step], clip[step] = ĝ, clip factor
+    for R in open with R.step < step:         R.T += <ĝ, R.g>_P / (‖ĝ‖_P ‖R.g‖_P)
+    for each flagged step s with step − s == K:
+        for each flagged row i of s:
+            p_i = share of step s's shadows with T below T_i
+            φ_i = clip((p_i − 0.05) / 0.20, 0, 1)
+        ḡ = g0[s] / clip[s]                             # the kept rows' mean, before the clip
+        ĝ_φ = clip( ((B − n)·ḡ + Σ_i φ_i·g_i) / (B − n + Σ_i φ_i) )    # every φ_i = 1 gives the full-batch gradient
+        m += β1^(K−1) (1−β1) (ĝ_φ − g0[s])              # the edit fires before step s+K's own update
+        v += β2^(K−1) (1−β2) (ĝ_φ² − g0[s]²)
+        close the records of step s
 ```
-Three outcomes follow from the rule. A share that scores below every one of its shadow groups is dropped. A share
-that ranks like an ordinary group is restored in full, even if its alignment is near zero, because ordinary groups
-score near zero too. Anything between is restored in part. With eight shadow groups p moves in steps of 1/8, so φ
-is 0, 0.375 or 1. The 0.05 and 0.25 cut-offs are proposals.
+Three outcomes follow from the rule, row by row. A row that scores below every shadow of its step is dropped. A row
+that ranks like an ordinary row is restored in full, even if its alignment is near zero, because ordinary rows
+score near zero too. Anything between is restored in part. With sixteen shadows p moves in steps of 1/16, so φ
+takes five values from 0 to 1. The 0.05 and 0.25 cut-offs are proposals.
 
 Details the code forces (checked in `research/model/nanogpt.py`, `research/harness/trunk.py` and
 `research/autopsy/undo.py`; the full list is in `appeal_build_plan.md` §3). The loss is a mean over unmasked
 tokens, so masking the flagged rows feeds Adam the mean of the kept rows (a trimmed mean), not a partial sum; the
 restore formula weights the two shares by their row counts for that reason. A fork starts at the spike step, so the
-reference cannot come from earlier steps; the shadow groups are taken at the flagged step itself. The restore is
-the existing RML undo run with the entry (ĝ_0 − ĝ_φ, ĝ_0² − ĝ_φ²). The proxy runs with `grad_accum: 1` and
+reference cannot come from earlier steps; the shadows are taken at the flagged step itself. The restore is the
+existing RML undo run with the entry (ĝ_0 − ĝ_φ, ĝ_0² − ĝ_φ²). It is exact for m and v given the gradients seen
+since; the weights have already taken K steps on the trimmed gradient and are not restored. The proxy runs with `grad_accum: 1` and
 `dropout: 0.0`; with accumulation the batch override applies to every micro-batch, so Appeal would need a
 per-micro-batch hook there.
 
@@ -119,9 +129,19 @@ per-micro-batch hook there.
 - **Spike sources.** `repeat_ngram` already replaces a fraction of the rows of a real batch with a junk n-gram
   (`research/spikes/induce.py`, default 25%). A new source, **hard rows**, replaces the same fraction with real rows
   drawn from the top tenth by loss of a sampled pool. Both are flagged by the score; only one should be dropped.
-- **Arms.** none; skip-step with oracle timing; oracle row mask (only the junk rows removed: the ceiling); trim
-  without appeal (φ = 0 always); delayed keep (φ = 1 always, which prices the K-step delay by itself); Appeal;
-  global clip; SPAM; RML at lag 3.
+- **Sustained and mixed streams (added after the review).** One mixed batch at realistic dose is too small to
+  matter: the pilot's `repeat_ngram` run at step 160 ended 0.0028 nats above clean. So each source is also run for
+  about 100 consecutive steps, and the deciding arm is **mixed**: 12.5% junk rows and 12.5% hard rows in every
+  batch of that stretch. On a pure stream a fixed policy wins trivially (always trim on junk, never flag on hard
+  rows); only the mixed stream can show that Appeal adds anything. This is a **stress test**, not an observed
+  failure: nothing in the repo has measured lasting damage from sustained partial contamination, and the repeated
+  n-grams reported for OLMo 2 were spread through the corpus, not packed into consecutive steps.
+- **Arms.** never flag (the recipe with Appeal off); always trim (φ = 0); delayed keep (φ = 1 always, which prices
+  the K-step delay by itself); Appeal; oracle row mask (only the junk rows removed: the ceiling); skip-step with
+  oracle timing; global clip; SPAM; RML at lag 3; the jump-robust shadow v of `PLAN_V8.md` (W1).
+- **Noise scale.** Arms that withhold different rows are different runs, and their end values scatter at a scale
+  set by the perturbation, not by the 1-ulp floor. Every comparison between arms is therefore read against 8
+  matched placebo forks: the same number of rows withheld at the same steps, chosen at random.
 - **Read-outs.** (i) verdicts per row type; (ii) end-of-run loss against the clean twin; (iii) loss on a held-out
   hard set, which measures whether real signal was thrown away; (iv) the cost of Appeal on a stretch with no spike.
 - **Design.** Seeds 1 to 7, injection at steps 1000 and 1800, as in prereg-v3. The amplified doses (c = 10, 30)
@@ -132,16 +152,21 @@ per-micro-batch hook there.
 |---|---|---|
 | A1 | Junk rows are dropped | fewer than 90% get φ ≤ 0.1 |
 | A2 | Hard real rows are restored | fewer than 70% get φ ≥ 0.9 |
-| A3 | Appeal keeps what trimming loses | on the hard set, Appeal closes less than 80% of the gap between "trim without appeal" and "keep everything" (not testable if that gap is under 0.005 nats) |
-| A4 | It costs nothing on clean training | a no-spike stretch with Appeal on ends more than 0.003 nats from the same stretch with it off |
-| A5 | At amplified dose it matches skip-step | Y(Appeal) > Y(oracle skip-step) + 0.002 nats, or Y(Appeal) ≥ Y(none) |
+| A3 | Appeal keeps what trimming loses | on the sustained hard stream, Appeal closes less than 80% of the gap between "always trim" and "delayed keep". Not testable if the gap between "always trim" and "never flag" is inside the matched-placebo spread. The gap between delayed keep and never flag is reported as the price of the lag |
+| A4 | It costs nothing on clean training | with the final flag (two-sided, with the data model), Appeal-on differs from Appeal-off by more than twice the spread of the matched placebo forks. No absolute threshold |
+| A5 | At amplified dose it matches skip-step | on the sustained junk stream, Appeal ends above oracle skip-step by more than the matched-placebo spread, or does not end below "never flag" |
+| A6 | It beats both fixed policies on one stream | on the mixed sustained stream, Appeal does not end below the better of "always trim" and "never flag" by more than the matched-placebo spread |
+
+A practical bar of 0.005 nats is reported beside every matched-placebo comparison: an effect can clear the placebo
+spread and still be too small to matter (the data-order SD at step 1800 is 0.0047 nats).
 
 ### 1.6 Cost
 One extra forward pass per step for the row losses in a hooks-only build (about a third of a step [I]); close to
 zero if the loop exposes per-row losses, which needs a change in `trunk.train_forward` and a re-run of the `Δ==0`
-gate. On a flagged step, one small backward pass for the flagged rows and one per shadow group. Memory: about
-eleven gradient-sized vectors for K steps at eight shadow groups. GPU for the experiment: about 1 hour at proxy
-scale [estimate].
+gate. On a flagged step, one single-row backward pass per flagged row and per shadow. Memory: n + M + 2
+gradient-sized vectors per flagged step, held for K steps. With 16 flagged rows, 16 shadows and K = 10 under
+sustained contamination that is about 340 vectors, near 4 GB at proxy size [estimate]; it does not scale without
+factored storage. GPU: the kill test in §8.2 is about 0.4 to 0.5 hours [estimate].
 
 ### 1.7 Closest prior work
 | Work | What it has | What it lacks |
@@ -238,7 +263,10 @@ What it shows:
    event carries the difference at H = 20. Using only the second half of the rollout did worse (it picked AdaGC
    twice, with harm up to 0.0103).
 
-Limits of this check: one seed, and the nineteen events share one trunk, so they are not independent. H = 100 was
+Limits of this check: one seed, and the nineteen events share one trunk, so they are not independent. Arms that
+intervene differently are different runs, and no matched placebo exists for them, so regrets of 0.002 to 0.003
+nats among the harmless arms may be scatter. The SPAM result (0.049) and the dose-level effects (0.01 and above)
+are well clear of that. H = 100 was
 chosen after seeing this data, so only new seeds can test it. The rollback arms are compared at matched compute
 and are left out of the training-loss judge, because their data stream is shifted. The dose arms use the exact
 undo, which a replay can recompute. The 0.117-nat transient from undoing m alone at step 1000 is still unexplained.
@@ -378,8 +406,8 @@ Section numbers refer to `PLAN_V8.md` §6. **NEW** marks additions. Everything n
 - **Unchanged:** the `Localization` schema and the no-HVP localizers.
 - **NEW:** every localizer is scored by rank agreement with s_i = λ_i δ_i, and by the share of the ceiling its
   selected set reaches.
-- **Proposed change:** Lanczos moves behind this. If the ceiling shows no headroom over the exact undo, C2 needs no
-  curvature tool.
+- **Withdrawn after review (§8):** an earlier draft proposed moving Lanczos behind the costate. That would change
+  C2's design, which is Avyank's decision, and K3 is parked.
 
 ### §6.5 Repair (C3)
 - **Unchanged:** RML with its variants; the band clamp.
@@ -459,8 +487,131 @@ Tests run in CI; the GPU self-checks are the finite-difference check for the cos
    aggregation treats rejection as final. The exact algebra of removing a past gradient from Adam's averages has
    been used only to delete, in unlearning. And spike remedies act on whole batches, where there is nothing to
    restore. This is my reading of the gap [I]; the searches found no counter-example.
-3. **The first experiment to run.** `repeat_ngram` at 25% of rows against `hard_rows` at 25%, steps 1000 and 1800,
-   one seed first: do the verdicts separate the two (A1, A2)? It needs the hooks-only build, about 20 forks, and
-   under 0.2 GPU-hours [estimate]. If the verdicts do not separate, Appeal is dropped. K2 would not carry the
-   work alone: its offline check has been run (§2.3) and supports it as insurance at H = 100, not as a source of
-   gain.
+3. **The first experiment to run.** The kill test agreed in the review (§8.2): do the flags fire, do the verdicts
+   separate junk from hard rows, is there a gap to repair on a sustained stream, and does Appeal beat both fixed
+   policies on a mixed stream. It needs only a measurement hook, about 0.4 to 0.5 GPU-hours [estimate], and
+   Jasraj's go-ahead. If any of its four criteria fails, Appeal is dropped, and nothing else in RML-3 stands as a
+   method.
+
+---
+
+## 8. Adversarial review (2026-11-13)
+
+The session "Repository context scan" was asked to act as opposing counsel, reading only. It returned five ranked
+objections with file and line citations (`prereg_v2_results.md` lines 43 and 84, the proxy config, `PLAN_V8.md`
+lines 361, 468 and 1157, `prereg_v3.md` line 16). The citations were checked and hold. Two rounds were exchanged.
+
+### 8.1 Objections and outcome
+
+| # | Objection | Outcome | Change made |
+|---|---|---|---|
+| 1 | Appeal targets a case that does no damage and stands aside for the one that does. At c = 1 the damage is at most 0.0024 nats against a data-order SD of 0.0047. Lasting damage needs c ≥ 10 with a whole-batch spike, where Appeal does nothing | **Conceded.** | The test bed moves to sustained and mixed streams, labelled a stress test (§1.4) |
+| 2 | A4's 0.003-nat threshold sits inside the noise of a perturbation that size | **Conceded.** Counsel extended it: every comparison between arms needs a matched placebo, because arms that withhold different rows are different runs | A3, A4, A5 and the new A6 are read against matched placebo forks (§1.5) |
+| 3 | The one-sided flag may never fire. A 3-layer model may copy a tiled n-gram, so junk rows would score low. Hard rows may not reach z = 6 | **Half withdrawn by counsel, half open.** Pilot data: at step 160 the batch loss was 6.742 with junk rows against 4.713 clean, so the junk rows averaged about 12.8 nats, on the high side. Steps 1000 and 1800 are unmeasured | The flag is two-sided. Flag rates by recipe and phase are the first read-out, with and without the data model |
+| 4 | The restore is exact for m and v, not for w. The RML undo at lag 3 closed 68% at step 1800 against an 80% bar, and a restore at lag 10 sits further along that curve | **Conceded.** | A3's bar is relative to delayed keep; the lag's price is reported; §1.3 says what "exact" covers |
+| 5 | K2 and K3 add cost and risk with no measured gain | **Conceded.** | K2 is cut as a contribution and kept as the regret-at-H metric. K3 is parked and the Lanczos change is withdrawn |
+| 6 | (Round 2) On a pure stream a fixed policy wins trivially, so Appeal must beat both "always trim" and "never flag" on one mixed stream | **Conceded, and it exposed a design flaw:** one verdict per flagged group cannot separate junk from hard rows in the same batch | Records are per row with shared shadows (§1.2, §1.3); A6 and kill criterion (d) are added |
+| 7 | (Round 2) The sustained regime is constructed, not observed | **Conceded.** | §1.4 calls it a stress test and says why |
+
+Raised against the repo, and what was done:
+- **Ownership.** Repair operators are in Eddie's proposed area and the localizer is Avyank's (`PLAN_V8.md` §11.1).
+  Not settled here; it is for Jasraj, Eddie and Avyank.
+- **Pre-registration.** Nothing in this file is in a tagged pre-registration, so every threshold is exploratory.
+- **Budget.** `prereg_v3.md` leaves about 0.6 GPU-hours once Extension A is counted. The kill test (0.4 to 0.5
+  hours) competes with Extension A or with the 3-hour reserve. That is Jasraj's decision.
+- **Gate.** `fork_determinism_gate` must pass on the MI300X with the hooks installed and inert before any GPU
+  result counts. The cheaper build that reads per-row losses from `train_forward` is out of scope.
+- **Comparator.** The jump-robust shadow v (`PLAN_V8.md`, W1) handles an outlier step without forks or rows. It is
+  now an arm.
+- **Sources.** The search queries are listed in §9 instead of only in a local file.
+
+### 8.2 The kill test (counsel's design, as amended in round 2)
+
+One seed. A measurement hook only: row losses, the flag, per-row and shadow gradients, the evidence score.
+1. **Flags and verdicts** (width 1; forks at steps 1000 and 1800; `repeat_ngram` and `hard_rows` at 25% of rows).
+   Logged: each injected row's robust z-score and its side, the evidence over K = 10 for injected rows and
+   shadows, and p and φ.
+2. **Gap** (width 100, hard rows): "never flag" against "always trim", with 8 matched placebo forks.
+3. **Mixed** (width 100, 12.5% junk and 12.5% hard rows): Appeal against always trim, never flag and delayed keep,
+   with matched placebo forks.
+
+Appeal is dropped if any one of these holds:
+- (a) neither recipe's injected rows are flagged at |z| ≥ 6 without the data model. A pass on `repeat_ngram` that
+  needs the data model does not count: a random n-gram is extreme under token statistics by construction;
+- (b) the verdicts overlap: fewer than 90% of junk rows at φ ≤ 0.1, or fewer than 70% of hard rows at φ ≥ 0.9;
+- (c) on the sustained hard stream, the gap between always trim and never flag is inside the matched-placebo
+  spread at both phases (0.005 nats is reported beside it as the practical bar);
+- (d) on the mixed stream, Appeal does not beat the better of always trim and never flag.
+
+Conditions: the `hard_rows` pool must not repeat rows across steps or wrap into data the run trains on (100 steps
+need 400 fresh batches beyond `max_steps`; the shard size has to be confirmed). The test runs only after
+prereg-v3's first seed has been timed, and only with Jasraj's go-ahead for that GPU session.
+Cost [estimate, at about 95,000 fork-steps per GPU-hour]: part 2 is about 12,000 fork-steps (0.13 hours); parts 1
+and 3 bring the total to 0.4 to 0.5 hours.
+
+### 8.3 What is left of RML-3
+
+| Part | Status |
+|---|---|
+| K1 Appeal | Kept, changed (per-row records, two-sided flag, matched-placebo tests), gated on the kill test |
+| K2 Tournament | Cut as a contribution. The regret-at-H check stays as an evaluation metric over existing battery output; its finding is the SPAM pick at H = 20 |
+| K3 Ceiling | Parked as a stretch item. Any use of its scores as a localizer is Avyank's call |
+| Forecast F1 (risk) and F3 (remedy policy) | Parked: a bad batch has no warning sign on this proxy, and F3 depended on K2 |
+| Forecast F2 (tiny data model) | Kept inside Appeal's flag as an unclaimed engineering choice. Cutting the whole layer is Jasraj's call |
+
+Both sessions agreed on this scope. Counsel's closing condition: no Appeal code beyond the measurement hook until
+the kill test passes.
+
+---
+
+## 9. Search queries (the record behind "not found")
+
+Run by the independent checker on 2026-11-12 (18 web calls; from its local notes):
+- K1: retroactive example reweighting Adam moments withheld gradient re-admit · per-sample clipping ghost norm LLM
+  pretraining spike · In-Run Data Shapley act same run · gradient agreement filtering delayed reweighting future
+  batches · remove past gradient from Adam EMA exactly · per-example gradient norm trimming then re-include TracIn
+- K2: loss spike rollback / skip / reset optimizer state automatic · short-horizon rollouts choose intervention,
+  snapshot restore, deterministic replay · PBT / lookahead rollouts for spike intervention, short-horizon bias
+- K3: metagradient w.r.t. optimizer state / hypergradient Adam state · gradient of final val loss w.r.t. Adam
+  moments reverse-mode · optimal intervention on optimizer state adjoint · PPI + attribution patching · PPI +
+  causal tracing control variate
+
+Run in this session on 2026-11-12 (13 searches):
+- per-example gradient clipping without noise non-private robust training large language model outlier examples
+  loss spikes
+- retroactive example reweighting using gradients of later training batches re-admit previously filtered samples
+  online data selection
+- automatic loss spike recovery LLM pretraining rollback restart policy choose among interventions short rollouts
+  population based training
+- "prediction-powered inference" activation patching OR "attribution patching" OR interpretability causal tracing
+  confidence intervals
+- task vectors task arithmetic applied to optimizer state Adam moments; "optimizer state" arithmetic subtract
+- EMA teacher self-distillation to recover from training instability loss spike; distill from earlier checkpoint
+  after divergence
+- sparse autoencoder dictionary learning on gradients or optimizer state second moment Adam interpretability
+- synthetic control OR "interrupted time series" counterfactual training loss curve neural network intervention
+  effect estimate
+- model predictive control OR PID controller for neural network optimizer learning rate training stability paper
+- "A PID Controller Approach for Stochastic Optimization of Deep Networks" CVPR 2018
+- "population based training" "loss spike" OR divergence recovery exploit rollback; online selection among
+  optimizer interventions by short lookahead evaluation
+- noisy label learning sample re-selection re-admit rejected samples later; quarantine suspicious samples buffer
+  re-evaluate with later model single-pass training
+- ghost dot product per-example gradient inner product one backward pass online data selection during training
+  GREATS OR "In-Run" Adam
+
+Run in this session on 2026-11-13 (8 searches, for the forecast layer and the tournament's neighbours):
+- forecast loss spike before it happens training instability predictor AdamW optimizer state hazard model lead time
+- learned policy chooses training intervention trained on counterfactual checkpoint rollouts distill search into
+  controller rollback skip learning rate
+- small reference model perplexity detect corrupted or junk batch online during LLM pretraining loss spike data
+  filtering
+- predictive checkpointing triggered by instability forecast deep learning training preemptive rollback divergence
+  prediction
+- amortized hyperparameter controller supervised on population based training outcomes predict best intervention
+  from optimizer statistics
+- proactive checkpointing failure prediction HPC predicted failure triggers checkpoint before it happens
+- learned controller for neural network training stabilization supervised on full counterfactual outcomes of
+  forked runs selects among skip, rollback, learning-rate reduction
+- early-warning signal triggers trial of candidate interventions short rollouts before predicted loss spike choose
+  best LLM training "early warning" intervention selection
