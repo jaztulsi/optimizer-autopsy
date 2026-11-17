@@ -143,8 +143,8 @@
 4. **The repair family (§6.5).** The paper tests three repair methods side by side, because they differ in what they
    suspect and where their evidence comes from:
    - RML-1 (built, `autopsy/undo.py`) undoes a step using a clean-twin receipt. It is the oracle reference.
-   - RML-2 ([`docs/novelty/method.md`](docs/novelty/method.md), unbuilt) withholds suspect coordinates and lets later
-     gradients decide.
+   - RML-2 ([`docs/novelty/method.md`](docs/novelty/method.md); core in `autopsy/probation.py`, not yet in `mve`)
+     withholds suspect coordinates and lets later gradients decide.
    - RML-3 ([`docs/novelty/rml3_method.md`](docs/novelty/rml3_method.md), unbuilt) appeals single rows of a batch.
      After the adversarial review it is K1 Appeal only, gated on a kill test.
    RML-2 and RML-3 share one probation module, and RML-2+3 routes rows to RML-3 and whole-batch events to RML-2. All
@@ -300,7 +300,7 @@ filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 | Pre-registration | `prereg-v2` signed, tagged and run (2026-11-10, seed 0; third outcome). `prereg-v3` drafted, **not signed or tagged** | `docs/prereg_v2.md`, `docs/prereg_v2_results.md`, `docs/prereg_v3.md`, `results/mi300x_2026-11-10/` |
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
 | LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CI-tested (fdff507); **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
-| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML-1 in `autopsy/` covers part of C3; RML-2 and RML-3 are designed, not built (§6.5). The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML-1 in `autopsy/` covers part of C3; RML-2's core is in `autopsy/probation.py` (PR #27, not yet in `mve`); RML-3 is designed, not built, and waits on its kill test (§6.5). The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
 | Toy HVP | PR #15 open; needs changes before merge. Avyank's week 2–3 work is not on GitHub as of 2026-11-08 | branch `avyank/toy-hvp` |
 | Figures and paper | `analysis/figures.py` is a stub. PR #23 (Eknoor) adds figures on dummy data; they follow the older figure list and need to move to §2.6 and the real prereg-v2 files. No manuscript in the repo yet. Owner: Eknoor (§11.1) | `research/analysis/figures.py` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
@@ -1026,7 +1026,7 @@ back on 2026-11-10, so each GPU week below starts when the next session is booke
 
 | Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
 |---|---|---|---|---|---|---|
-| **Nov 16–22** | 0 | Merge PRs #24 and #25. Team edits to prereg-v3, then sign and tag it. Write `autopsy/probation.py` (RML-2 coordinate mode and RML-3 row mode, one shared verdict and restore) with CPU tests: skip identity, null-repair identity | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
+| **Nov 16–22** | 0 | Merge PRs #24–#27 (#24, #26 and #27 merged 16 Nov). Team edits to prereg-v3, then sign and tag it. ✅ `autopsy/probation.py`: RML-2's coordinate mode with CPU tests for skip identity and null-repair identity (PR #27). RML-3's row mode waits on its kill test | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
 | **Nov 23–29** | ≈ 4.5 h | G0 with the probation hooks installed and inert. prereg-v3 E1: seed 1 first and timed, then seeds 2–7 | `band_clamp`. The bitwise replay check (`baseline_gpu_session.sh`) in the same session | `snr.py` and the no-HVP localizer (RML-2's support S is a §6.4 `Localization`) | Figs 1–3 on prereg-v2 data. Method section | E1 committed; cost per seed measured |
 | **Nov 30–Dec 6** | ≈ 4.3 h | E2 β2 arms, β1 arms, E3 floor curve. RML-3 kill test (≈ 0.2 h) and RML-2 echo checks X4 (≈ 0.5 h) | Comparators merged. Stress-bed config agreed with Jasraj | Oracle (`group_test`) and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts | prereg-v3 core done; RML-2 and RML-3 gates read |
 | **Dec 7–13** | ≈ 3.3 h | RML stress bed (§6.5): RML-1, RML-2, RML-3, RML-2+3, skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines section | Statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve is left |
