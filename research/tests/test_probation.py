@@ -67,7 +67,9 @@ def test_refute_leaves_the_moments_of_a_run_that_skipped_the_step():
         for _ in (3, 4):  # the skip run: step 2 left m, v alone, steps 3-4 saw `later`
             v_ref = B2 * v_ref + (1 - B2) * m0.square()
         assert torch.allclose(opt.state[p]["exp_avg"], m0, rtol=1e-12, atol=1e-15)
-        assert torch.allclose(opt.state[p]["exp_avg_sq"], v_ref, rtol=1e-12, atol=1e-15)
+        # the refute subtracts a v inflation of up to ~1e3 to leave ~1e-1 (method.md §2.1: cancellation costs bits),
+        # so the error is a few ulps of 1e3, not of the result; 1e-10 is still 1e-13 of the inflation
+        assert torch.allclose(opt.state[p]["exp_avg_sq"], v_ref, rtol=1e-12, atol=1e-10)
 
 
 def test_phi_one_restores_the_moments_of_the_run_that_kept_the_step():
