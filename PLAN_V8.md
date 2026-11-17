@@ -130,11 +130,11 @@
 
 1. **prereg-v2 ran** on the MI300X on 2026-11-10 (seed 0; [`docs/prereg_v2_results.md`](docs/prereg_v2_results.md)).
    The frozen third outcome applies: **no lasting damage at a realistic dose.**
-   - At c = 1, damage is at most 0.0024 nats, below the data-order SD (0.0047).
-   - At c ≥ 10, undoing m+v removes 73–103% of the damage. Undoing v alone is 2.2–24× worse than m+v, so v is
+   - At c = 1, damage is at most 0.00243 nats (step 1800), below the data-order SD (0.0047).
+   - At c ≥ 10, undoing m+v removes 73–103% of the damage. Undoing v alone is 2.2–24× worse than doing nothing, so v is
      protective and m and v must be undone together.
-   - SPAM and the v reset do harm (the v reset costs 1.6 nats at step 1800). A global cooldown is worse than none at
-     c ≥ 10. ZClip matches doing nothing.
+   - The v̄ reset and SPAM (default settings, not tuned) do harm; the v̄ reset costs 1.6 nats at step 1800. A global cooldown is worse than none at
+     c ≥ 10. ZClip did not fire at steps 1000 and 1800, so it equals none there; at step 160 it ended 0.0026 below B\*.
    - RML lag 3 closed 68% of the damage at step 1800 against an 80% bar.
 2. **Noise unit.** The 1-ulp floor only holds between identical runs. Comparisons between arms use matched placebo
    forks or the data-order spread, with 0.005 nats as the practical bar.

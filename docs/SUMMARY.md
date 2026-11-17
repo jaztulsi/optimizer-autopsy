@@ -30,7 +30,7 @@ direct, m-echo and v-stall parts.
 
 **Built and run (2026-11-10).**
 - Harness: Δ = 0 on CUDA and AMD MI300X, including the current loop.
-- Pre-registered dose sweep (proxy, seed 0): at realistic dose (c = 1) damage is ≤ 0.0024 nats, so the frozen outcome
+- Pre-registered dose sweep (proxy, seed 0): at realistic dose (c = 1) damage is ≤ 0.0025 nats, so the frozen outcome
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
