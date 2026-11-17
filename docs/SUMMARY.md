@@ -34,7 +34,7 @@ direct, m-echo and v-stall parts.
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
-- Next: test three repair methods: RML-1 (built), RML-2 (coordinate probation) and RML-3 (row appeal), both unbuilt. Localizer and theory not built.
+- Next: test three repair methods: RML-1 (built), RML-2 (coordinate probation, PR #27) and RML-3 (row appeal, unbuilt). Localizer and theory not built.
 
 ---
 
@@ -177,7 +177,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
 | LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
 | Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
-| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2 (coordinate probation) and RML-3 (row appeal) are designed, not built, and share one probation module. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27, CPU tests; not yet in `mve`). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15) | — |
 

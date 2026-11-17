@@ -26,7 +26,7 @@ in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 au
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
 exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
 bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate re-passed on the changed loop on 2026-11-10.
-`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged. The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2/3 are unbuilt and share a planned `autopsy/probation.py` (PLAN_V8 §6.5). C2 (localizer)
+`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged. The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2's core is written (`autopsy/probation.py`, PR #27, CPU tests) and not yet wired into `mve`. RML-3's Appeal is unbuilt and held until its kill test passes; it will restore through the same `undo.undo` (PLAN_V8 §6.5). C2 (localizer)
 and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 

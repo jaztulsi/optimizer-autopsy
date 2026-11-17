@@ -527,7 +527,7 @@ different unit and takes its evidence from a different place.
 | Decision | always undo after the window | withhold, then confirm, refute or unstable over K steps | appeal: 16 single-row shadows decide per row |
 | Edit | undo m and v at lag 3 (full, cooldown, selective) | restore the confirmed fraction φ (via `undo.undo`) | trim or restore rows; stands aside when more than half the batch is flagged |
 | Covers | bad events, as the reference | whole-batch events and real shifts | partial batches |
-| Doc / code | `autopsy/undo.py` (built) | `docs/novelty/method.md` (unbuilt) | `docs/novelty/rml3_method.md` (unbuilt) |
+| Doc / code | `autopsy/undo.py` (built) | `docs/novelty/method.md`; core in `autopsy/probation.py` (PR #27, not yet in `mve`) | `docs/novelty/rml3_method.md` (unbuilt; held for the kill test) |
 | First gate | prereg-v2 (ran: 68% closed at 1800, bar 80%) | X4 echo checks (≈ 0.5 h) | kill test (a)–(d) (≈ 0.2 h) |
 
 RML-2 and RML-3 share one probation module (`autopsy/probation.py`: withhold, gather evidence, φ-restore), so the
