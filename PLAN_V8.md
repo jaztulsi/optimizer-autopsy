@@ -1,5 +1,5 @@
 # OPTIMIZER AUTOPSY — PLAN V8
-### Current source of truth · 2026-10-22 (state updated 2026-11-09) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
+### Current source of truth · 2026-10-22 (state updated 2026-11-16) · V7 + the Master Research run (waves 1–2 + fact-check) · targets ICML 2027 → NeurIPS 2027
 
 > **Read this first, every session.** V8 supersedes V7 ([`docs/reference/PLAN_V7.md`](docs/reference/PLAN_V7.md)) where
 > they differ. V7 §4's locked decisions (spike design, branch menu, ROCm tolerance, natural-spike rule, ZClip/AdaGC
@@ -125,6 +125,32 @@
      `analysis/eval.py` (held-out Δ) and `gpu/xproc_gate.py`.
    - Capture self-check fix (f751e14).
    - `Brollback` in PR #20.
+
+### 0.2 Since 2026-11-10: the prereg-v2 result and the repair family
+
+1. **prereg-v2 ran** on the MI300X on 2026-11-10 (seed 0; [`docs/prereg_v2_results.md`](docs/prereg_v2_results.md)).
+   The frozen third outcome applies: **no lasting damage at a realistic dose.**
+   - At c = 1, damage is at most 0.0024 nats, below the data-order SD (0.0047).
+   - At c ≥ 10, undoing m+v removes 73–103% of the damage. Undoing v alone is 2.2–24× worse than m+v, so v is
+     protective and m and v must be undone together.
+   - SPAM and the v reset do harm (the v reset costs 1.6 nats at step 1800). A global cooldown is worse than none at
+     c ≥ 10. ZClip matches doing nothing.
+   - RML lag 3 closed 68% of the damage at step 1800 against an 80% bar.
+2. **Noise unit.** The 1-ulp floor only holds between identical runs. Comparisons between arms use matched placebo
+   forks or the data-order spread, with 0.005 nats as the practical bar.
+3. **prereg-v3** (seeds 1–7, β2 and β1 arms, the E3 floor curve) is drafted in
+   [`docs/prereg_v3.md`](docs/prereg_v3.md), not yet signed or tagged. It replaces the K = 111 chaos-floor benchmark.
+4. **The repair family (§6.5).** The paper tests three repair methods side by side, because they differ in what they
+   suspect and where their evidence comes from:
+   - RML-1 (built, `autopsy/undo.py`) undoes a step using a clean-twin receipt. It is the oracle reference.
+   - RML-2 ([`docs/novelty/method.md`](docs/novelty/method.md), unbuilt) withholds suspect coordinates and lets later
+     gradients decide.
+   - RML-3 ([`docs/novelty/rml3_method.md`](docs/novelty/rml3_method.md), unbuilt) appeals single rows of a batch.
+     After the adversarial review it is K1 Appeal only, gated on a kill test.
+   RML-2 and RML-3 share one probation module, and RML-2+3 routes rows to RML-3 and whole-batch events to RML-2. All
+   of them run on one shared stress bed (§11.2).
+5. **State.** PRs #18, #20 and #21 are merged. The MI300X went back on 2026-11-10; about 14.9 of the 20 GPU-hours are
+   left.
 
 Full state: §3 and [`docs/SUMMARY.md`](docs/SUMMARY.md).
 
@@ -260,23 +286,23 @@ filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 
 ---
 
-## 3 · Verified state on 2026-11-09 (first written 2026-10-22)
+## 3 · Verified state on 2026-11-16 (first written 2026-10-22)
 
 | Piece | State | Evidence |
 |---|---|---|
 | C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/gpu/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
 | AMD MI300X | Provided by Avneh. **First session 2026-10-27:** T0 passed, T1 pilot ran. The box has torch 2.14 while the pin is 2.10, so the pilot ran with `--skip-preflight`. Pin decision open | `results/mi300x_2026-10-27/` |
-| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Pushed on `plan-v8` (**PR #18 open**, not merged). Eddie reviewed the baseline and C3 parts on 2026-11-09 with no blockers; that review predates the code fixes in dde818a. CI is green at 0ff3109 (lint, 85 tests, secret scan). `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check **crashed on the MI300X** (eps read back as a string); the fix is committed (f751e14), but the GPU re-run is pending | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
-| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14; CI-tested; **never run on a GPU**. `Brollback` (rollback-and-skip at matched compute) is in **PR #20, open**; CI green at 60e0a3d, and it lands right after #18 | `research/baselines/` |
-| P1 autopsy code | RML undo (m / v / m+v, top-k v, cooldown), planted probes (parity, dose, interference, refractory), 1-ulp placebo floor in the w and g channels, the GPU driver and a sealed report. CI-tested. The core battery ran in the pilot; the placebo, dose and cooldown arms have not run | `research/autopsy/`, `research/tests/test_autopsy.py` |
+| Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Merged in PR #18. `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check crashed on the MI300X (eps read back as a string); the fix (f751e14) passed its self-check there on 2026-11-10. The full capture battery has not run | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
+| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14. `Brollback` (rollback-and-skip at matched compute) merged in PR #20, wired into `mve` in PR #21. The prereg-v2 battery ran its arms on the MI300X on 2026-11-10. The bitwise replay check (`baseline_gpu_session.sh`) is still owed at the next session. `Bspam_clip` and `Bspam_reset` are not wired yet | `research/baselines/` |
+| P1 autopsy code | RML undo (m / v / m+v, top-k v, cooldown), planted probes (parity, dose, interference, refractory), 1-ulp placebo floor in the w and g channels, the GPU driver and a sealed report. CI-tested. The core battery ran in the pilot; the placebo, dose and cooldown arms ran in prereg-v2 (2026-11-10, seed 0) | `research/autopsy/`, `research/tests/test_autopsy.py` |
 | Held-out eval | `val_loss` / `horizon_probe` on slots token-disjoint from the probe slots (fixes A2 in §9.3). Ran in the pilot | `research/analysis/eval.py` |
 | T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
-| Pre-registration | `prereg-v2` drafted; **not signed off or tagged** | `docs/prereg_v2.md` |
+| Pre-registration | `prereg-v2` signed, tagged and run (2026-11-10, seed 0; third outcome). `prereg-v3` drafted, **not signed or tagged** | `docs/prereg_v2.md`, `docs/prereg_v2_results.md`, `docs/prereg_v3.md`, `results/mi300x_2026-11-10/` |
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
 | LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CI-tested (fdff507); **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
-| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML in `autopsy/` covers part of C3. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML-1 in `autopsy/` covers part of C3; RML-2 and RML-3 are designed, not built (§6.5). The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
 | Toy HVP | PR #15 open; needs changes before merge. Avyank's week 2–3 work is not on GitHub as of 2026-11-08 | branch `avyank/toy-hvp` |
-| Figures and paper | `analysis/figures.py` is a stub, and its TODO names predate §2.6. No manuscript in the repo yet. Owner: Eknoor (§11.1) | `research/analysis/figures.py` |
+| Figures and paper | `analysis/figures.py` is a stub. PR #23 (Eknoor) adds figures on dummy data; they follow the older figure list and need to move to §2.6 and the real prereg-v2 files. No manuscript in the repo yet. Owner: Eknoor (§11.1) | `research/analysis/figures.py` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
 
 ---
@@ -490,6 +516,26 @@ Localization = {"groups": {gid: {"tensor": str, "rows": slice|None, "score": flo
 | **Shadow-v swap** | v_S ← v_BV,S (W1) | `intervention` | fork-free, width-1 only |
 | **Band-clamp baseline** | v ← clip(v, a·v̄, b·v̄) (W3) | `intervention` | **required**: if it matches, the localizer adds nothing |
 | Selective re-warm, optimizer hot-swap on S (R18), weight decay off on S (R27) | ablations | `pre_step` | mechanism tests |
+
+**The RML family (2026-11-16).** Three repair methods, tested side by side. They are not duplicates: each suspects a
+different unit and takes its evidence from a different place.
+
+| | RML-1 | RML-2 | RML-3 |
+|---|---|---|---|
+| Unit of suspicion | one step | coordinates (support S) | rows of a batch |
+| Receipt | clean-twin oracle | its own later gradients | the flagged rows' own records |
+| Decision | always undo after the window | withhold, then confirm, refute or unstable over K steps | appeal: 16 single-row shadows decide per row |
+| Edit | undo m and v at lag 3 (full, cooldown, selective) | restore the confirmed fraction φ (via `undo.undo`) | trim or restore rows; stands aside when more than half the batch is flagged |
+| Covers | bad events, as the reference | whole-batch events and real shifts | partial batches |
+| Doc / code | `autopsy/undo.py` (built) | `docs/novelty/method.md` (unbuilt) | `docs/novelty/rml3_method.md` (unbuilt) |
+| First gate | prereg-v2 (ran: 68% closed at 1800, bar 80%) | X4 echo checks (≈ 0.5 h) | kill test (a)–(d) (≈ 0.2 h) |
+
+RML-2 and RML-3 share one probation module (`autopsy/probation.py`: withhold, gather evidence, φ-restore), so the
+second method costs little extra code. **RML-2+3** routes rows to RML-3 and whole-batch events to RML-2 and is a fourth
+arm. The **stress bed** (§11.2) runs every arm on one mixed stream: whole-batch spikes at c = 10, partial junk rows,
+hard rows and a sustained 100-step shift, 3 seeds. Comparators: skip-step (oracle and detector-timed), always-trim,
+never-flag, ZClip and rollback. A failed gate drops that method from the stress bed and moves it to Appendix A; it is
+not deleted.
 
 ### 6.6 Scale-transfer protocol (STP)
 
@@ -709,12 +755,11 @@ batch 64, and ≈ 0.012 GPU-h per end-of-schedule proxy branch when forks share 
 rates are not measured yet. At the Oct 2026 median of $2.90/GPU-h, 100 h ≈ $290 and
 2,000 h ≈ $5.8k; the GPU itself is free to us.
 
-**Budget (updated 2026-11-10): we have 20 MI300X-hours in total, about 5.1 used [V].** The list below predates the
-2026-11-10 session, which covered the Δ = 0 re-run and prereg-v2. The tiers below are full-program
-estimates, so T2 as written (50–80 h) does not fit and T3 and T4 need new hours. What fits, from the measured proxy
-cost [I]: the Δ = 0 re-run and the baseline GPU checks (< 1 h), prereg-v2 (≈ 2 h), the chaos-floor benchmark (≈ 7 h),
-which leaves ≈ 7 h for seed replication and the repair battery. 124M n = 5 (6–8 h) or Pythia-160M (≈ 4 h) would have
-to displace something on that list.
+**Budget (updated 2026-11-16): we have 20 MI300X-hours in total, about 5.1 used [V], 14.9 left.** The 2026-11-10
+session covered the Δ = 0 re-run and prereg-v2. The tiers below are full-program estimates, so T2 as written
+(50–80 h) does not fit and T3 and T4 need new hours. The proposed split of the 14.9 h is in §11.2: G0 0.2 h,
+prereg-v3 core 7.9 h (it replaces the ≈ 7 h chaos-floor benchmark), the RML block 4.0 h, reserve 2.8 h [I]. 124M
+n = 5 (6–8 h) or Pythia-160M (≈ 4 h) would have to displace something on that list.
 
 ### 8.1 Tiers (each tier is a complete, publishable unit)
 
@@ -919,7 +964,7 @@ is funded. The 5 Nov review parked the SDC work as P3. Jasraj picks what else dr
 **§11.2 is the working schedule for Nov 9–Dec 31.** The table above stays as the full T2 scope, and §11.2 wins where
 they differ.
 
-### 11.1 · Who does what (2026-11-08)
+### 11.1 · Who does what (2026-11-08; steps updated 2026-11-16)
 
 The team is four people: **Jasraj, Eddie, Avyank and Eknoor**. This replaces the role table from plan V3 (11 roles, 9
 people, Sep 14–Dec 13, a 30-hour grant, 124M on free Kaggle). Every V3 role now has one owner below, so most people
@@ -936,19 +981,21 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 
 | Person | Step | Done when | Waits on |
 |---|---|---|---|
-| **Jasraj** | 1. Merge PR #18 (the fixes to `report.py`, `stats.py`, `mve.py` are committed in dde818a; CI green) | #18 merged | Eddie's review ✅ (2026-11-09, no blockers) |
-| | 2. Settle the torch pin, amend and tag prereg-v2, confirm the Exea grant terms | tag `prereg-v2` exists | Jasraj |
-| | 3. MI300X: re-run G0 on the changed loop, stages 0–4, then the prereg-v2 run (≈ 3 h) | Δ = 0 log and report committed | step 2; session go-ahead |
-| | 4. Wire `Brollback_k` into `mve` (horizons at `k + wasted`, pass `rollback_k`). `snapshot.save` drops the rollback snapshot, so a resumed run needs it saved as its own file, like the v̄ file. Written in PR #21, which merges after #18 and #20 | CPU test in CI | PR #20 merged |
-| | 5. Chaos-floor benchmark (≈ 7 h), then decide how the last ≈ 7 h is spent | `chaos_forks.jsonl` committed | step 3 |
-| **Eddie** | 1. Review PR #18 ✅ (2026-11-09: no blockers; 85 tests pass on #18 + #20 combined) | review posted | — |
-| | 2. Land PR #20 right after #18 and re-run its CI, then run `research/gpu/baseline_gpu_session.sh` once on the merged code (stage 3), timing agreed with Jasraj. With #20 or right after: an oracle-branch set, a v̄ source for `Bvbar` in `mve` (needed for the final battery), and rollback checks that work under an LR schedule (before T2) | logs committed, replay bitwise | PR #18 merged; MI300X access |
-| | 3. C3: `band_clamp` first (§6.5 makes it required), then the other §6.5 operators and U4 in `docs/p1_upgrades.md` | CPU tests in CI | — |
+| **Jasraj** | 1. Merge PR #18 ✅ (2026-11-10) | #18 merged | — |
+| | 2. Settle the torch pin, amend and tag prereg-v2 ✅ (tag `prereg-v2`, 2026-11-10). Exea grant terms still to confirm | tag exists | — |
+| | 3. MI300X: G0 on the changed loop, then the prereg-v2 run ✅ (2026-11-10; `results/mi300x_2026-11-10/`, `docs/prereg_v2_results.md`) | Δ = 0 log and report committed | — |
+| | 4. Wire `Brollback_k` into `mve` ✅ (PR #21, merged) | CPU test in CI | — |
+| | 5. Merge PRs #24 and #25. Team edits to `docs/prereg_v3.md`, then sign and tag it. Write `autopsy/probation.py` (RML-2 and RML-3, §6.5) with CPU tests | tag `prereg-v3`; probation tests green in CI | Eddie's `Bspam_*` wiring |
+| | 6. Next MI300X session: G0, prereg-v3, the RML gates, the stress bed (§11.2) | logs and reports committed | step 5; session go-ahead |
+| **Eddie** | 1. Review PR #18 ✅ (2026-11-09: no blockers) | review posted | — |
+| | 2. Land PR #20 ✅ (merged). Still owed: run `research/gpu/baseline_gpu_session.sh` once on the merged code at the next MI300X session, timing agreed with Jasraj; rollback checks that work under an LR schedule (before T2) | logs committed, replay bitwise | MI300X access |
+| | 3. Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag); stress-bed comparators always-trim and never-flag *(proposed)* | CPU tests in CI | — |
+| | 4. C3: `band_clamp` first (§6.5 makes it required), then the other §6.5 operators and U4 in `docs/p1_upgrades.md` | CPU tests in CI | — |
 | **Avyank** | 1. Push the week 2–3 work to a branch (`avyank/week2-3`); it was not on GitHub as of Nov 8 | branch visible | — |
 | | 2. Clear PR #15's merge blockers (`.DS_Store`, import-time seed, a real asserting test, name-keyed `hvp` on the GPT loss) | CI green on #15 | step 1 |
-| | 3. Pick the next piece: `test_stats.py` for `stats.py` (critical path), `snr.py` (closer to P1-core), or finishing `curvature.py` (P1-stretch) | CPU tests in CI | talk to Jasraj |
-| **Eknoor** | 1. Send Jasraj a GitHub username (not a repo collaborator yet) and work on a branch | invite accepted | — |
-| | 2. Replace the stubs in `research/analysis/figures.py` with Figs 1–6 and Tabs 1–2, built on dummy data in the format `autopsy/report.py` writes (`report.json`, `sealed.json`, `chaos_forks.jsonl`). Fig 6 may end up proxy-only under the 20 h budget | one command makes every figure from a results folder | step 1 |
+| | 3. `test_stats.py` for `stats.py` (critical path; prereg-v3 uses the one-sided sign-flip test), then `snr.py` and the no-HVP localizer, which gives RML-2 its support S | CPU tests in CI | talk to Jasraj |
+| **Eknoor** | 1. Become a collaborator and work on a branch ✅ (PR #23 open) | invite accepted | — |
+| | 2. Rework PR #23 to §2.6's figure list (Figs 1–6, Tabs 1–2), built on the real prereg-v2 files in `results/mi300x_2026-11-10/2026-11-10_prereg_v2/report_final/` in the format `autopsy/report.py` writes. Gate B goes to the appendix or out. Fig 6 may end up proxy-only under the 20 h budget | one command makes every figure from a results folder | — |
 | | 3. Start the manuscript in the repo from §2.6, keeping both abstracts. Writing order: related work → method → prereg appendix → intro | draft builds | step 1 |
 | | 4. Collect sections: instrument, spikes and theory from Jasraj; baselines and repair from Eddie; localizer and stats from Avyank. Fill in results as gates pass | full draft for the reviewer simulation (weeks 11–12) | gates G1–G5 |
 
@@ -956,7 +1003,7 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 - All work goes through a branch and a PR. Nobody pushes to `main`.
 - Training, forks and eigensolves run only on the MI300X. Tests and lint run in GitHub CI.
 - Every GPU run needs Jasraj's go-ahead and a cost against §8's budget.
-- Real effects stay in `sealed.json`, unopened, until prereg-v2 is tagged and its run reports. Figures use dummy data until then.
+- prereg-v2 has reported, so figures now use the real files in `results/mi300x_2026-11-10/`. prereg-v3 effects stay sealed until it is tagged and its run reports.
 - The owner decides how their area is built. A change to someone else's area starts as review feedback.
 - When a step finishes, update this table and `docs/status.html`.
 
@@ -964,33 +1011,47 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 (`docs/chaos_floor.md`); Kaggle is paused, so the free-tier 124M track is gone; Lanczos and the HVP are P1-stretch (§4),
 and P1-core uses the oracle and no-HVP localizers; the deadline moved from Dec 13 to January.
 
-### 11.2 · Week by week to Dec 31 (2026-11-08)
+### 11.2 · Week by week to Dec 31 (re-planned 2026-11-16)
 
 **Goal: frozen results and a complete paper draft by Dec 31.** January is for the reviewer simulation, fixes and the
 ICML submission. Each week runs Monday to Sunday. Roles marked *(proposed)* in §11.1 still need that person's OK.
 
+**Done before this re-plan:** PRs #18, #20 and #21 are merged (d5ecfdc). prereg-v2 was amended, tagged and run on the
+MI300X on 2026-11-10 (seed 0, about 2.1 GPU-h; the third outcome applies, §0.2). Eknoor is a collaborator and opened
+PR #23 (figures on dummy data). The RML-3 review narrowed RML-3 to one gated method (PR #25).
+
+**What changed.** The paper now tests the three RML methods side by side (§6.5). prereg-v3 replaces the K = 111
+chaos-floor benchmark, because its matched placebos and E3 floor curve give the noise unit for less. The MI300X went
+back on 2026-11-10, so each GPU week below starts when the next session is booked, and slides with it.
+
 | Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
 |---|---|---|---|---|---|---|
-| **Nov 9–15** | ≈ 1 h | Merge PR #18 (fixes committed, Eddie's review posted). Settle the torch pin, amend and tag prereg-v2, confirm the Exea terms. Re-run G0 and stages 0–4 | Land PR #20 right after #18 and re-run its CI. Run `baseline_gpu_session.sh` on the merged code in the same MI300X session. Fixes from the #18 review | Push the week 2–3 work to a branch. Clear PR #15's blockers. Confirm the role and pick the next piece | Send a GitHub username, accept the invite. Write a dummy-data generator in the `report.py` format. Set up the manuscript from §2.6 with both abstracts | #18 and #20 merged; prereg-v2 tagged; Δ = 0 on the changed loop |
-| **Nov 16–22** | ≈ 2 h | Merge PR #21 (`Brollback_k` in `mve`), then run prereg-v2 (H-A…H-F). Commit the report, then read G1–G3 | `band_clamp` with CPU tests | `test_stats.py`; power and TOST checks for `stats.py` | Figs 1–3 on dummy data. Draft related work | prereg-v2 report committed; positive or null framing chosen |
-| **Nov 23–29** | ≈ 7 h | Chaos-floor benchmark (K = 111). Decide how the last hours are split | The other §6.5 operators and the remaining Fig 5 comparators | `snr.py` and the no-HVP localizer, with the §6.4 `Localization` output | Figs 4–5 and Tabs 1–2 on dummy data. Real data into Figs 1–3. Draft the method section | `chaos_forks.jsonl` committed; split of the last hours decided |
-| **Nov 30–Dec 6** | ≈ 2.5 h | Seed replication; C-3 interference probes if the split includes them | Repair operators and comparators merged | Oracle (`group_test`) and localizers merged. Mixed model and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts. One command makes every figure | Code frozen for the last GPU run |
-| **Dec 7–13** | ≈ 3.5 h | Final battery: repair operators, band-clamp, localizers against the oracle. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines and repair section | Run the statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve hour is left |
+| **Nov 16–22** | 0 | Merge PRs #24 and #25. Team edits to prereg-v3, then sign and tag it. Write `autopsy/probation.py` (RML-2 coordinate mode and RML-3 row mode, one shared verdict and restore) with CPU tests: skip identity, null-repair identity | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
+| **Nov 23–29** | ≈ 4.5 h | G0 with the probation hooks installed and inert. prereg-v3 E1: seed 1 first and timed, then seeds 2–7 | `band_clamp`. The bitwise replay check (`baseline_gpu_session.sh`) in the same session | `snr.py` and the no-HVP localizer (RML-2's support S is a §6.4 `Localization`) | Figs 1–3 on prereg-v2 data. Method section | E1 committed; cost per seed measured |
+| **Nov 30–Dec 6** | ≈ 4.3 h | E2 β2 arms, β1 arms, E3 floor curve. RML-3 kill test (≈ 0.2 h) and RML-2 echo checks X4 (≈ 0.5 h) | Comparators merged. Stress-bed config agreed with Jasraj | Oracle (`group_test`) and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts | prereg-v3 core done; RML-2 and RML-3 gates read |
+| **Dec 7–13** | ≈ 3.3 h | RML stress bed (§6.5): RML-1, RML-2, RML-3, RML-2+3, skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines section | Statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve is left |
 | **Dec 14–20** | 0 | Instrument, spike and theory sections | Baselines and repair sections to Eknoor | Localizer and statistics sections to Eknoor; Tab 2 final | Results section; assemble draft 1 | Draft 1 has every section |
-| **Dec 21–27** | ≤ 1 h reserve | Read draft 1. Reruns only if a result needs one | Check every repair and baseline number against the results files | Check every statistic against the results files | Draft 2 from everyone's comments | Every number traced to a results file |
+| **Dec 21–27** | reserve | Read draft 1. Reruns only if a result needs one | Check every repair and baseline number against the results files | Check every statistic against the results files | Draft 2 from everyone's comments | Every number traced to a results file |
 | **Dec 28–31** | 0 | Final scope check. Bring the plan, status page and instrument release up to date | Confirm baselines and repair reproduce from the repo | Confirm the statistics reproduce from the repo | Complete draft. All figures rebuilt from the final results | **Results frozen; complete paper draft** |
 
-**GPU ledger update (2026-11-10) [V]:** about 5.1 h used, so about 14.9 h remain. The lines below were written before that session.
+**GPU ledger (2026-11-16):** about 5.1 h used [V], so 14.9 h remain. Proposed split [I]: G0 0.2 h + prereg-v3 core
+7.9 h (E1 4.3, E2 2.6, β1 0.5, E3 0.5) + RML block 4.0 h (RML-3 kill test 0.2, X4 0.5, stress bed 3.3) + reserve
+2.8 h = 14.9 h. The estimates use prereg-v3's rate of about 100,000 fork-steps per hour, and each session still needs
+Jasraj's go-ahead. If seed 1 shows E1 costs more than planned, prereg-v3's cost rule cuts seeds first, and then the
+stress bed drops to 2 seeds.
 
-**GPU ledger [I]:** about 3 h used + 1 + 2 + 7 + 2.5 + 3.5 + 1 reserve = 20 h. These are estimates from the measured
-proxy cost, and each session still needs Jasraj's go-ahead. Nothing is spare beyond the reserve hour.
+**What this leaves out:** prereg-v3 Extension A (step 160, 3.4 h), RML-2's X1 stall law (3 h; E2's β2 = 0.99 arm
+covers part of it) and X3 forecast (2 h), and 124M, Pythia-160M and the mid rung. G6 and G7 don't run, and Fig 6
+stays proxy-only unless new hours arrive. The SDC work stays parked.
 
-**What this leaves out:** 124M, Pythia-160M and the mid rung are not funded, so G6 and G7 don't run and Fig 6 stays
-proxy-only unless new hours arrive. The SDC work stays parked.
+**Open decision (Jasraj):** run the RML block as exploratory, or add it to prereg-v3 as an extension before the tag
+so its comparisons count as confirmatory. The second needs written stress-bed thresholds this week.
 
-**If something slips:** the runs form a chain: tag, G0, prereg-v2, chaos floor, last battery. A failed gate routes as in
-§8.3. A null result switches to the null abstract and keeps this schedule. A slip of up to two weeks comes out of
-Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
+**If something slips:** the runs form a chain: prereg-v3 tag, G0, E1, E2 and E3, the RML gates, the stress bed. A
+failed gate routes as in §8.3: a failed RML-2 or RML-3 gate drops that arm from the stress bed and moves the method to
+Appendix A. A slip of up to two weeks comes out of Dec 14–31. Anything longer cuts the stress bed to RML-1 against the
+best gated method, and Jasraj decides what goes. If no GPU session is booked by Dec 1, the GPU-delay rule in §4
+applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop paper.
 
 ---
 
@@ -1044,13 +1105,13 @@ Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
   - **(a) Build the code now?** The critical path, all writable and CI-testable before the GPU, never run locally:
     eval.val_loss → RML/undo → mve driver → stats → oracle → localizers.
   - **(b) Pre-registration:** a git tag `prereg-v1` on §7.0/§7.2 before T1, plus an OSF/AsPredicted entry (an
-    external action). **Now:** sign off and tag `prereg-v2` ([`docs/prereg_v2.md`](docs/prereg_v2.md)) before the
-    next MI300X run.
-  - **(b2) torch pin:** the box has torch 2.14 and `research/requirements.txt` pins 2.10. Pull the pinned container,
-    or bump the pin and re-run G0. The pilot ran with `--skip-preflight`.
-  - **(b3) Reviews:** PR #18 (`plan-v8` → `main`) is reviewed by Eddie (2026-11-09, no blockers) and waits on
-    Jasraj's merge. PR #20 (`Brollback`; it touches `trunk.py` and `fork.py`, so it needs a GPU replay check) lands
-    right after #18, and that check runs once on the merged code. PR #15 needs fixes.
+    external action). `prereg-v2` was tagged and ran on 2026-11-10. **Now:** team edits to
+    [`docs/prereg_v3.md`](docs/prereg_v3.md), then sign and tag `prereg-v3` before the next MI300X run, and decide
+    whether the RML block goes in it as an extension (§11.2).
+  - **(b2) torch pin:** settled. prereg-v2 ran on torch 2.10.0 (ROCm), matching the pin.
+  - **(b3) Reviews:** PRs #18, #20 and #21 are merged. #20 touches `trunk.py` and `fork.py`, so its GPU replay check
+    runs once on the merged code at the next session. PR #24 (CI green) and PR #25 wait on Jasraj's merge; PR #15
+    needs fixes; PRs #22 and #23 need the team list and the figure rework.
   - **(c) Owners** for C2/C3, stats and writing: proposed in §11.1 (2026-11-08); each person confirms.
   - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6). Eknoor
     leads it (§11.1).
@@ -1065,6 +1126,14 @@ Dec 14–31; anything longer cuts repair scope, and Jasraj decides what goes.
 ---
 
 ## 14 · Change log
+- **2026-11-16 (prereg-v2 result and the repair family):**
+  - Added §0.2: the prereg-v2 result (third outcome; m and v must be undone together), the noise unit, prereg-v3 and
+    the RML family.
+  - Brought §3 up to date: PRs #18, #20 and #21 merged, prereg-v2 tagged and run, PR #23 figures.
+  - Added the RML family table and the shared stress bed to §6.5. RML-1, RML-2 and RML-3 are tested side by side.
+  - Marked finished steps in §11.1 and added the next ones; figures now use real prereg-v2 files.
+  - Re-planned §11.2 from Nov 16 with the GPU ledger: prereg-v3 core 7.9 h, RML block 4.0 h, reserve 2.8 h.
+  - Added theory and repair ideas R-F1…R-F5 to Appendix A.3, each with its prior-art check owed.
 - **2026-11-09 (review state; the science is unchanged):**
   - Eddie reviewed PR #18 with no blockers, and the merge order is #18, then #20, with the baseline GPU check once on
     the merged code (§11.1, §11.2, §13).
@@ -1194,6 +1263,11 @@ kill-searched.
 | #44–#50, #58, #59 | m projection, fresh-g² v, re-warm, selective clip/ε/β2, v-floor inoculation, selective m+v+t reset, row restore | PARTIAL | Ctrl |
 | #8 | Strong baseline set; best-baseline primary contrast | TAKEN (baselines) | Core |
 | #27 / #28 | Edit-size Pareto with matched `Br`; recovery per GPU-second vs rollback | PARTIAL | Core |
+| R-F1 (2026-11-16) | RML-2+3 routing: row-level appeal for partial batches, coordinate probation for whole-batch events (§6.5) | NEW within the project; prior-art check owed | Core (stress bed) |
+| R-F2 (2026-11-16) | m+v coupling law: linearise Adam around the spike. Undoing v alone lowers v on the spiked coordinates, so 1/√v raises their step size and amplifies the m left behind. Predicts the undo-v / undo-m+v damage ratio from β1, β2 and lag; scored on prereg-v3's β1 and β2 arms (no extra GPU) | Prior-art check owed (Adam SDE and linearised-response work) | Core (theory, Fig 2) |
+| R-F3 (2026-11-16) | Bounded null: an upper bound on lasting damage from clip norm, β2 and dose, so "no lasting damage at a realistic dose" is a stated bound that the measurement checks, not only a null | Prior-art check owed | Core (theory) |
+| R-F4 (2026-11-16) | Damage forecast from the stability margin at fork time (preconditioned sharpness against 2/η), read on the E3 floor-curve forks; RML-2's forecast layer would use it | PARTIAL (Cohen et al. 2022, adaptive edge of stability) | Stretch, no extra GPU |
+| R-F5 (2026-11-16) | Why all 10 data-order forks ended below B\*: analysis of the existing prereg-v2 files | analysis only | Core (no GPU) |
 
 ### A.4 Detection (BACKUP 2 side product)
 

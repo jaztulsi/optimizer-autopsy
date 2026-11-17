@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-11-10. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-16. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
@@ -34,7 +34,7 @@ direct, m-echo and v-stall parts.
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
-- Not built: localizer, repair module, theory.
+- Next: test three repair methods: RML-1 (built), RML-2 (coordinate probation) and RML-3 (row appeal), both unbuilt. Localizer and theory not built.
 
 ---
 
@@ -169,7 +169,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Spike recipes + detector (`lr_bump`, `corrupt_batch`, `repeat_ngram`, `v_inflate`, `tiny_eps`, precision) | ✅ CI; three recipes ran on the MI300X | `research/spikes/` |
 | Spike capture (v̄, t0 / fork / matched-normal snapshots) | ✅ Self-check passed on the MI300X from the tag (2026-11-10). The full capture battery has not run | `research/spikes/capture.py` |
 | Baselines: skip, clip, resets, v̄, SPAM, ZClip, AdaGC, skip-step | ✅ CI; ran on the MI300X in the repair battery (2026-11-10), default settings | `research/baselines/` |
-| Rollback-and-skip at matched compute | ◐ CI-tested (PR #20, not merged); `Brollback_k` wiring in PR #21; both ran on the MI300X from the tag | branches `baselines/rollback-skip`, `autopsy/brollback-k-wiring` |
+| Rollback-and-skip at matched compute | ✅ CI-tested, merged (PRs #20 and #21); ran on the MI300X from the tag. Bitwise replay check owed at the next session | `research/baselines/`, `research/autopsy/mve.py` |
 | Autopsy code: RML undo (m / v / m+v, top-k v, cooldown), planted probes, placebo floor, dose meter, GPU driver `mve`, sealed report | ✅ CI-tested; placebo, dose, cooldown and repair arms ran on the MI300X (2026-11-10) | `research/autopsy/` |
 | Chaos-floor benchmark: 1-ulp placebo forks in the weight, gradient and optimizer-state arms at three phases, data-order forks, a zero-perturbation check, a per-fork release table, and d for spike effects from a matching floor | ◐ K = 8 and K = 16 ran on the MI300X; data-order forks at step 1800 only; K = 111 not run ([`chaos_floor.md`](chaos_floor.md)) | `research/autopsy/` (`--battery chaos`) |
 | Held-out eval (token-disjoint slots, horizon probe) | ✅ ran on the MI300X | `research/analysis/eval.py` |
@@ -177,7 +177,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
 | LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
 | Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
-| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML covers part of the repair. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2 (coordinate probation) and RML-3 (row appeal) are designed, not built, and share one probation module. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15) | — |
 
@@ -242,6 +242,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-05 | `mve` refuses to resume a result file written under a different config |
 | 11-08 | That refusal now also covers a different commit or command line; `report` keeps β1 groups per experiment and stops on two result files with one name |
 | 11-10 | prereg-v2 amended, tagged and run on the MI300X (dose, undo, cooldown and repair arms, 3 phases); Δ = 0 re-passed on the changed loop |
+| 11-16 | The paper tests three repair methods side by side on one stress bed: RML-1 (undo with a clean twin), RML-2 (withhold suspect coordinates until later gradients decide, [`novelty/method.md`](novelty/method.md)) and RML-3 (appeal single rows, [`novelty/rml3_method.md`](novelty/rml3_method.md)). prereg-v3 (seeds 1–7, β arms, floor curve) drafted ([`prereg_v3.md`](prereg_v3.md)) |
 
 ### 8 · Where things live
 

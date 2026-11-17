@@ -20,13 +20,13 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-11-10; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-16; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
 exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
 bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate re-passed on the changed loop on 2026-11-10.
-`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). C2 (localizer)
+`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged. The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2/3 are unbuilt and share a planned `autopsy/probation.py` (PLAN_V8 §6.5). C2 (localizer)
 and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 
