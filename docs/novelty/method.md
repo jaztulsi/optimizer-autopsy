@@ -4,6 +4,9 @@ Written 2026-11-10. Companion to `gap_ledger.md`. Nothing here has been run. Eve
 unless it carries a citation. Labels: **[est]** established in a cited source, **[der]** derived here (by the chair
 or by the council, checked by at least one independent reviewer), **[spec]** speculative.
 
+**Update 2026-11-12:** three proposed additions to the core method (per-example Appeal, the remedy tournament, the
+repair ceiling) are in `rml3_method.md`; the survey behind them is `technique_map.md`. This file is unchanged by them.
+
 ## 0. Verdict first
 - Five blind reviewers scored the surviving design **solid** (four) or **incremental** (one). None called it
   groundbreaking. All five named the same reason: there is no measured regime yet where a spike leaves damage above
@@ -240,9 +243,9 @@ Opened after the go-ahead, from `results/mi300x_2026-11-10/2026-11-10_prereg_v2/
 |---|---|---|
 | B1 | slope between c = 10 and 30: 0.28 (phase 1000), 0.72 (phase 1800) | **held**. Outside its scope, phase 160 gives 1.06 |
 | B2 | stall ratio 6.8 (phase 1000), 1.95 (phase 1800) | **mixed**: refuted at 1000, held at 1800 |
-| B3 | echo ratio 0.17 (phase 1000), 2.54 (phase 1800) | **failed** in both phases |
+| B3 | echo ratio 0.17 (phase 1000), 2.54 (phase 1800) | **failed**: outside the predicted 1 to 1.5 in both phases. The registered refutation line (> 2.5) is crossed only at 1800, and barely. It had no lower bound, so the 0.17 is the worse miss and the line did not catch it |
 | B4 | undo-v against none at c = 30: 13× (phase 1000), 23× (phase 1800); rising from c = 3 up | **held**, with one dip from c = 1 to c = 3 at phase 1800 (1.63 to 1.28) |
-| B5 | needs the slope of the reference loss curve at the end | **not scored** |
+| B5 | needs the per-coordinate spread of x (the report stores only its mean per dose), the share ρ_S and the end slope of the reference loss. The raw run logs were not searched | **not scored** |
 | B6 | echo larger at 1800 for c = 3 and 30, smaller for c = 10; stall equal at c = 30, 3× apart at c = 10 | **mixed** |
 
 Reading:
@@ -258,6 +261,39 @@ Reading:
   saturated first update (0.447η per coordinate whatever the size) predicts, but it was not a registered prediction.
 - At c = 1 the damage is 0.0004, −0.0001 and 0.0024 nats in the three phases, all below the prereg's 0.01-nat
   practical size.
+- "Held" means not refuted on one seed. Every cell is one run.
+
+**Repair arms at c = 1** (same file, `_repair`; end-of-run damage in nats, lower is better):
+
+| Arm | Phase 160 | Phase 1000 | Phase 1800 |
+|---|---|---|---|
+| none | 0.0005 | −0.0001 | 0.0024 |
+| skip-step, oracle timing | −0.0013 | 0.0031 | −0.0002 |
+| skip-step, detector timing | 0.0018 | 0.0029 | 0.0050 |
+| rollback | 0.0038 | −0.0000 | 0.0065 |
+| rollback k | 0.0132 | 0.0086 | 0.0105 |
+| ZClip | −0.0026 | −0.0001 | 0.0024 |
+| AdaGC | 0.0136 | 0.0066 | 0.0127 |
+| SPAM | 0.0799 | 0.0488 | 0.0060 |
+| v reset | 0.0740 | 0.0529 | 1.5975 |
+| RML at lag 3 | −0.0002 | 0.0023 | 0.0008 |
+| RML with cooldown | −0.0020 | 0.0020 | 0.0019 |
+| RML selective | −0.0009 | 0.0017 | 0.0009 |
+
+- There is nothing to repair at this dose, so no arm can show a gain, RML included. The "closes" shares in the
+  report divide by a damage near zero and should not be quoted.
+- The arms that touch v without a receipt do harm: SPAM and v reset cost 0.05 to 0.08 nats at phases 160 and 1000,
+  and v reset costs 1.6 nats at phase 1800. This supports the rule in §2.2 (never lower v without the matching cut
+  in m). It is evidence for a safety rule, not for a repair.
+- ZClip equals "none" to five decimals at phases 1000 and 1800. It probably never fired (inference, not checked).
+- The global cooldown arm was worse than doing nothing at c ≥ 10 in all three phases (for example 0.056 against
+  0.015 at phase 1000, c = 30). A forecast that answers with a learning-rate cut would pay this cost on every alarm.
+
+**What this means for RML-2.** The proxy at (0.9, 0.95) cannot test it: at realistic dose there is no damage, and
+at high dose the full undo at lag 0 already removes almost all of it (0.0011 of 0.0154 left at phase 1000, c = 30).
+The second fact supports the receipt idea (the damage sits in m and v, not in the first weight write), but it was
+measured with the clean-batch receipt, not the twin-free one. The decomposition that sets the arming threshold p*
+(§2.6) rests on the two-term law, which this run does not support, so p* is unvalidated.
 
 ### 6.2 New experiments (about 10 GPU-hours on the proxy; each needs a go-ahead and a timed fork first)
 | # | Design | Success | Failure |

@@ -56,7 +56,8 @@ main>*{min-width:0}
 <main>
 <header>
   <h1>Optimizer Autopsy: where the project stands</h1>
-  <p class="sub"><b>10 Nov 2026:</b> prereg-v2 was amended, tagged and run on the MI300X (seed 0, about 2.1 GPU-hours, 5.1 of 20 used). The frozen outcome “no lasting damage at realistic dose” applies: at c = 1 damage is at most 0.0024 nats. At c ≥ 10, undoing m+v removes 73–103% and undoing v alone is 2–24× worse. RML at lag 3 closed 68% at step 1800 (bar 80%). Results and deviations: <code>docs/prereg_v2_results.md</code>.</p>
+  <p class="sub"><b>16 Nov 2026:</b> PRs #18, #20 and #21 are merged. The paper now tests three repair methods side by side on one stress bed: RML-1 (built; undo with a clean twin), RML-2 (withhold suspect coordinates until later gradients decide) and RML-3 (appeal single rows of a batch). RML-2's core is written (<code>autopsy/probation.py</code>, PR #27); RML-3 is designed, not built, and waits on its kill test. prereg-v3 (seeds 1–7, β arms, floor curve) is drafted and replaces the 7 h chaos-floor benchmark. The MI300X went back on 10 Nov; 14.9 of 20 GPU-hours are left. Full version: <code>PLAN_V8.md</code> §0.2, §6.5, §11.2.</p>
+  <p class="sub"><b>10 Nov 2026:</b> prereg-v2 was amended, tagged and run on the MI300X (seed 0, about 2.1 GPU-hours, 5.1 of 20 used). The frozen outcome “no lasting damage at realistic dose” applies: at c = 1 damage is at most 0.00243 nats. At c ≥ 10, undoing m+v removes 73–103% and undoing v alone is 2–24× worse. RML at lag 3 closed 68% at step 1800 (bar 80%). Results and deviations: <code>docs/prereg_v2_results.md</code>.</p>
   <p class="sub">Audit of branch <code>plan-v8</code>, updated 9 Nov 2026. The first MI300X night (27 Oct) passed T0 and finished the T1 pilot. Since then the chaos-floor benchmark and the capture fix are in, Eddie's Brollback (PR #20) is CI-green, and <code>research/kaggle</code> is now <code>research/gpu</code>. On 5 Nov the LR schedule moved into the training loop and the bit-flip faults were written (CI-tested). A four-reviewer Claude council said: run prereg-v2 first, amend it before the tag, park the fault work as P3, and re-run the Δ=0 gate on the changed loop. On 9 Nov Eddie reviewed PR #18 with no blockers; the merge order is #18, then #20, and the baseline GPU check runs once on the merged code. The GPU budget is 20 hours in total, so the T2 program as written (50–80 h) does not fit. Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (paper due about 22 Jan; the date is unofficial). Four people share the work: <a href="#roles">who does what</a>.</p>
 </header>
 
@@ -113,14 +114,14 @@ main>*{min-width:0}
 <tr><td><b>Jasraj</b><br><code>jaztulsi · 84 commits</code></td>
 <td><ul class="tight"><li>Fork harness: determinism, snapshot, trunk, fork, Δ=0 gate</li><li>nanoGPT model, data pipeline</li><li>Spike pipeline: recipes, detector, capture, natural spikes, K2</li><li>Plan V8, research corpus, docs, site</li><li>With Claude sessions: autopsy code, chaos-floor benchmark, cross-process gate, status page</li></ul></td>
 <td><ul class="tight"><li>Determinism verified on T4, P100 and MI300X</li><li>First AMD pilot: 120 / 120 branches, no crashes</li><li>CI green on PR #18: lint, 85 tests, secret scan (9 Nov, 0ff3109)</li></ul></td>
-<td><ul class="tight"><li><code>capture.py</code> eps fix passed its self-check on the MI300X (10 Nov)</li><li>LR schedule and bit-flip faults written 5 Nov; CI-tested (fdff507)</li><li>torch 2.14 on the box vs 2.10 pin</li><li>Placebo / chaos-floor arms built but not yet run</li><li>PR #18 reviewed by Eddie (no blockers) but not merged; the review predates the code fixes in dde818a</li><li>Bus factor 1 on the spike role</li></ul></td>
+<td><ul class="tight"><li><code>capture.py</code> eps fix passed its self-check on the MI300X (10 Nov)</li><li>LR schedule and bit-flip faults written 5 Nov; CI-tested (fdff507)</li><li>torch pin settled: prereg-v2 ran on 2.10 (10 Nov)</li><li>Placebo, dose and cooldown arms ran in prereg-v2 (10 Nov); K = 111 floor replaced by prereg-v3</li><li>PRs #18 and #21 merged; RML-2 / RML-3 probation module not written yet</li><li>Bus factor 1 on the spike role</li></ul></td>
 <td><span class="pill p-ok">GPU ✓</span><br><span class="pill p-ok">CI ✓</span></td>
 <td>Stages 0–2, 4–6</td></tr>
 <tr><td><b>Eddie</b><br><code>Eddiegah · 8 commits · PR #14, #20</code></td>
 <td><ul class="tight"><li>Baselines: SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, Bvbar</li><li>Brollback: rollback-and-skip at matched compute (PR #20)</li><li><code>pre_opt_step</code> hook in trunk / fork</li><li>CI workflow, <code>test_baselines.py</code></li></ul></td>
-<td><ul class="tight"><li>SPAM and AdaGC reimplemented to respect licenses</li><li>Addressed review: forks at inject_step, stateful hooks deep-copied</li><li>PR #14 merged; PR #20 review asks done, CI green</li><li>Reviewed PR #18 (9 Nov): no blockers; #18 + #20 pass 85 tests combined</li></ul></td>
-<td><ul class="tight"><li>Never run on a GPU, so AMD numerics are untested; PR #20 lands right after #18, and its GPU check runs once on the merged code</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
-<td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-ok">CI ✓</span></td>
+<td><ul class="tight"><li>SPAM and AdaGC reimplemented to respect licenses</li><li>Addressed review: forks at inject_step, stateful hooks deep-copied</li><li>PR #14 merged; PR #20 review asks done, CI green</li><li>Reviewed PR #18 (9 Nov): no blockers; #18 and #20 merged</li></ul></td>
+<td><ul class="tight"><li>Baselines ran in the prereg-v2 battery on the MI300X (10 Nov); the bitwise replay check on the merged code is still owed</li><li><code>Bspam_clip</code> / <code>Bspam_reset</code> not wired yet (prereg-v3 needs them)</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
+<td><span class="pill p-wip">GPU ran, replay owed</span><br><span class="pill p-ok">CI ✓</span></td>
 <td><b>Stage 3</b> next session (<code>baseline_gpu_session.sh</code>), then as comparators in stage 6</td></tr>
 <tr><td><b>Avyank</b><br><code>avyankvanamali-star · 4 commits · PR #15</code></td>
 <td><ul class="tight"><li>Toy Hessian-vector product (double-backward) with a finite-difference check</li></ul></td>
@@ -128,10 +129,10 @@ main>*{min-width:0}
 <td><ul class="tight"><li>Pushed straight to main and turned CI red (main was reset)</li><li><code>verify.py</code> prints FAIL and still exits 0, so it is not a test</li><li>Seeds torch at import time, which breaks Δ=0 replay</li><li>Flat vectors, toy MSE loss and wrong folder instead of name-keyed GPT in <code>curvature.py</code></li><li>Stray <code>.DS_Store</code></li><li>Week 2–3 work is not on GitHub as of 8 Nov</li></ul></td>
 <td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-wip">CI pending</span></td>
 <td><b>Stage 7</b>, after PR #15's fixes pass CI</td></tr>
-<tr><td><b>Eknoor</b><br><code>Eknoor Singh · joining · no commits yet</code></td>
-<td><ul class="tight"><li>Nothing in the repo yet</li></ul></td>
+<tr><td><b>Eknoor</b><br><code>eknoorahluwalia1 · PR #22, #23</code></td>
+<td><ul class="tight"><li>Figures starter on dummy data, with a Gate B plot (PR #23)</li><li>Contributors list update (PR #22)</li></ul></td>
 <td><ul class="tight"><li>Takes the paper and the figures, which had no owner</li></ul></td>
-<td><ul class="tight"><li>Needs a GitHub invite</li><li><code>research/analysis/figures.py</code> is still a stub</li></ul></td>
+<td><ul class="tight"><li>PR #23 follows the older figure list; move it to §2.6 and the real prereg-v2 files</li><li>Gate B is a diagnostic, not a paper figure</li></ul></td>
 <td>—</td>
 <td>None: figures run on results files</td></tr>
 </table>
@@ -139,30 +140,30 @@ main>*{min-width:0}
 </section>
 
 <section id="roles">
-<h2>Who does what next (9 Nov)</h2>
+<h2>Who does what next (16 Nov)</h2>
 <p class="sub">Four people now cover the eleven roles from the old plan, so most hold more than one. Assignments marked “proposed” need that person's OK. Full version: <code>PLAN_V8.md</code> §11.1.</p>
 <div class="people">
 <table>
 <tr><th>Person</th><th>Owns</th><th>Next steps, in order</th><th>Waits on</th></tr>
 <tr><td><b>Jasraj</b><br>Project lead</td>
-<td><ul class="tight"><li>Harness (C1), spike pipeline, autopsy code and report</li><li>Every MI300X run and the GPU-hour ledger</li><li>Prereg sign-off and final call on scope</li><li>124M; theory until someone takes it (proposed)</li></ul></td>
-<td><ul class="tight"><li>Merge PR #18 (fixes committed, Eddie's review posted)</li><li>Confirm the Exea grant terms</li><li>Done 10 Nov: torch pin, prereg-v2 amended and tagged, MI300X Δ=0 re-run, stages 3–4, prereg-v2 (about 2.1 h)</li><li>Merge PR #21 (<code>Brollback_k</code> in <code>mve</code>) after PR #20</li><li>Chaos floor (about 7 h), then decide how the last 7 h or so is spent</li></ul></td>
-<td>Session go-ahead</td></tr>
+<td><ul class="tight"><li>Harness (C1), spike pipeline, autopsy code and report</li><li>Every MI300X run and the GPU-hour ledger</li><li>Prereg sign-off and final call on scope</li><li>The RML family (probation module); theory until someone takes it (proposed)</li></ul></td>
+<td><ul class="tight"><li>Done: PRs #18 and #21 merged; torch pin, prereg-v2 tagged and run (10 Nov)</li><li>Merge PRs #24 and #25</li><li>Team edits to prereg-v3, then sign and tag it</li><li>Done: RML-2 core in <code>autopsy/probation.py</code> with CPU tests (PR #27); RML-3 Appeal waits on its kill test</li><li>Confirm the Exea grant terms</li><li>Next MI300X session: G0, prereg-v3, RML gates, stress bed</li></ul></td>
+<td>Session go-ahead; next MI300X address</td></tr>
 <tr><td><b>Eddie</b><br>Baselines + repair</td>
-<td><ul class="tight"><li><code>research/baselines/</code>, Brollback, the C-4 comparators</li><li>C3 repair operators beyond RML (proposed)</li></ul></td>
-<td><ul class="tight"><li>Land PR #20 right after #18 and re-run its CI</li><li>Run <code>baseline_gpu_session.sh</code> once on the merged code (stage 3), timing agreed with Jasraj</li><li>Fixes from the #18 review: oracle-branch set, a v̄ source for <code>Bvbar</code> in <code>mve</code>, rollback checks under an LR schedule</li><li>C3: <code>band_clamp</code> first, then the other §6.5 operators and upgrade U4</li></ul></td>
-<td>PR #18 merged; MI300X access for stage 3</td></tr>
+<td><ul class="tight"><li><code>research/baselines/</code>, Brollback, the C-4 comparators</li><li>C3 repair operators beyond RML; stress-bed comparators (proposed)</li></ul></td>
+<td><ul class="tight"><li>Done: PR #20 merged</li><li>Wire <code>Bspam_clip</code> and <code>Bspam_reset</code> (prereg-v3 needs them before the tag)</li><li>Always-trim and never-flag comparators for the stress bed</li><li>Run <code>baseline_gpu_session.sh</code> once at the next MI300X session</li><li>C3: <code>band_clamp</code> first, then the other §6.5 operators</li></ul></td>
+<td>MI300X access for the replay check</td></tr>
 <tr><td><b>Avyank</b><br>Localizer + stats</td>
 <td><ul class="tight"><li>C2 localizer, <code>research/localizer/</code> (proposed)</li><li>Tests and analysis for <code>stats.py</code> (proposed)</li></ul></td>
-<td><ul class="tight"><li>Push the week 2–3 work to a branch</li><li>Clear PR #15's merge blockers</li><li>Pick the next piece: <code>test_stats.py</code> (critical path), <code>snr.py</code>, or finishing <code>curvature.py</code></li></ul></td>
+<td><ul class="tight"><li>Push the week 2–3 work to a branch</li><li>Clear PR #15's merge blockers</li><li><code>test_stats.py</code>, including the sign-flip test prereg-v3 uses</li><li><code>snr.py</code> and the no-HVP localizer (it gives RML-2 its support S)</li></ul></td>
 <td>Nothing to start</td></tr>
 <tr><td><b>Eknoor</b><br>Figures + paper</td>
 <td><ul class="tight"><li>Builds the manuscript</li><li>Figs 1–6, Tabs 1–2, and the scripts that make them</li><li>Collects every owner's section</li></ul></td>
-<td><ul class="tight"><li>Send Jasraj a GitHub username</li><li>Build the figures in <code>figures.py</code> on dummy data in the <code>report.py</code> output format</li><li>Start the manuscript from §2.6, with both abstracts</li><li>Collect sections and fill in results as gates pass</li></ul></td>
-<td>GitHub invite</td></tr>
+<td><ul class="tight"><li>Done: collaborator; PR #23 opened (dummy figures)</li><li>Rework PR #23 to the §2.6 figure list on the real prereg-v2 files (<code>report_final/</code>)</li><li>Start the manuscript from §2.6, with both abstracts</li><li>Collect sections and fill in results as gates pass</li></ul></td>
+<td>Nothing to start</td></tr>
 </table>
 </div>
-<p class="sub">Rules: work through a branch and a PR, never on <code>main</code>. Training runs only on the MI300X, and every GPU run needs Jasraj's go-ahead and a cost against the 20 hours. Real effects stay sealed until prereg-v2 is tagged and has reported.</p>
+<p class="sub">Rules: work through a branch and a PR, never on <code>main</code>. Training runs only on the MI300X, and every GPU run needs Jasraj's go-ahead and a cost against the 20 hours. prereg-v2 has reported, so figures use its real files; prereg-v3 effects stay sealed until it is tagged and has reported.</p>
 </section>
 
 <section id="weekly">
@@ -171,43 +172,37 @@ main>*{min-width:0}
 <div class="people">
 <table style="min-width:1040px">
 <tr><th>Week · GPU</th><th>Jasraj</th><th>Eddie</th><th>Avyank</th><th>Eknoor</th><th>Done by Sunday</th></tr>
-<tr><td><b>Nov 9–15</b><br>≈ 1 h</td>
-<td><ul class="tight"><li>Merge PR #18</li><li>Exea terms</li><li>Done 10 Nov: torch pin, prereg-v2 tag, Δ=0 re-run</li></ul></td>
-<td><ul class="tight"><li>Land PR #20 right after #18</li><li>Run <code>baseline_gpu_session.sh</code> on the merged code in the same session</li><li>Fixes from the #18 review</li></ul></td>
-<td><ul class="tight"><li>Push the week 2–3 work</li><li>Clear PR #15's blockers</li><li>Confirm the role, pick the next piece</li></ul></td>
-<td><ul class="tight"><li>Send a GitHub username</li><li>Dummy-data generator in the <code>report.py</code> format</li><li>Manuscript set up with both abstracts</li></ul></td>
-<td>#18 and #20 merged; prereg-v2 tagged; Δ=0 on the changed loop</td></tr>
-<tr><td><b>Nov 16–22</b><br>≈ 2 h</td>
-<td><ul class="tight"><li>Merge PR #21 (<code>Brollback_k</code> in <code>mve</code>)</li><li>prereg-v2 ran 10 Nov; commit the report (G3 read; G1 and G2 not run)</li></ul></td>
-<td><ul class="tight"><li><code>band_clamp</code> with CPU tests</li></ul></td>
-<td><ul class="tight"><li><code>test_stats.py</code></li><li>Power and TOST checks</li></ul></td>
-<td><ul class="tight"><li>Figs 1–3 on dummy data</li><li>Draft related work</li></ul></td>
-<td>prereg-v2 report committed; positive or null framing chosen</td></tr>
-<tr><td><b>Nov 23–29</b><br>≈ 7 h</td>
-<td><ul class="tight"><li>Chaos floor (K = 111)</li><li>Decide how the last hours are split</li></ul></td>
-<td><ul class="tight"><li>Other §6.5 operators</li><li>Remaining Fig 5 comparators</li></ul></td>
+<tr><td><b>Nov 16–22</b><br>0</td>
+<td><ul class="tight"><li>Merge PRs #24 and #25</li><li>Sign and tag prereg-v3</li><li><code>autopsy/probation.py</code> with CPU tests</li></ul></td>
+<td><ul class="tight"><li><code>Bspam_clip</code>, <code>Bspam_reset</code></li><li>Always-trim and never-flag comparators</li></ul></td>
+<td><ul class="tight"><li>Clear PR #15's blockers</li><li><code>test_stats.py</code></li></ul></td>
+<td><ul class="tight"><li>Rework PR #23 to §2.6 on real prereg-v2 files</li><li>Draft related work</li></ul></td>
+<td>prereg-v3 tagged; probation core green in CI</td></tr>
+<tr><td><b>Nov 23–29</b><br>≈ 4.5 h</td>
+<td><ul class="tight"><li>G0 with the probation hooks inert</li><li>prereg-v3 E1: seed 1 timed first, then seeds 2–7</li></ul></td>
+<td><ul class="tight"><li><code>band_clamp</code></li><li>Bitwise replay check in the same session</li></ul></td>
 <td><ul class="tight"><li><code>snr.py</code> and the no-HVP localizer (§6.4 output)</li></ul></td>
-<td><ul class="tight"><li>Figs 4–5, Tabs 1–2 on dummy data</li><li>Real data into Figs 1–3</li><li>Draft the method section</li></ul></td>
-<td><code>chaos_forks.jsonl</code> committed; split of the last hours decided</td></tr>
-<tr><td><b>Nov 30–Dec 6</b><br>≈ 2.5 h</td>
-<td><ul class="tight"><li>Seed replication</li><li>C-3 interference probes if the split includes them</li></ul></td>
-<td><ul class="tight"><li>Repair operators and comparators merged</li></ul></td>
-<td><ul class="tight"><li>Oracle and localizers merged</li><li>Mixed model and Holm steps in <code>stats.py</code></li></ul></td>
-<td><ul class="tight"><li>Prereg appendix</li><li>Intro around both abstracts</li><li>One command makes every figure</li></ul></td>
-<td>Code frozen for the last GPU run</td></tr>
-<tr><td><b>Dec 7–13</b><br>≈ 3.5 h</td>
-<td><ul class="tight"><li>Final battery: repair, band-clamp, localizers vs oracle</li><li>Read G4 and G5</li></ul></td>
-<td><ul class="tight"><li>Check the repair and baseline output</li><li>Start the baselines and repair section</li></ul></td>
+<td><ul class="tight"><li>Figs 1–3 on prereg-v2 data</li><li>Draft the method section</li></ul></td>
+<td>E1 committed; cost per seed measured</td></tr>
+<tr><td><b>Nov 30–Dec 6</b><br>≈ 4.3 h</td>
+<td><ul class="tight"><li>E2 β2 arms, β1 arms, E3 floor curve</li><li>RML-3 kill test and RML-2 echo checks</li></ul></td>
+<td><ul class="tight"><li>Comparators merged</li><li>Stress-bed config agreed with Jasraj</li></ul></td>
+<td><ul class="tight"><li>Oracle and Holm steps in <code>stats.py</code></li></ul></td>
+<td><ul class="tight"><li>Prereg appendix</li><li>Intro around both abstracts</li></ul></td>
+<td>prereg-v3 core done; RML-2 and RML-3 gates read</td></tr>
+<tr><td><b>Dec 7–13</b><br>≈ 3.3 h</td>
+<td><ul class="tight"><li>RML stress bed: RML-1, RML-2, RML-3, RML-2+3 against skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds</li><li>Read G4 and G5</li></ul></td>
+<td><ul class="tight"><li>Check the repair and baseline output</li><li>Start the baselines section</li></ul></td>
 <td><ul class="tight"><li>Statistics on the real results (C-1…C-4, Holm, CIs)</li></ul></td>
 <td><ul class="tight"><li>Real data into every figure and table</li></ul></td>
-<td>G4 and G5 read; only the reserve hour is left</td></tr>
+<td>G4 and G5 read; only the reserve is left</td></tr>
 <tr><td><b>Dec 14–20</b><br>0</td>
 <td><ul class="tight"><li>Instrument, spike and theory sections</li></ul></td>
 <td><ul class="tight"><li>Baselines and repair sections to Eknoor</li></ul></td>
 <td><ul class="tight"><li>Localizer and statistics sections to Eknoor</li><li>Tab 2 final</li></ul></td>
 <td><ul class="tight"><li>Results section</li><li>Assemble draft 1</li></ul></td>
 <td>Draft 1 has every section</td></tr>
-<tr><td><b>Dec 21–27</b><br>≤ 1 h reserve</td>
+<tr><td><b>Dec 21–27</b><br>reserve</td>
 <td><ul class="tight"><li>Read draft 1</li><li>Reruns only if a result needs one</li></ul></td>
 <td><ul class="tight"><li>Check every repair and baseline number against the results files</li></ul></td>
 <td><ul class="tight"><li>Check every statistic against the results files</li></ul></td>
@@ -221,7 +216,7 @@ main>*{min-width:0}
 <td><b>Results frozen; complete paper draft</b></td></tr>
 </table>
 </div>
-<p class="sub">Update 10 Nov: about 5.1 h used, about 14.9 h left. The plan written before that session: about 3 h used + 1 + 2 + 7 + 2.5 + 3.5 + 1 reserve = 20 h, estimated from the measured proxy cost. 124M, Pythia-160M and the mid rung are not funded, so Fig 6 stays proxy-only unless new hours arrive. Roles marked “proposed” above still need that person's OK.</p>
+<p class="sub">Update 16 Nov: about 5.1 h used, 14.9 h left. Proposed split: G0 0.2 h + prereg-v3 core 7.9 h + RML block 4.0 h (RML-3 kill test 0.2, RML-2 echo checks 0.5, stress bed 3.3) + reserve 2.8 h = 14.9 h, estimated from the measured proxy cost. Not funded: prereg-v3 Extension A (3.4 h), RML-2 stall law (3 h) and forecast (2 h). 124M, Pythia-160M and the mid rung are not funded, so Fig 6 stays proxy-only unless new hours arrive. Roles marked “proposed” above still need that person's OK.</p>
 </section>
 
 <section id="work">
@@ -358,7 +353,7 @@ main>*{min-width:0}
 <tr><td><i class="dot d-wip"></i></td><td><b>Version pins</b>: box has torch 2.14, repo pins 2.10. Pinned container being pulled, or bump the pins. Dependabot PRs #9–#13 (torch 2.13, numpy 2.5, …) stay unmerged: any bump needs a Δ=0 re-check on the MI300X.<br><code>research/requirements.txt</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Stats / attribution</b>: partial, with TODOs.<br><code>research/analysis/stats.py · attribution.py</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Placebo arms (K = 8–16, w and g channels) + planted dose c ∈ {1,3,10,30} + cooldown arm</b>: built, CI-tested (be0c131, <code>--battery chaos</code>) and run on the MI300X on 10 Nov. The full K = 111 benchmark (≈ 7 GPU-h) has not run. Rounding chaos reaches ~0.003 nats, so effects are reported as d = Δ / σ_chaos.<br><code>research/autopsy/ · docs/chaos_floor.md</code></td></tr>
-<tr><td><i class="dot d-wip"></i></td><td><b>Brollback (Eddie, PR #20)</b>: rollback-and-skip at matched compute. CI green at 60e0a3d; lands right after PR #18, then the stage-3 GPU check runs once on the merged code.<br><code>research/baselines/rollback.py</code></td></tr>
+<tr><td><i class="dot d-ok"></i></td><td><b>Brollback (Eddie, PR #20)</b>: rollback-and-skip at matched compute. Merged, wired into <code>mve</code> (PR #21) and ran in prereg-v2; the bitwise replay check runs at the next MI300X session.<br><code>research/baselines/rollback.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Factorial, oracle, localize</b> modules.<br><code>research/autopsy/{factorial,oracle,localize}.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Localizer (C2)</b>: SNR, curvature, poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Repair operator (C3)</b>: stub. The RML undo in autopsy covers part of it.<br><code>research/repair/operator.py</code></td></tr>
