@@ -22,9 +22,8 @@ an exact test can pass (see Statistics).
 - **Arms at each dose, τ = 0:** none, undo-m, undo-v, undo-m+v, global cooldown (the five arms the battery runs).
 - **Chaos floor:** K = 8 placebo forks per phase per seed, w channel (v2's primary channel).
 - **Remedy battery at c = 1, lag 3:** v2's arms and comparators, plus two new comparators:
-  `Bspam_clip` (SPAM with `delta_t = 0`, no reset) and `Bspam_reset` (SPAM with `theta = 0`, no clip). Both
-  parameters already exist in `research/baselines/spam.py`; the two branches must be wired and tested in CI before
-  the tag.
+  `Bspam_clip` (SPAM with `delta_t = 0`, no reset) and `Bspam_reset` (SPAM with `theta = 0`, no clip). PR #28
+  wires both in `fork.make_baseline_branches`, with CI tests; it must merge before the tag.
 
 **β2 arms (E2): seeds 1 to 3, β1 = 0.9.** The end of the run is one v-memory, 1/(1−β2) steps, after the spike.
 
@@ -72,7 +71,10 @@ hypothesis that fails; the later ones are reported as "not tested".
 | P5 | Clearing v does harm; SPAM's cost comes from its reset | (a) min over both steps of Y(`Bvreset`) − Y(none) − 0.01; (b) at step 1000, Y(`Bspam_reset`) − Y(`Bspam_clip`) | both (a) and (b) positive by the exact test |
 
 At c = 1, "none" is B0, the real spike, as in v2's third outcome; the planted `Px1` arm is reported beside it.
-P5(b) is read at step 1000 only: a fork from step 1800 contains no SPAM reset (`delta_t = 500`).
+P5(b) is read at step 1000 only. SPAM resets when `(step + 1) % 500 == 0`, so at steps 499, 999, 1499 and 1999.
+A fork from step 1800 meets only the reset at step 1999, its last step, which runs at 1% LR (the start of the
+warmup), so it cannot show what a reset costs. The fork from step 1000 meets the resets at 1499 and 1999. Every arm
+with resets ends on one, and its end-of-run Y includes it (open decision 9).
 
 **Family B: the mechanism at high dose (c = 10 and 30).**
 
@@ -127,12 +129,15 @@ step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
 2. Whether Extension A (step 160) comes before or after a lag sweep at β2 = 0.999.
 3. P4(a)'s interval [1.5, 2.5]. Seed 0 gave 1.95 and 2.31 at these two steps.
 4. S1's tolerances (0.15 in π, a factor of 2 in x̄).
-5. Who wires `Bspam_clip` and `Bspam_reset`, and where (`fork.make_baseline_branches` or `mve.repair_battery`).
+5. **Answered:** Eddie wires `Bspam_clip` and `Bspam_reset` in `fork.make_baseline_branches`, so every repair
+   battery gets them (PR #28, CI green, not merged yet).
 6. Whether to log the 10%, 50% and 90% quantiles of x on the hit support as well as x̄ (a logging change only).
 7. The exclusion threshold of 0.3 nats.
 8. Whether the raw fork files stay committed beside the report. They hold every arm's held-out loss at each horizon
    and its training-loss trace; the sealed report keeps per-horizon values only for the four undo arms. The
    exploratory regret analysis in `novelty/rml3_method.md` §2.3 was run from them. No extra GPU.
+9. Whether P5(b)'s Y should avoid SPAM's last reset at step 1999: read Y one step earlier, or pick a `max_steps`
+   that does not end on a reset. As written, the reset at 1999 is inside the end-of-run Y of `Bspam_reset`.
 
 ## Budget [estimates, not measured]
 Basis: the v2 session ran roughly 200,000 fork-steps in 2.1 GPU-hours, by my reconstruction of what it ran, which
