@@ -122,22 +122,63 @@ step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
   (`docs/novelty/method.md` §6.1a). On seed 0, P1 to P4 and P5(a) hold. That is why seed 0 is excluded. P5(b)'s two
   arms have not been run on any seed.
 - No run of this design on any seed other than 0.
-- **To confirm before the tag:** which seeds the T1 pilot used. If it ran seeds 1–4, say so here.
+- The T1 pilot used seed 0 only (`results/mi300x_2026-10-27/t1_pilot/run.sh`, `--seed 0`, inject at 160), so seeds
+  1–7 have not been run in any form.
 
 ## Open decisions before the tag (for the team)
+Each decision has a suggested answer (Jasraj's draft, 2026-11-20). None is decided until the team agrees and the
+text above is changed to match.
+
 1. Seven seeds, or five with t-tests from the start.
+   *Suggested: seven.* Five seeds cannot pass the exact test (smallest p 1/32 > 0.025), and a t-test on five values
+   rests on a normality assumption that five values cannot check. The cost rule already falls back to five if seed 1
+   shows seven would cost more than 6 hours. Seeds 6 and 7 cost about 1.2 hours [estimate].
 2. Whether Extension A (step 160) comes before or after a lag sweep at β2 = 0.999.
+   *Suggested: neither runs under this document.* PLAN_V8 §11.2 gives the hours after the core to the RML block
+   (4.0 h). Extension A's ledger rule would still fire: after G0 and the core, about 6.8 hours remain [estimate],
+   above the 6.5 hours the rule asks for, so it would take the RML block's hours. Either remove Extension A (step 160
+   stays exploratory and H-A is scored on two phases), or make its rule hold back the RML block's 4.0 hours as well.
+   The lag sweep stays exploratory, as the Rules already say.
 3. P4(a)'s interval [1.5, 2.5]. Seed 0 gave 1.95 and 2.31 at these two steps.
+   *Suggested: keep it.* It is centred on the theory's exponent 2, not on seed 0, and it excludes both rival
+   readings, a slope of 1 and a slope of 3. Narrowing it toward seed 0's values would tune it to an excluded seed.
+   It tests precision as well as the mean: with seven seeds, the interval fits only if the per-seed slopes have a
+   standard deviation below about 0.4 to 0.5 [estimate]. That spread is unknown.
 4. S1's tolerances (0.15 in π, a factor of 2 in x̄).
+   *Suggested: keep both.* S1 is secondary, so a loose tolerance costs little. No run has measured how much π varies
+   between seeds, so a tighter number would be a guess. The measured differences are reported with intervals either
+   way.
 5. **Answered:** Eddie wires `Bspam_clip` and `Bspam_reset` in `fork.make_baseline_branches`, so every repair
    battery gets them (PR #28, CI green, not merged yet).
 6. Whether to log the 10%, 50% and 90% quantiles of x on the hit support as well as x̄ (a logging change only).
+   *Suggested: yes, if it lands before the tag.* It needs no GPU: a change to `probes.dose_meter` with a CPU test in
+   CI. It helps S1, because two trunks can share x̄ while their spread of x differs. If it is not ready, skip it
+   rather than hold the tag; S1 is secondary.
 7. The exclusion threshold of 0.3 nats.
+   *Suggested: keep it.* The rule is meant to catch a broken run (wrong data, a diverged trunk), not a seed that ends
+   a little worse. Only seed 0 has run this configuration, so the normal spread between seeds is unknown, and a tight
+   threshold could drop honest seeds. 0.3 nats is about 10% of seed 0's 2.833.
 8. Whether the raw fork files stay committed beside the report. They hold every arm's held-out loss at each horizon
    and its training-loss trace; the sealed report keeps per-horizon values only for the four undo arms. The
    exploratory regret analysis in `novelty/rml3_method.md` §2.3 was run from them. No extra GPU.
+   *Suggested: keep them committed.* v2's 104 result files are 7.2 MB in all, and snapshots stay out of git
+   (`*.safetensors` is in `.gitignore`). v3 runs about four times v2's fork-steps, so a few tens of MB [estimate].
+   They are the only record of the non-undo arms at each horizon.
 9. Whether P5(b)'s Y should avoid SPAM's last reset at step 1999: read Y one step earlier, or pick a `max_steps`
    that does not end on a reset. As written, the reset at 1999 is inside the end-of-run Y of `Bspam_reset`.
+   *Suggested, in two parts.*
+   - **The last reset:** read P5(b) at step 1998 by adding 999 to the remedy battery's `--horizons` for the fork
+     from step 1000 (`mve` reads a horizon h as step inject + h − 1). No GPU. Changing `max_steps` would also move
+     every other result and break the comparison with v2.
+   - **A bigger problem, found while drafting this:** the trunk is plain AdamW, but `spam.phase` counts SPAM's
+     schedule from global step 0. In the fork from step 1000, `cur = 1001`, so the arms with resets (`Bspam`,
+     `Bspam_reset`) start in the warmup after a reset that never happened in the fork. The spike step runs at about
+     1% LR, and the LR ramps back up over steps 1000 to 1148. `Bspam_clip` runs at full LR. Y(`Bspam_reset`) −
+     Y(`Bspam_clip`) therefore mixes the cost of the reset at 1499 with a warmup that mutes the spike itself. Either
+     the SPAM arms count their reset clock from the fork start, keeping `grace` on the global step so that
+     `Bspam_clip` still clips the spike (Eddie's code, so this goes to him as feedback on PR #28), or P5(b) moves
+     to the secondary table. If neither is done before the tag, move it. v2's `Bspam` at step 1000 ran with the same
+     warmup; v2 is frozen, so the v3 results note should say so.
 
 ## Budget [estimates, not measured]
 Basis: the v2 session ran roughly 200,000 fork-steps in 2.1 GPU-hours, by my reconstruction of what it ran, which
