@@ -47,7 +47,9 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install pytest pytest-cov numpy pyyaml==6.0.1 safetensors==0.7.0
+          # scipy and statsmodels (pins from research/requirements.txt and requirements-dev.txt) for
+          # analysis/stats.py's tests; statsmodels brings pandas
+          pip install pytest pytest-cov numpy pyyaml==6.0.1 safetensors==0.7.0 scipy==1.16.3 statsmodels==0.14.6
           pip install torch --index-url https://download.pytorch.org/whl/cpu
 
       - name: Run tests
