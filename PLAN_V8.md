@@ -293,7 +293,7 @@ filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 | C1 determinism and the fork `Δ==0` gate | ✅ GPU-verified on T4 (proxy), P100 (124M, grad_accum = 40) and **the AMD MI300X** (proxy; in-process, cross-process and co-tenant, through spike windows, 2026-10-27) | `results/task4_*.json`, `task7_fork_gate.json`, `research/gpu/step_timer_results.md`, `results/mi300x_2026-10-27/t0_*` |
 | AMD MI300X | Provided by Avneh. **First session 2026-10-27:** T0 passed, T1 pilot ran. The box has torch 2.14 while the pin is 2.10, so the pilot ran with `--skip-preflight`. Pin decision open | `results/mi300x_2026-10-27/` |
 | Spike pipeline | `capture.py`, `natural.py`, `k2.py`, `induce.py` and tests. Merged in PR #18. `corrupt_batch`, `repeat_ngram` and `lr_bump` ran in the pilot. The capture self-check crashed on the MI300X (eps read back as a string); the fix (f751e14) passed its self-check there on 2026-11-10. The full capture battery has not run | `research/spikes/`, `results/mi300x_2026-10-27/t0_xproc/capture_selfcheck.log` |
-| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14. `Brollback` (rollback-and-skip at matched compute) merged in PR #20, wired into `mve` in PR #21. The prereg-v2 battery ran its arms on the MI300X on 2026-11-10. The bitwise replay check (`baseline_gpu_session.sh`) is still owed at the next session. `Bspam_clip` and `Bspam_reset` are not wired yet | `research/baselines/` |
+| Baselines | skip, clip, Bg, SPAM, ZClip, AdaGC, skip-step (oracle and detector-timed), v-only reset, `Bvbar`. Merged in PR #14. `Brollback` (rollback-and-skip at matched compute) merged in PR #20, wired into `mve` in PR #21. The prereg-v2 battery ran its arms on the MI300X on 2026-11-10. The bitwise replay check (`baseline_gpu_session.sh`) is still owed at the next session. `Bspam_clip` and `Bspam_reset` are wired in PR #28 (CI green, not merged, 2026-11-20). SPAM's warmup clock counts from the global step, so a fork from step 1000 runs `Bspam` and `Bspam_reset` at about 1% LR at the spike (prereg-v3 open decision 9) | `research/baselines/` |
 | P1 autopsy code | RML undo (m / v / m+v, top-k v, cooldown), planted probes (parity, dose, interference, refractory), 1-ulp placebo floor in the w and g channels, the GPU driver and a sealed report. CI-tested. The core battery ran in the pilot; the placebo, dose and cooldown arms ran in prereg-v2 (2026-11-10, seed 0) | `research/autopsy/`, `research/tests/test_autopsy.py` |
 | Held-out eval | `val_loss` / `horizon_probe` on slots token-disjoint from the probe slots (fixes A2 in §9.3). Ran in the pilot | `research/analysis/eval.py` |
 | T1 pilot | **Exploratory**: 120/120 branches; damage at about the chaos floor (§0.1) | tag `prereg-pilot-2026-10-27` |
@@ -985,11 +985,11 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 | | 2. Settle the torch pin, amend and tag prereg-v2 ✅ (tag `prereg-v2`, 2026-11-10). Exea grant terms still to confirm | tag exists | — |
 | | 3. MI300X: G0 on the changed loop, then the prereg-v2 run ✅ (2026-11-10; `results/mi300x_2026-11-10/`, `docs/prereg_v2_results.md`) | Δ = 0 log and report committed | — |
 | | 4. Wire `Brollback_k` into `mve` ✅ (PR #21, merged) | CPU test in CI | — |
-| | 5. Merge PRs #24 and #25. Team edits to `docs/prereg_v3.md`, then sign and tag it. Write `autopsy/probation.py` (RML-2 and RML-3, §6.5) with CPU tests | tag `prereg-v3`; probation tests green in CI | Eddie's `Bspam_*` wiring |
+| | 5. Merge PRs #24 and #25 ✅ (16–17 Nov). Team edits to `docs/prereg_v3.md` (PR #29, open: reset schedule fixed, a suggested answer to each open decision), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's core with CPU tests (PR #27); RML-3 waits on its kill test | tag `prereg-v3`; probation tests green in CI | Eddie's `Bspam_*` wiring (PR #28); the sign-flip test |
 | | 6. Next MI300X session: G0, prereg-v3, the RML gates, the stress bed (§11.2) | logs and reports committed | step 5; session go-ahead |
 | **Eddie** | 1. Review PR #18 ✅ (2026-11-09: no blockers) | review posted | — |
 | | 2. Land PR #20 ✅ (merged). Still owed: run `research/gpu/baseline_gpu_session.sh` once on the merged code at the next MI300X session, timing agreed with Jasraj; rollback checks that work under an LR schedule (before T2) | logs committed, replay bitwise | MI300X access |
-| | 3. Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag); stress-bed comparators always-trim and never-flag *(proposed)* | CPU tests in CI | — |
+| | 3. Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag; PR #28 open, CI green); stress-bed comparators always-trim and never-flag *(proposed)* | CPU tests in CI | — |
 | | 4. C3: `band_clamp` first (§6.5 makes it required), then the other §6.5 operators and U4 in `docs/p1_upgrades.md` | CPU tests in CI | — |
 | **Avyank** | 1. Push the week 2–3 work to a branch (`avyank/week2-3`); it was not on GitHub as of Nov 8 | branch visible | — |
 | | 2. Clear PR #15's merge blockers (`.DS_Store`, import-time seed, a real asserting test, name-keyed `hvp` on the GPT loss) | CI green on #15 | step 1 |
@@ -1026,7 +1026,7 @@ back on 2026-11-10, so each GPU week below starts when the next session is booke
 
 | Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
 |---|---|---|---|---|---|---|
-| **Nov 16–22** | 0 | Merge PRs #24–#27 (#24, #26 and #27 merged 16 Nov). Team edits to prereg-v3, then sign and tag it. ✅ `autopsy/probation.py`: RML-2's coordinate mode with CPU tests for skip identity and null-repair identity (PR #27). RML-3's row mode waits on its kill test | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
+| **Nov 16–22** | 0 | ✅ Merge PRs #24–#27 (#24, #26 and #27 merged 16 Nov, #25 on 17 Nov). Team edits to prereg-v3 (PR #29 open), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's coordinate mode with CPU tests for skip identity and null-repair identity (PR #27). RML-3's row mode waits on its kill test | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag; PR #28 open). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
 | **Nov 23–29** | ≈ 4.5 h | G0 with the probation hooks installed and inert. prereg-v3 E1: seed 1 first and timed, then seeds 2–7 | `band_clamp`. The bitwise replay check (`baseline_gpu_session.sh`) in the same session | `snr.py` and the no-HVP localizer (RML-2's support S is a §6.4 `Localization`) | Figs 1–3 on prereg-v2 data. Method section | E1 committed; cost per seed measured |
 | **Nov 30–Dec 6** | ≈ 4.3 h | E2 β2 arms, β1 arms, E3 floor curve. RML-3 kill test (≈ 0.2 h) and RML-2 echo checks X4 (≈ 0.5 h) | Comparators merged. Stress-bed config agreed with Jasraj | Oracle (`group_test`) and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts | prereg-v3 core done; RML-2 and RML-3 gates read |
 | **Dec 7–13** | ≈ 3.3 h | RML stress bed (§6.5): RML-1, RML-2, RML-3, RML-2+3, skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines section | Statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve is left |
@@ -1110,8 +1110,9 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
     whether the RML block goes in it as an extension (§11.2).
   - **(b2) torch pin:** settled. prereg-v2 ran on torch 2.10.0 (ROCm), matching the pin.
   - **(b3) Reviews:** PRs #18, #20 and #21 are merged. #20 touches `trunk.py` and `fork.py`, so its GPU replay check
-    runs once on the merged code at the next session. PR #24 (CI green) and PR #25 wait on Jasraj's merge; PR #15
-    needs fixes; PRs #22 and #23 need the team list and the figure rework.
+    runs once on the merged code at the next session. PRs #24–#27 are merged (16–17 Nov). PR #28 (`Bspam_clip`,
+    `Bspam_reset`) and PR #29 (prereg-v3 fixes and suggested answers) are open with CI green. PR #15 needs fixes
+    (its latest commit fails lint); PRs #22 and #23 need the team list and the figure rework.
   - **(c) Owners** for C2/C3, stats and writing: proposed in §11.1 (2026-11-08); each person confirms.
   - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6). Eknoor
     leads it (§11.1).
@@ -1126,6 +1127,13 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
 ---
 
 ## 14 · Change log
+- **2026-11-20 (status update; the plan is unchanged):**
+  - PRs #24–#27 merged; RML-2's core is in `autopsy/probation.py` (PR #27), not yet wired into `mve`.
+  - `Bspam_clip` and `Bspam_reset` wired in PR #28 (open). PR #29 (open) fixes prereg-v3's SPAM reset schedule and
+    suggests an answer to each open decision.
+  - Found: SPAM's warmup clock counts from the global step, so P5(b)'s fork from step 1000 runs `Bspam` and
+    `Bspam_reset` at about 1% LR at the spike (prereg-v3 open decision 9; §3 Baselines row).
+  - Marked finished steps in §11.1, §11.2 and §13. No GPU time used since 2026-11-10.
 - **2026-11-16 (prereg-v2 result and the repair family):**
   - Added §0.2: the prereg-v2 result (third outcome; m and v must be undone together), the noise unit, prereg-v3 and
     the RML family.
