@@ -34,7 +34,7 @@ direct, m-echo and v-stall parts.
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
-- Next: prereg-v3 (seeds 1–7, β arms; not tagged), then RML-1, RML-2 (core written) and RML-3 (unbuilt) side by side. Localizer and theory not built.
+- Next: prereg-v3 (seeds 1–7, β arms; not tagged), then RML-1, RML-2 (built, not run) and RML-3 (unbuilt) side by side. Localizer and theory not built.
 
 ---
 
@@ -177,15 +177,13 @@ AdaGC, and rollback-and-skip at matched compute.
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
 | LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
 | Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
-| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27, CPU tests; not yet in `mve`). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (branch `autopsy/rml2-mve`; CPU tests, not run on a GPU). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15). Its latest commit (9d9b2fa) adds an HVP and a top-k eigensolve; CI lint fails on it; not reviewed | — |
 
 **Known code issues:**
-- `mve` still runs the planted (phase B) arms for `sdc_grad`; at bit 30 on a GPU that plants a reversed gradient.
-- Three tests seed twice in one process, so they fail on a GPU machine (they pass in CI).
-- `trunk.py`'s `main --config` calls the environment check after CUDA starts and crashes there.
-- SPAM's warmup clock counts from the global step. A fork from step 1000 therefore starts `Bspam` and `Bspam_reset` inside the warmup that follows SPAM's step-999 reset, which the fork never ran: the spike step runs at about 1% LR and full LR returns only at step 1149, while `Bspam_clip` runs at full LR. This confounds prereg-v3's P5(b) (open decision 9 in [`prereg_v3.md`](prereg_v3.md)). prereg-v2's `Bspam` at step 1000 had the same warmup.
+- Fixed on branch `autopsy/rml2-mve` (not merged; CPU tests in CI, nothing run on a GPU): `mve` no longer plants phase-B arms for `sdc_grad` at bit 30, which on a GPU planted a reversed gradient; the test suite stays on the CPU on a GPU machine (`research/tests/conftest.py`), so its seeding tests no longer fail there; `trunk.py`'s `main` runs the environment check in a child process, as `mve` does, instead of crashing after CUDA starts.
+- SPAM's warmup clock counts from the global step. A fork from step 1000 therefore starts `Bspam` and `Bspam_reset` inside the warmup that follows SPAM's step-999 reset, which the fork never ran: the spike step runs at about 1% LR and full LR returns only at step 1149, while `Bspam_clip` runs at full LR. Full `Bspam` does not clip the spike either: step 1000 falls in the 20-step grace after that reset. This confounds prereg-v3's P5(b) (open decision 9 in [`prereg_v3.md`](prereg_v3.md)). prereg-v2's `Bspam` at step 1000 had the same warmup.
 
 ### 6 · Results so far (AMD MI300X, 2026-10-27)
 
@@ -246,6 +244,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-16 | The paper tests three repair methods side by side on one stress bed: RML-1 (undo with a clean twin), RML-2 (withhold suspect coordinates until later gradients decide, [`novelty/method.md`](novelty/method.md)) and RML-3 (appeal single rows, [`novelty/rml3_method.md`](novelty/rml3_method.md)). prereg-v3 (seeds 1–7, β arms, floor curve) drafted ([`prereg_v3.md`](prereg_v3.md)) |
 | 11-17 | RML-2's core (coordinate probation) is in `autopsy/probation.py` with CPU tests (PR #27, merged 11-16); not yet wired into `mve`. RML-3 narrowed to its Appeal step, held until its kill test passes (PR #25) |
 | 11-20 | prereg-v3's SPAM reset schedule corrected (resets at steps 499, 999, 1499 and 1999, so P5(b) is read on the fork from step 1000 only), suggested answers to its open decisions drafted, and the SPAM warmup problem at fork start found (PR #29, open). `Bspam_clip` and `Bspam_reset` wired (PR #28, open) |
+| 11-20 | RML-2 wired into `mve` as the `RML2` and `RML2@win` arms; G0's inert-hook option (`xproc_gate --probation-inert`); three code issues fixed: `sdc_grad` bit 30 planting, GPU test order, `trunk.py`'s preflight order (branch `autopsy/rml2-mve`; CPU tests only) |
 
 ### 8 · Where things live
 
