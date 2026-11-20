@@ -2,6 +2,7 @@
 
 import math
 
+import pytest
 import torch
 
 from research.autopsy import probation
@@ -93,3 +94,34 @@ def test_verdict_confirms_refutes_and_flags_opposition():
     assert probation.verdict({**R, "ys": [-16.0]}, K=3, level=3.0) == ("unstable", 0.0)
     assert probation.verdict({**R, "ys": [0.0]}, K=3, level=3.0) is None
     assert probation.verdict({**R, "ys": [0.0, 0.0, 0.0]}, K=3, level=3.0) == ("refute", 0.0)
+
+
+def test_x_knee_is_the_method_docs_threshold():
+    assert abs(probation.x_knee(0.9, 0.95) - 0.05 * 5.84**2) < 0.01  # method.md §2: x = ε2 D², D = 5.84
+    assert abs(probation.x_knee(0.9, 0.999) - 0.001 * 31.8**2) < 0.01  # D = 31.8
+    with pytest.raises(ValueError):
+        probation.x_knee(0.9, 0.8)  # b1 > sqrt(b2): no echo ceiling
+
+
+def test_hook_inside_the_real_training_loop():
+    # The tests above mimic train_forward by hand; this runs the hook through run_fork on a 1-layer GPT.
+    from research.harness.fork import run_fork
+    from research.harness.snapshot import capture
+    from research.harness.trunk import train_forward
+    from research.tests.test_baselines import _CFG, _data_dir, _fresh, _tmpdir
+
+    with _tmpdir() as d:
+        data = _data_dir(d)
+        model, opt = _fresh()
+        train_forward(model, opt, _CFG, data, 0, 3, "cpu")
+        snap = capture(model, opt, step=3)
+
+        def fork(hook=None):
+            return run_fork(_CFG, data, snap, steps=3, device="cpu", seed=False, pre_opt_step=hook)
+
+        plain = fork()
+        assert fork(probation.as_pre_opt_step(math.inf)) == plain  # scores every step, never arms: no-op
+        out = {}
+        armed = fork(probation.as_pre_opt_step(1e-12, K=1, arm_steps={3}, out=out))
+        assert [v[:2] for v in out["verdicts"]] == [(3, 4)]  # armed at the fork's first step, closed at the next
+        assert armed[0] == plain[0] and armed[1:] != plain[1:] and all(map(math.isfinite, armed))

@@ -38,6 +38,15 @@ def _flat(t):
     return t.detach().reshape(-1).double()
 
 
+def x_knee(b1: float, b2: float) -> float:
+    """The default x_arm, the knee x = ε2 D² (method.md §2-§3) = ((1-b1) / (1-r))², r = b1/√b2: 1.70 at
+    (0.9, 0.95), 1.01 at (0.9, 0.999). Undefined when r >= 1 (no finite echo ceiling D)."""
+    r = b1 / math.sqrt(b2)
+    if not r < 1:
+        raise ValueError(f"no knee at betas ({b1}, {b2}): b1/sqrt(b2) = {r:.4f} >= 1")
+    return ((1 - b1) / (1 - r)) ** 2
+
+
 def arm(model, opt, step: int, x_arm: float) -> dict | None:
     """Receipt for the coordinates with x_i >= x_arm, or None if there are none. Reads only."""
     import torch

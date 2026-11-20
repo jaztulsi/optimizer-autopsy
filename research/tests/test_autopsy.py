@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from research.analysis.stats import _diffs
-from research.autopsy import report, undo
+from research.autopsy import probation, report, undo
 from research.autopsy.mve import _resume_mismatch, expected_branches, parser
 from research.autopsy.probes import data_order, nudge_ulp, ulp_placebo
 
@@ -116,6 +116,8 @@ def test_expected_branches_count_placebo_dose_and_cooldown_arms():
     # a moment flip leaves g alone: no G, so no planted arms, and no U_mv@0 / U_m@0 / U_v@0 (each is bitwise B0)
     assert n["v_bitflip"] == n["m_bitflip"] == len(lr) - 3
     assert n["sdc_grad"] == len(cb)  # a gradient flip is a G, planted like corrupt_batch's
+    top = expected_branches(parser().parse_args(base + ["--kind", "sdc_grad", "--fault-bit", "30"] + extra))
+    assert len(top) == len(lr)  # ... except at bit 30, which zeroes the step on a GPU: G = -g*, nothing to plant
 
 
 def test_parity_primed_at_fork_start_flags_a_v_flip_on_the_first_step():
@@ -317,11 +319,16 @@ def test_repair_battery_times_detector_arms_at_the_rml_lag(monkeypatch):
     monkeypatch.setattr(fork, "make_branches", lambda cfg, recipe, **kw: {})
     monkeypatch.setattr(fork, "make_baseline_branches", lambda cfg, recipe, **kw: seen.update(kw) or {})
     recipe = SimpleNamespace(inject_step=160, width=1, pre_step=None)
-    cfg = {"optim": {"grad_clip": 1.0}}
-    mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3)
+    cfg = {"optim": {"grad_clip": 1.0, "betas": [0.9, 0.95]}}
+    extra = {}
+    br = mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3, extra=extra)
     assert seen["detector_t0"] == 163 == undo.undo_step(160, 3) - 1  # RML acts at the top of 164
     mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3, detector_t0=170)
     assert seen["detector_t0"] == 170
+    # RML-2 rides the pre_opt slot with no record hook; its metrics must survive run()'s json.dump
+    assert all(br[n].pre_opt_step is not None for n in ("RML2", "RML2@win"))
+    assert extra["RML2"]["x_arm"] == probation.x_knee(0.9, 0.95)
+    assert json.loads(json.dumps(extra["RML2@win"])) == {"x_arm": extra["RML2"]["x_arm"], "verdicts": []}
 
 
 def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_path, monkeypatch):
@@ -365,6 +372,7 @@ def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_pat
     assert len(br["Brollback_k"]["train_losses"]) == budget - wasted  # matched compute
     want = {str(h) for h in res["horizons"]}
     assert len(want) == 2 and all(set(br[n]["val"]) == want for n in ("B*", "Brollback", "Brollback_k"))
+    assert all("verdicts" in br[n]["metrics"] for n in ("RML2", "RML2@win"))  # RML-2 ran and its log is in the JSON
 
     kept = br.pop("Brollback_k")
     path.write_text(json.dumps(res))

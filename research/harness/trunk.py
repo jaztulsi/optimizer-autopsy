@@ -293,10 +293,14 @@ def main():
         _selfcheck()
         return
 
-    from research.configs import load_config
-    from research.harness.preflight import check_env
+    import subprocess
+    import sys
 
-    check_env()  # entrypoint: verify env + determinism before any CUDA work
+    from research.configs import load_config
+
+    # entrypoint: verify env + determinism before any CUDA work. In a child process (as autopsy/mve.py does), because
+    # check_env ends by touching the GPU and run_trunk's seed_everything refuses a process where CUDA is initialized.
+    subprocess.run([sys.executable, "-c", "from research.harness.preflight import check_env; check_env()"], check=True)
     cfg = load_config(args.config)
     data_dir = args.data_dir or cfg.get("data", {}).get("dir") or resolve_data_dir(args.shard)
     losses = run_trunk(cfg, data_dir, steps=args.steps, use_wandb=args.wandb)

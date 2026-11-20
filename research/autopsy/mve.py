@@ -21,7 +21,8 @@ Phase B (planted on the clean stream, G = the measured corrupt-batch gradient de
   R@dt, Ponly@dt   M3 refractory: chi = (D(R) - D(P+)) / D(Ponly)
 
 Fault kinds (sdc_grad, v_bitflip, m_bitflip): B* (the honest floor) and B0 also store faults.parity_residual
-raw values under "parity" (H11). v_bitflip / m_bitflip run no U_* arms and no phase B (G - G* = 0).
+raw values under "parity" (H11). v_bitflip / m_bitflip run no U_* arms and no phase B (G - G* = 0). sdc_grad at
+--fault-bit 30 runs no phase B either: on a GPU it zeroes the whole step, so G = -g*, a reversed clean gradient.
 
 Results go to <out>/<instance>.json, rewritten after every branch; a rerun skips finished branches.
 Derived quantities (kernel, Shapley, interference, chi, stats) are computed offline from the JSON.
@@ -42,7 +43,8 @@ from research.autopsy.faults import TARGET
 
 FAULTS = ("sdc_grad", "v_bitflip", "m_bitflip")
 # These leave the gradient untouched, so G - G* = 0: nothing to plant in phase B. sdc_grad flips g itself, so it
-# keeps phase B like corrupt_batch (the record hook's clean recompute doesn't re-flip: the hook fires once).
+# keeps phase B like corrupt_batch (the record hook's clean recompute doesn't re-flip: the hook fires once), except
+# at bit 30 (`_b_names`).
 NO_GRAD_DELTA = {"lr_bump", "v_bitflip", "m_bitflip"}
 # With G - G* = 0 every U_* arm subtracts exact zeros, i.e. is bitwise B0. Dropped for the m/v flips; lr_bump keeps
 # them so its branch set (the pilot / prereg comparison) doesn't change.
@@ -180,10 +182,13 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     (state-only, fired `lag` steps after the window -- a detector-timed lag, not the oracle):
     RML@lag = full m+v undo; RML-cool = m+v undo + global cooldown; RML-sel = m undo + v undo on the top
     1% of coordinates by x_i (docs/prereg_v2.md H-E, H-F). Edit stats land in extra[name].
+    RML-2 (autopsy/probation.py, docs/novelty/method.md §3; no clean twin, no lag): RML2 arms wherever x_i reaches
+    the knee, RML2@win only inside the spike window (oracle timing). K = 3, level 3 SE. extra[name]["verdicts"] lists
+    (armed step, closed step, verdict, phi, |S|).
     `detector_t0` defaults to the step the same detector lag implies (window end + lag), so the detector-timed
     baselines (skip-step, rollback) act on the same information as RML instead of dropping out of the battery.
     `snap["rollback_snapshot"]` (set by run_instance) adds Brollback_k."""
-    from research.autopsy import undo
+    from research.autopsy import probation, undo
     from research.harness.fork import Branch, compose, make_baseline_branches, make_branches
 
     window = list(range(recipe.inject_step, recipe.inject_step + recipe.width))
@@ -217,6 +222,13 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
             else sel(log, extra[name])
         )
         br[name] = Branch(name, compose(recipe.pre_step, fix), cfg, undo.as_record_hook(log, window, data_dir=data_dir))
+
+    x_arm = probation.x_knee(*cfg["optim"]["betas"])
+    for name, arm_steps in (("RML2", None), ("RML2@win", set(window))):
+        st: dict = {}
+        hook = probation.as_pre_opt_step(x_arm, arm_steps=arm_steps, out=st)
+        extra[name] = {"x_arm": x_arm, "verdicts": st["verdicts"]}  # not st: open receipts hold tensors (JSON)
+        br[name] = Branch(name, recipe.pre_step, cfg, hook)
     return br
 
 
@@ -367,7 +379,7 @@ def run_instance(args) -> str:
         return out_path
 
     a, log0 = phase_a(cfg, recipe, data_dir, *_undo_taus(args), args.placebo, args.placebo_channels, args.data_forks)
-    b_names = _b_names(args)  # empty for NO_GRAD_DELTA kinds: their gradient delta is 0 by construction
+    b_names = _b_names(args)  # empty for NO_GRAD_DELTA kinds (G = 0 by construction) and sdc_grad at bit 30
     if any(n not in res["branches"] for n in b_names):
         res["branches"].pop("B0", None)  # B0 reruns in-process so its record log (G) exists for phase B
     for name, br in a.items():
@@ -384,7 +396,9 @@ def _ints(s: str) -> list[int]:
 
 
 def _b_names(args) -> list[str]:
-    if args.kind in NO_GRAD_DELTA:
+    # sdc_grad at bit 30 overflows the clip's fp32 norm on a GPU, so the clip zeroes the whole step and the recorded
+    # G = -g*: a reversed clean gradient, not a spike. Planting it measures nothing (faults.py docstring).
+    if args.kind in NO_GRAD_DELTA or (args.kind == "sdc_grad" and args.fault_bit == 30):
         return []
     names = ["P+", "P-"] + [f"{k}@{dt}" for dt in args.dts for k in ("I_same", "I_opp", "S2+", "S2-", "R", "Ponly")]
     for c in args.plant_coefs:

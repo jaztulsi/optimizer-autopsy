@@ -3,6 +3,7 @@ run it on the AMD MI300X, never on the laptop.
 
     python -m research.gpu.xproc_gate prime   --out DIR     # trunk -> snapshot at the fork step
     python -m research.gpu.xproc_gate fork    --out DIR --tag a
+    python -m research.gpu.xproc_gate fork    --out DIR --tag p --probation-inert   # RML-2 hook installed, inert
     python -m research.gpu.xproc_gate compare --out DIR
 
 `fork_determinism_gate` compares two forks inside ONE process. This compares forks run by SEPARATE
@@ -11,6 +12,10 @@ snapshot, so the gate covers clipped, large-gradient steps and not just calm one
 once and a third solo: if all match bitwise, concurrent forks can be packed onto one GPU. Each process also
 runs every recipe twice (in-process check) and times the warm pass (deterministic fork-mode s/step).
 Synthetic data: the question is numerics, not learning.
+
+`--probation-inert` installs the RML-2 hook (autopsy/probation.py) with x_arm = inf: it scores every step and never
+arms. `compare` checks every tag against every other, so a PASS with plain and inert tags in one DIR is the
+null-repair identity on the GPU (docs/novelty/method.md §7 item 7).
 """
 
 from __future__ import annotations
@@ -74,11 +79,13 @@ def prime(out, batch):
     print("primed:", torch.cuda.get_device_name(0), torch.__version__)
 
 
-def fork(out, batch, tag):
+def fork(out, batch, tag, probation_inert=False):
+    import math
     import time
 
     import torch
 
+    from research.autopsy.probation import as_pre_opt_step
     from research.harness.determinism import seed_everything
     from research.harness.fork import run_fork
     from research.harness.snapshot import load
@@ -88,6 +95,7 @@ def fork(out, batch, tag):
     seed_everything(cfg.get("seed", 1337), deterministic=True)  # ONCE; every fork below uses seed=False
     snap = load(os.path.join(out, "snap.safetensors"))
     rec = {"tag": tag, "torch": torch.__version__, "device": torch.cuda.get_device_name(0), "recipes": {}}
+    rec["probation_inert"] = probation_inert
     for kind, params in RECIPES.items():
         runs = []
         for _ in range(2):  # in-process repeat
@@ -99,8 +107,11 @@ def fork(out, batch, tag):
                     end["hash"] = _state_hash(info["model"], info["opt"])
 
             pre = None if params is None else induce(kind, cfg, INJECT, WIDTH, **params).pre_step
+            hook = as_pre_opt_step(math.inf) if probation_inert else None
             t = time.perf_counter()
-            losses = run_fork(cfg, out, snap, steps=STEPS, device="cuda", on_step=on_step, pre_step=pre, seed=False)
+            losses = run_fork(
+                cfg, out, snap, steps=STEPS, device="cuda", on_step=on_step, pre_step=pre, seed=False, pre_opt_step=hook
+            )
             torch.cuda.synchronize()
             assert end.get("hash"), "on_step never saw the last step: a missing hash would compare equal"
             dt = (time.perf_counter() - t) / STEPS
@@ -116,6 +127,7 @@ def compare(out):
     recs = [json.load(open(p)) for p in sorted(glob.glob(os.path.join(out, "fork_*.json")))]
     ok = len(recs) >= 2
     summary = {"tags": [r["tag"] for r in recs], "recipes": {}}
+    summary["probation_inert"] = [r["tag"] for r in recs if r.get("probation_inert")]
     for kind in RECIPES:
         rs = [r["recipes"][kind] for r in recs]
         xproc = all(r[k] == rs[0][k] for r in rs for k in ("loss", "gn", "hash"))
@@ -138,6 +150,7 @@ if __name__ == "__main__":
     ap.add_argument("--out", required=True)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--tag", default="a")
+    ap.add_argument("--probation-inert", action="store_true", help="install the RML-2 hook with x_arm = inf")
     a = ap.parse_args()
-    {"prime": lambda: prime(a.out, a.batch), "fork": lambda: fork(a.out, a.batch, a.tag),
+    {"prime": lambda: prime(a.out, a.batch), "fork": lambda: fork(a.out, a.batch, a.tag, a.probation_inert),
      "compare": lambda: compare(a.out)}[a.mode]()
