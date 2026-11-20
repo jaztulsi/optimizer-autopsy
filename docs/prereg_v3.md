@@ -173,11 +173,12 @@ text above is changed to match.
    - **A bigger problem, found while drafting this:** the trunk is plain AdamW, but `spam.phase` counts SPAM's
      schedule from global step 0. In the fork from step 1000, `cur = 1001`, so the arms with resets (`Bspam`,
      `Bspam_reset`) start in the warmup after a reset that never happened in the fork. The spike step runs at about
-     1% LR, and the LR ramps back up over steps 1000 to 1148. `Bspam_clip` runs at full LR. Y(`Bspam_reset`) −
-     Y(`Bspam_clip`) therefore mixes the cost of the reset at 1499 with a warmup that mutes the spike itself. Either
-     the SPAM arms count their reset clock from the fork start, keeping `grace` on the global step so that
-     `Bspam_clip` still clips the spike (Eddie's code, so this goes to him as feedback on PR #28), or P5(b) moves
-     to the secondary table. If neither is done before the tag, move it. v2's `Bspam` at step 1000 ran with the same
+     1% LR, and the LR ramps back up over steps 1000 to 1148. Full `Bspam` doesn't clip the spike either:
+     1001 % 500 = 1, inside `grace` = 20. `Bspam_clip` clips it at full LR. Y(`Bspam_reset`) − Y(`Bspam_clip`)
+     therefore mixes the cost of the reset at 1499 with a warmup that mutes the spike itself. Either the SPAM arms
+     count their reset and warmup clock from the fork start and apply the post-reset grace only after a reset the
+     fork actually ran, so every SPAM arm clips from the fork's first step (Eddie's code, so this went to him as
+     feedback on PR #28 on 20 Nov), or P5(b) moves to the secondary table. If neither is done before the tag, move it. v2's `Bspam` at step 1000 ran with the same
      warmup; v2 is frozen, so the v3 results note should say so.
 
 ## Budget [estimates, not measured]
