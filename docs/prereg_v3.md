@@ -153,7 +153,8 @@ text above is changed to match.
 6. Whether to log the 10%, 50% and 90% quantiles of x on the hit support as well as x̄ (a logging change only).
    *Suggested: yes, if it lands before the tag.* It needs no GPU: a change to `probes.dose_meter` with a CPU test in
    CI. It helps S1, because two trunks can share x̄ while their spread of x differs. If it is not ready, skip it
-   rather than hold the tag; S1 is secondary.
+   rather than hold the tag; S1 is secondary. **Built 2026-11-20:** `dose_meter` now writes `x_q10`, `x_q50` and
+   `x_q90` next to `xbar` (unweighted, window steps pooled), with a CPU test. A yes means merging it before the tag.
 7. The exclusion threshold of 0.3 nats.
    *Suggested: keep it.* The rule is meant to catch a broken run (wrong data, a diverged trunk), not a seed that ends
    a little worse. Only seed 0 has run this configuration, so the normal spread between seeds is unknown, and a tight
