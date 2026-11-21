@@ -20,14 +20,14 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-11-20; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-20; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1; the next session was booked 2026-11-20):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
 exploratory T1 pilot. The LR schedule (`research/harness/schedule.py`, applied inside `trunk.train_forward`) and the
 bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are CI-tested (fdff507); the `Δ==0` gate re-passed on the changed loop on 2026-11-10.
-`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged; PR #29 (merged 2026-11-20) fixed its SPAM reset schedule and suggests an answer to each open decision, and Eddie's PR #28 (open) wires `Bspam_clip` / `Bspam_reset`. Known problem: SPAM's warmup clock counts from the global step, so P5(b)'s fork from step 1000 runs `Bspam` / `Bspam_reset` at about 1% LR at the spike (open decision 9). The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2 is written (`autopsy/probation.py`, PR #27) and wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 2026-11-20; CPU tests, not run on a GPU). RML-3's Appeal is unbuilt and held until its kill test passes; it will restore through the same `undo.undo` (PLAN_V8 §6.5). C2 (localizer)
-and C3 (repair) are **unbuilt** — `research/localizer/` and `research/repair/` are comment-only TODO stubs, and
+`docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged; open decision 6 (quantile logging) is built in PR #34, pending the team's yes; PR #29 (merged 2026-11-20) fixed its SPAM reset schedule and suggests an answer to each open decision, and Eddie's PR #28 (open) wires `Bspam_clip` / `Bspam_reset`. Known problem: SPAM's warmup clock counts from the global step, so P5(b)'s fork from step 1000 runs `Bspam` / `Bspam_reset` at about 1% LR at the spike (open decision 9). The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2 is written (`autopsy/probation.py`, PR #27) and wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 2026-11-20; CPU tests, not run on a GPU). RML-3's Appeal is unbuilt and held until its kill test passes; it will restore through the same `undo.undo` (PLAN_V8 §6.5). Damage triage (PLAN_V8 R-F6, Appendix A.3.1; exploratory, not preregistered) is in `research/repair/triage.py`: a read-only feature hook on `mve`'s dose arms and a numpy logistic fit (PR #32, merged 2026-11-20; CPU tests, not run on a GPU). It predicts which spikes leave damage and repairs nothing. C2 (localizer)
+and C3 (the repair operator) are **unbuilt** — `research/localizer/` and `research/repair/` hold comment-only TODO stubs (beside `triage.py`), and
 `research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
 
 ## 1. Non-negotiable guardrails (never violate these without explicit sign-off)
@@ -147,7 +147,8 @@ gap before reporting costs one extra pass; the reviewer catching it costs a whol
 
 ## 7. Picking up localizer (C2) / repair (C3) / theory — read this first
 
-These three directories are **unbuilt** (comment-only TODO stubs). Everything they must code
+These three directories are **unbuilt** (comment-only TODO stubs; `repair/triage.py`, damage triage, is the one
+built file and edits no state). Everything they must code
 against already exists in `research/harness/`. The interfaces below are copied from the current
 code — trust them over any prose plan.
 

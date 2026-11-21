@@ -177,7 +177,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
 | LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
 | Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
-| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 11-20; CPU tests, not run on a GPU). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 11-20; CPU tests, not run on a GPU). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. Damage triage (PLAN_V8 R-F6, exploratory) is in `repair/triage.py`: it predicts which spikes leave damage and repairs nothing (PR #32, merged 11-20; CPU tests, not run on a GPU). The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15). Its latest commit (9d9b2fa) adds an HVP and a top-k eigensolve; CI lint fails on it; not reviewed | — |
 
@@ -197,7 +197,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 - **Speed** [V]: 22.2 ms/step solo for the proxy at batch 64, ≈ 33 ms/step per deterministic fork when forks share
   the GPU, and ≈ 1.3× throughput from packing two forks. That is ≈ 43 s (0.012 GPU-h) per end-of-schedule proxy
   branch.
-- **GPU budget:** 20 MI300X-hours in total, about 5.1 used so far.
+- **GPU budget:** 20 MI300X-hours in total, about 5.1 used so far. The next session was booked on 11-20; prereg-v3 E1 runs in it once the tag is in.
 - **Pilot** [V, exploratory]: 120 of 120 branches with 0 crashes. Width-1 spikes at step 160, seed 0, constant LR,
   with `corrupt_batch` and `repeat_ngram` at β1 = 0.9, `lr_bump`, and `corrupt_batch` at β1 = 0.8 and 0.95.
   - **Spikes this small mostly wash out.** Lasting damage was 0.0003–0.0117 nats, while the 1-ulp chaos scale
@@ -246,7 +246,8 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-20 | prereg-v3's SPAM reset schedule corrected (resets at steps 499, 999, 1499 and 1999, so P5(b) is read on the fork from step 1000 only), suggested answers to its open decisions drafted, and the SPAM warmup problem at fork start found (PR #29, open). `Bspam_clip` and `Bspam_reset` wired (PR #28, open) |
 | 11-20 | RML-2 wired into `mve` as the `RML2` and `RML2@win` arms; G0's inert-hook option (`xproc_gate --probation-inert`); three code issues fixed: `sdc_grad` bit 30 planting, GPU test order, `trunk.py`'s preflight order (CPU tests only) |
 | 11-20 | PRs #29 and #30 merged into main; CI installs scipy and statsmodels so `analysis/stats.py` can be tested |
-| 11-20 | Damage triage proposed (PLAN_V8 R-F6, Appendix A.3.1). At a detected spike, a small model predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come from prereg-v3's dose arms with no extra GPU runs. `repair/triage.py` and a read-only hook on `mve`'s dose arms (CPU tests only) |
+| 11-20 | Damage triage proposed (PLAN_V8 R-F6, Appendix A.3.1). At a detected spike, a small model predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come from prereg-v3's dose arms with no extra GPU runs. `repair/triage.py` and a read-only hook on `mve`'s dose arms (PR #32, merged 11-20; 102 tests green in CI on main, nothing run on a GPU) |
+| 11-20 | Next MI300X session booked. Open decision 6 built: `dose_meter` logs the 10/50/90% quantiles of x next to x̄ (PR #34, CPU test; it merges if the team says yes). Arya re-invited |
 
 ### 8 · Where things live
 

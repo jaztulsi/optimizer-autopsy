@@ -300,7 +300,7 @@ filled in as gates pass. Reviewer simulation in weeks 11–12 (§11).
 | Pre-registration | `prereg-v2` signed, tagged and run (2026-11-10, seed 0; third outcome). `prereg-v3` drafted, **not signed or tagged** | `docs/prereg_v2.md`, `docs/prereg_v2_results.md`, `docs/prereg_v3.md`, `results/mi300x_2026-11-10/` |
 | Kill-test (Task 9) | Built and logic-tested; never run as the Task-9 battery. The `Bs` clip is 0.5× the trunk clip inside `autopsy.mve.repair_battery` | `docs/improvement.md` A1–A8 |
 | LR schedule | Built: warmup + cosine / WSD, applied by `train_forward` at the top of every step, so the trunk, resume, B\* and every fork follow it, and `lr_bump` multiplies it. No `schedule` key = constant LR, as in the pilot. CI-tested (fdff507); **never run on a GPU** | `research/harness/schedule.py`, `research/tests/test_schedule_faults.py` |
-| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML-1 in `autopsy/` covers part of C3; RML-2 is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 20 Nov; CPU tests, not run on a GPU); RML-3 is designed, not built, and waits on its kill test (§6.5). The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (C2), repair (C3), theory | ⬜ unbuilt. RML-1 in `autopsy/` covers part of C3; RML-2 is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 20 Nov; CPU tests, not run on a GPU); RML-3 is designed, not built, and waits on its kill test (§6.5). Damage triage (R-F6, A.3.1) is in `repair/triage.py` (PR #32, merged 20 Nov; CPU tests, not run on a GPU); it predicts which spikes leave damage and edits nothing. The output contract is defined (§6.4) | `research/localizer/`, `repair/`, `theory/` |
 | Toy HVP | PR #15 open; needs changes before merge. Avyank's week 2–3 work is not on GitHub as of 2026-11-08 | branch `avyank/toy-hvp` |
 | Figures and paper | `analysis/figures.py` is a stub. PR #23 (Eknoor) adds figures on dummy data; they follow the older figure list and need to move to §2.6 and the real prereg-v2 files. No manuscript in the repo yet. Owner: Eknoor (§11.1) | `research/analysis/figures.py` |
 | Research corpus | Waves 1–2, about 150 ideas, 2 fact-check passes, the reviewer-session pass (13) and the P1-upgrade kill-searches | `master-research/output/`, `docs/p1_upgrades.md` |
@@ -970,6 +970,10 @@ The team is four people: **Jasraj, Eddie, Avyank and Eknoor**. This replaces the
 people, Sep 14–Dec 13, a 30-hour grant, 124M on free Kaggle). Every V3 role now has one owner below, so most people
 hold more than one. Items marked *(proposed)* need that person's OK (§13).
 
+**Arya (aryakumarn)** was re-invited on 20 Nov (the 9 Aug invite expired unaccepted). His role is open until he
+accepts. Unowned areas that fit, as suggestions: theory, starting with R-F2's prior-art check and derivation (Appendix
+A.3); related work for Eknoor; a stats backup for Avyank (oracle and Holm), with Avyank's OK.
+
 | Person | Owns | V3 roles folded in | Backup |
 |---|---|---|---|
 | **Jasraj** (lead) | Harness (C1); spike pipeline; `research/autopsy/` (C-1…C-3 measurement, chaos floor, report); every MI300X run and the GPU-hour ledger; prereg sign-off; final call on scope | Spike Engineer; AMD/ROCm Port Engineer; Calibration and Attribution Engineer; 124M Robustness Driver; Project and Compute Coordinator; Theory Lead until someone takes it *(proposed)* | Eddie (harness) |
@@ -985,7 +989,7 @@ hold more than one. Items marked *(proposed)* need that person's OK (§13).
 | | 2. Settle the torch pin, amend and tag prereg-v2 ✅ (tag `prereg-v2`, 2026-11-10). Exea grant terms still to confirm | tag exists | — |
 | | 3. MI300X: G0 on the changed loop, then the prereg-v2 run ✅ (2026-11-10; `results/mi300x_2026-11-10/`, `docs/prereg_v2_results.md`) | Δ = 0 log and report committed | — |
 | | 4. Wire `Brollback_k` into `mve` ✅ (PR #21, merged) | CPU test in CI | — |
-| | 5. Merge PRs #24 and #25 ✅ (16–17 Nov). Team edits to `docs/prereg_v3.md` (PR #29, merged 20 Nov: reset schedule fixed, a suggested answer to each open decision), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's core with CPU tests (PR #27); RML-3 waits on its kill test. ✅ RML-2 wired into `mve` and G0's inert option (PR #30, merged 20 Nov) | tag `prereg-v3`; probation tests green in CI | Eddie's `Bspam_*` wiring (PR #28); the sign-flip test |
+| | 5. Merge PRs #24 and #25 ✅ (16–17 Nov). Team edits to `docs/prereg_v3.md` (PR #29, merged 20 Nov: reset schedule fixed, a suggested answer to each open decision), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's core with CPU tests (PR #27); RML-3 waits on its kill test. ✅ RML-2 wired into `mve` and G0's inert option (PR #30, merged 20 Nov). ✅ Damage triage, `repair/triage.py` (PR #32, merged 20 Nov) | tag `prereg-v3`; probation tests green in CI | Eddie's `Bspam_*` wiring (PR #28); the sign-flip test |
 | | 6. Next MI300X session: G0, prereg-v3, the RML gates, the stress bed (§11.2) | logs and reports committed | step 5; session go-ahead |
 | **Eddie** | 1. Review PR #18 ✅ (2026-11-09: no blockers) | review posted | — |
 | | 2. Land PR #20 ✅ (merged). Still owed: run `research/gpu/baseline_gpu_session.sh` once on the merged code at the next MI300X session, timing agreed with Jasraj; rollback checks that work under an LR schedule (before T2) | logs committed, replay bitwise | MI300X access |
@@ -1026,10 +1030,10 @@ back on 2026-11-10, so each GPU week below starts when the next session is booke
 
 | Week | GPU | Jasraj | Eddie | Avyank | Eknoor | Done by Sunday |
 |---|---|---|---|---|---|---|
-| **Nov 16–22** | 0 | ✅ Merge PRs #24–#27 (#24, #26 and #27 merged 16 Nov, #25 on 17 Nov). Team edits to prereg-v3 (PR #29 merged 20 Nov), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's coordinate mode with CPU tests for skip identity and null-repair identity (PR #27). RML-3's row mode waits on its kill test. ✅ RML-2 wired into `mve` and G0's inert option (PR #30, merged 20 Nov) | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag; PR #28 open). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
-| **Nov 23–29** | ≈ 4.5 h | G0 with the probation hooks installed and inert (`xproc_gate --probation-inert`). prereg-v3 E1: seed 1 first and timed, then seeds 2–7 | `band_clamp`. The bitwise replay check (`baseline_gpu_session.sh`) in the same session | `snr.py` and the no-HVP localizer (RML-2's support S is a §6.4 `Localization`) | Figs 1–3 on prereg-v2 data. Method section | E1 committed; cost per seed measured |
-| **Nov 30–Dec 6** | ≈ 4.3 h | E2 β2 arms, β1 arms, E3 floor curve. RML-3 kill test (≈ 0.2 h) and RML-2 echo checks X4 (≈ 0.5 h) | Comparators merged. Stress-bed config agreed with Jasraj | Oracle (`group_test`) and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts | prereg-v3 core done; RML-2 and RML-3 gates read |
-| **Dec 7–13** | ≈ 3.3 h | RML stress bed (§6.5): RML-1, RML-2, RML-3, RML-2+3, skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines section | Statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table | G4 and G5 read; only the reserve is left |
+| **Nov 16–22** | 0 | ✅ Merge PRs #24–#27 (#24, #26 and #27 merged 16 Nov, #25 on 17 Nov). Team edits to prereg-v3 (PR #29 merged 20 Nov), then sign and tag it. ✅ `autopsy/probation.py`: RML-2's coordinate mode with CPU tests for skip identity and null-repair identity (PR #27). RML-3's row mode waits on its kill test. ✅ RML-2 wired into `mve` and G0's inert option (PR #30, merged 20 Nov). ✅ Damage triage (PR #32, merged 20 Nov). ✅ Decision 6's quantile logging built (PR #34; it merges on the team's yes). ✅ MI300X session booked (20 Nov) | Wire `Bspam_clip` and `Bspam_reset` (prereg-v3 needs them before the tag; PR #28 open). Stress-bed comparators: always-trim and never-flag *(proposed)* | Clear PR #15's blockers. `test_stats.py`, including the one-sided sign-flip test prereg-v3 uses | Rework PR #23 to the §2.6 figure list on the real prereg-v2 files. Draft related work | prereg-v3 tagged; probation core green in CI |
+| **Nov 23–29** | ≈ 4.5 h (booked 20 Nov) | G0 with the probation hooks installed and inert (`xproc_gate --probation-inert`). prereg-v3 E1: seed 1 first and timed, then seeds 2–7. E1 starts only after the tag; if the tag is late, G0 and Eddie's replay check go first | `band_clamp`. The bitwise replay check (`baseline_gpu_session.sh`) in the same session | `snr.py` and the no-HVP localizer (RML-2's support S is a §6.4 `Localization`) | Figs 1–3 on prereg-v2 data. Method section | E1 committed; cost per seed measured |
+| **Nov 30–Dec 6** | ≈ 4.3 h | E2 β2 arms, β1 arms, E3 floor curve. RML-3 kill test (≈ 0.2 h) and RML-2 echo checks X4 (≈ 0.5 h). Damage triage (A.3.1, the prediction model) on E1's dose arms: `python -m research.repair.triage`, no GPU; kept if AUC ≥ 0.8 and the gain over spike size ≥ 0.05 | Comparators merged. Stress-bed config agreed with Jasraj | Oracle (`group_test`) and Holm steps in `stats.py` | Prereg appendix. Intro around both abstracts | prereg-v3 core done; RML-2 and RML-3 gates read |
+| **Dec 7–13** | ≈ 3.3 h | RML stress bed (§6.5): RML-1, RML-2, RML-3, RML-2+3, skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds. Read G4 and G5 | Check the battery's repair and baseline output. Start the baselines section | Statistics on the real results (C-1…C-4, Holm, CIs) | Real data into every figure and table; the triage table in the exploratory appendix if it is kept | G4 and G5 read; only the reserve is left |
 | **Dec 14–20** | 0 | Instrument, spike and theory sections | Baselines and repair sections to Eknoor | Localizer and statistics sections to Eknoor; Tab 2 final | Results section; assemble draft 1 | Draft 1 has every section |
 | **Dec 21–27** | reserve | Read draft 1. Reruns only if a result needs one | Check every repair and baseline number against the results files | Check every statistic against the results files | Draft 2 from everyone's comments | Every number traced to a results file |
 | **Dec 28–31** | 0 | Final scope check. Bring the plan, status page and instrument release up to date | Confirm baselines and repair reproduce from the repo | Confirm the statistics reproduce from the repo | Complete draft. All figures rebuilt from the final results | **Results frozen; complete paper draft** |
@@ -1112,8 +1116,8 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
   - **(b2) torch pin:** settled. prereg-v2 ran on torch 2.10.0 (ROCm), matching the pin.
   - **(b3) Reviews:** PRs #18, #20 and #21 are merged. #20 touches `trunk.py` and `fork.py`, so its GPU replay check
     runs once on the merged code at the next session. PRs #24–#27 are merged (16–17 Nov). PR #29 (prereg-v3 fixes and suggested
-    answers) and PR #30 (RML-2 in `mve`) were merged on 20 Nov. PR #28 (`Bspam_clip`, `Bspam_reset`) is open with
-    CI green. PR #15 needs fixes
+    answers), PR #30 (RML-2 in `mve`) and PR #32 (damage triage) were merged on 20 Nov. PR #28 (`Bspam_clip`,
+    `Bspam_reset`) is open with CI green. PR #15 needs fixes
     (its latest commit fails lint); PRs #22 and #23 need the team list and the figure rework.
   - **(c) Owners** for C2/C3, stats and writing: proposed in §11.1 (2026-11-08); each person confirms.
   - **(d) Start writing now** (related work → method → prereg appendix → intro, around both abstracts in §2.6). Eknoor
@@ -1129,7 +1133,8 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
 ---
 
 ## 14 · Change log
-- **2026-11-20 (damage triage proposed; branch `docs/damage-triage-proposal`, CPU tests only):** R-F6 added to
+- **2026-11-20 (damage triage proposed and built; PR #32, merged; 102 tests green in CI, nothing run on a GPU):**
+  R-F6 added to
   Appendix A.3, with its spec in A.3.1. At a detected spike, a logistic model on seven optimizer-state features
   predicts whether the spike will leave lasting damage (Y(none) > 0.01 nats). Labels come from prereg-v3's dose arms,
   96 spikes with no extra GPU runs. Keep it if the leave-one-seed-out AUC, over pairs at the same dose in the same
@@ -1326,7 +1331,7 @@ reductions at the spike step. That gives 96 spikes:
 - the β1 arms: 18.
 
 If the cost rule cuts E1 to five seeds, it is 84 spikes. They come from at most seven seeds and are not independent,
-which is why the test splits by seed. The hook must merge before E1 runs, or the features are not logged. It only
+which is why the test splits by seed. The hook merged on 20 Nov (PR #32), before E1, so E1 logs the features. It only
 reads, and a CPU test checks that losses are bitwise identical with and without it. G0 does not cover it.
 
 **Test (fixed before any data).** Each seed's spikes are scored by a model fitted on the other seeds. The AUC counts
