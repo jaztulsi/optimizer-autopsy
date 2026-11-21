@@ -8,7 +8,7 @@ import torch
 from research.analysis.stats import _diffs
 from research.autopsy import probation, report, undo
 from research.autopsy.mve import _resume_mismatch, expected_branches, parser
-from research.autopsy.probes import data_order, nudge_ulp, ulp_placebo
+from research.autopsy.probes import data_order, dose_meter, nudge_ulp, ulp_placebo
 
 
 def _model_opt():
@@ -37,6 +37,35 @@ def _log(model, scale):
             for n, p in model.named_parameters()
         }
     }
+
+
+def test_dose_meter_logs_xbar_and_hit_support_quantiles_read_only():
+    import numpy as np  # pinned in research/requirements.txt; a skip here would hide a broken meter
+
+    b2, c = 0.95, 2.0
+    model = torch.nn.Linear(5, 2, bias=False)
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-2, betas=(0.9, b2))
+    model(torch.ones(1, 5)).sum().backward()
+    opt.step()
+    st = opt.state[model.weight]
+    st["exp_avg_sq"].fill_(0.25)
+    G = torch.tensor([[1.0, 2.0, 3.0, 4.0, 0.0], [5.0, 6.0, 7.0, 8.0, 0.0]])  # last column is off the hit support
+    out = {}
+    hook = dose_meter({7: {"weight": G}}, c, out)
+    assert hook(6, {"model": model, "opt": opt}) is None and out == {}  # not a window step: nothing written
+
+    model.weight.grad = G.clone()
+    w0, v0 = model.weight.detach().clone(), st["exp_avg_sq"].clone()
+    after = hook(7, {"model": model, "opt": opt})
+    assert torch.equal(model.weight, w0) and torch.equal(st["exp_avg_sq"], v0) and torch.equal(model.weight.grad, G)
+    opt.step()
+    after()
+
+    x = (1 - b2) * (c * G) ** 2 / 0.25
+    u = (model.weight.detach() - w0).abs()
+    assert abs(out["xbar"] - float((u * x).sum() / u.sum())) < 1e-5 * out["xbar"]
+    want = np.quantile(x[:, :4].flatten().numpy(), (0.1, 0.5, 0.9))  # the zero column is excluded
+    assert np.allclose([out["x_q10"], out["x_q50"], out["x_q90"]], want, rtol=1e-6) and out["x_q10"] > 0
 
 
 def test_undo_v_top_edits_only_the_top_fraction():
