@@ -56,7 +56,7 @@ main>*{min-width:0}
 <main>
 <header>
   <h1>Optimizer Autopsy: where the project stands</h1>
-  <p class="sub"><b>20 Nov 2026:</b> PRs #24–#27 are merged (#25 on 17 Nov). #29 (prereg-v3's SPAM reset schedule fixed, a suggested answer to each open decision) and #30 (RML-2 in <code>mve</code>, below) were merged on 20 Nov. Eddie's #28, which wires <code>Bspam_clip</code> and <code>Bspam_reset</code>, is open with CI green. One problem is new: SPAM's warmup clock counts from the global step, so a fork from step 1000 runs <code>Bspam</code> and <code>Bspam_reset</code> at about 1% LR at the spike while <code>Bspam_clip</code> runs at full LR. That confounds P5(b) until it is fixed or P5(b) moves to secondary (open decision 9). prereg-v3 is still not tagged; the sign-flip test it uses is not written. RML-2 is now wired into <code>mve</code>, G0 can run with the probation hooks inert, and the three known code issues are fixed (PR #30; CPU tests only). Damage triage is merged (PR #32, 20 Nov; CPU tests only): a read-only hook on <code>mve</code>'s dose arms logs spike-time optimizer features, so prereg-v3's dose arms can test whether those features predict which spikes leave lasting damage, with no extra GPU runs. CI is green on main (102 tests). No GPU time used since 10 Nov. Later on 20 Nov: the next MI300X session is booked. E1 starts only once prereg-v3 is tagged; G0 and Eddie's replay check can go first. Open decision 6's quantile logging is built (PR #34; it merges if the team says yes). After E1, damage triage reads E1's dose arms with no GPU and is kept only if its AUC is at least 0.8 and beats spike size alone by 0.05. Arya (aryakumarn) was re-invited; his role is open until he accepts.</p>
+  <p class="sub"><b>20 Nov 2026:</b> PRs #24–#27 are merged (#25 on 17 Nov). #29 (prereg-v3's SPAM reset schedule fixed, a suggested answer to each open decision) and #30 (RML-2 in <code>mve</code>, below) were merged on 20 Nov. Eddie's #28, which wires <code>Bspam_clip</code> and <code>Bspam_reset</code>, is open with CI green. One problem is new: SPAM's warmup clock counts from the global step, so a fork from step 1000 runs <code>Bspam</code> and <code>Bspam_reset</code> at about 1% LR at the spike while <code>Bspam_clip</code> runs at full LR. That confounds P5(b) until it is fixed or P5(b) moves to secondary (open decision 9). prereg-v3 is still not tagged; the sign-flip test it uses is not written. RML-2 is now wired into <code>mve</code>, G0 can run with the probation hooks inert, and the three known code issues are fixed (PR #30; CPU tests only). Damage triage is merged (PR #32, 20 Nov; CPU tests only): a read-only hook on <code>mve</code>'s dose arms logs spike-time optimizer features, so prereg-v3's dose arms can test whether those features predict which spikes leave lasting damage, with no extra GPU runs. CI is green on main (102 tests). No GPU time used since 10 Nov. Later on 20 Nov: the next MI300X session is booked. E1 starts only once prereg-v3 is tagged; G0 and Eddie's replay check can go first. Open decision 6's quantile logging is built (PR #34; it merges if the team says yes). After E1, damage triage reads E1's dose arms with no GPU and is kept only if its AUC is at least 0.8 and beats spike size alone by 0.05. Arya (aryakumarn) was re-invited; proposed role, pending his OK: theory (R-F2 and R-F3).</p>
   <p class="sub"><b>16 Nov 2026:</b> PRs #18, #20 and #21 are merged. The paper now tests three repair methods side by side on one stress bed: RML-1 (built; undo with a clean twin), RML-2 (withhold suspect coordinates until later gradients decide) and RML-3 (appeal single rows of a batch). RML-2's core is written (<code>autopsy/probation.py</code>, PR #27); RML-3 is designed, not built, and waits on its kill test. prereg-v3 (seeds 1–7, β arms, floor curve) is drafted and replaces the 7 h chaos-floor benchmark. The MI300X went back on 10 Nov; 14.9 of 20 GPU-hours are left. Full version: <code>PLAN_V8.md</code> §0.2, §6.5, §11.2.</p>
   <p class="sub"><b>10 Nov 2026:</b> prereg-v2 was amended, tagged and run on the MI300X (seed 0, about 2.1 GPU-hours, 5.1 of 20 used). The frozen outcome “no lasting damage at realistic dose” applies: at c = 1 damage is at most 0.00243 nats. At c ≥ 10, undoing m+v removes 73–103% and undoing v alone is 2–24× worse. RML at lag 3 closed 68% at step 1800 (bar 80%). Results and deviations: <code>docs/prereg_v2_results.md</code>.</p>
   <p class="sub">Audit of branch <code>plan-v8</code>, updated 9 Nov 2026. The first MI300X night (27 Oct) passed T0 and finished the T1 pilot. Since then the chaos-floor benchmark and the capture fix are in, Eddie's Brollback (PR #20) is CI-green, and <code>research/kaggle</code> is now <code>research/gpu</code>. On 5 Nov the LR schedule moved into the training loop and the bit-flip faults were written (CI-tested). A four-reviewer Claude council said: run prereg-v2 first, amend it before the tag, park the fault work as P3, and re-run the Δ=0 gate on the changed loop. On 9 Nov Eddie reviewed PR #18 with no blockers; the merge order is #18, then #20, and the baseline GPU check runs once on the merged code. The GPU budget is 20 hours in total, so the T2 program as written (50–80 h) does not fit. Goal: P1, “The Afterlife of a Loss Spike”, ICML 2027 (paper due about 22 Jan; the date is unofficial). Four people share the work: <a href="#roles">who does what</a>.</p>
@@ -136,6 +136,12 @@ main>*{min-width:0}
 <td><ul class="tight"><li>PR #23 follows the older figure list; move it to §2.6 and the real prereg-v2 files</li><li>Gate B is a diagnostic, not a paper figure</li></ul></td>
 <td>—</td>
 <td>None: figures run on results files</td></tr>
+<tr><td><b>Arya</b><br><code>aryakumarn · invited 20 Nov</code></td>
+<td>Nothing yet</td>
+<td><ul class="tight"><li>Proposed for theory, which had no owner</li></ul></td>
+<td><ul class="tight"><li>Accept the invite (lapses about 27 Nov)</li></ul></td>
+<td>—</td>
+<td>None: theory needs no GPU</td></tr>
 </table>
 </div>
 </section>
@@ -147,7 +153,7 @@ main>*{min-width:0}
 <table>
 <tr><th>Person</th><th>Owns</th><th>Next steps, in order</th><th>Waits on</th></tr>
 <tr><td><b>Jasraj</b><br>Project lead</td>
-<td><ul class="tight"><li>Harness (C1), spike pipeline, autopsy code and report</li><li>Every MI300X run and the GPU-hour ledger</li><li>Prereg sign-off and final call on scope</li><li>The RML family (probation module); theory until someone takes it (proposed)</li></ul></td>
+<td><ul class="tight"><li>Harness (C1), spike pipeline, autopsy code and report</li><li>Every MI300X run and the GPU-hour ledger</li><li>Prereg sign-off and final call on scope</li><li>The RML family (probation module); theory until Arya takes it (proposed)</li></ul></td>
 <td><ul class="tight"><li>Done: PRs #18 and #21 merged; torch pin, prereg-v2 tagged and run (10 Nov)</li><li>Done: PRs #24 and #25 merged</li><li>Team edits to prereg-v3 (PR #29, merged 20 Nov, fixed its reset schedule and suggests answers), then sign and tag it</li><li>Done: RML-2 core in <code>autopsy/probation.py</code> with CPU tests (PR #27); RML-3 Appeal waits on its kill test</li><li>Done: RML-2 wired into <code>mve</code> (<code>RML2</code>, <code>RML2@win</code>), G0's inert option (<code>xproc_gate --probation-inert</code>) and three code fixes (PR #30, merged 20 Nov; CPU tests only)</li><li>Done: damage triage in <code>repair/triage.py</code> (PR #32, merged 20 Nov; CPU tests only)</li><li>Done: open decision 6's quantile logging (PR #34; merges on the team's yes)</li><li>Done: next MI300X session booked (20 Nov)</li><li>Confirm the Exea grant terms</li><li>Next MI300X session: G0, prereg-v3, RML gates, stress bed</li><li>After E1: the damage-triage report on E1's dose arms (no GPU)</li></ul></td>
 <td>The prereg-v3 tag (team answers, PR #28, the sign-flip test); the session's address and go-ahead</td></tr>
 <tr><td><b>Eddie</b><br>Baselines + repair</td>
@@ -162,10 +168,10 @@ main>*{min-width:0}
 <td><ul class="tight"><li>Builds the manuscript</li><li>Figs 1–6, Tabs 1–2, and the scripts that make them</li><li>Collects every owner's section</li></ul></td>
 <td><ul class="tight"><li>Done: collaborator; PR #23 opened (dummy figures)</li><li>Rework PR #23 to the §2.6 figure list on the real prereg-v2 files (<code>report_final/</code>)</li><li>Start the manuscript from §2.6, with both abstracts</li><li>Collect sections and fill in results as gates pass</li></ul></td>
 <td>Nothing to start</td></tr>
-<tr><td><b>Arya</b><br>Invited 20 Nov</td>
-<td><ul class="tight"><li>Role open until he accepts (the 9 Aug invite expired)</li></ul></td>
-<td><ul class="tight"><li>Suggested: theory, starting with R-F2's prior-art check and derivation</li><li>Or related work for Eknoor, or a stats backup for Avyank (with Avyank's OK)</li></ul></td>
-<td>Accepting the GitHub invite</td></tr>
+<tr><td><b>Arya</b><br>Theory (proposed)</td>
+<td><ul class="tight"><li>Theory, <code>research/theory/</code> (proposed; Jasraj held it until now)</li><li>R-F2, the m+v coupling law (Fig 2's theory curve), and R-F3, the bounded null (PLAN_V8 Appendix A.3)</li><li>The paper's theory section</li></ul></td>
+<td><ul class="tight"><li>Accept the GitHub invite (re-sent 20 Nov, lapses about 27 Nov)</li><li>R-F2's prior-art check (Adam SDE, linearised response)</li><li>R-F2's derivation, merged before E2's β1 and β2 arms are read</li><li>Score R-F2 on E2; then R-F3; theory section to Eknoor by 20 Dec</li></ul></td>
+<td>Accepting the invite, and his OK on the role</td></tr>
 </table>
 </div>
 <p class="sub">Rules: work through a branch and a PR, never on <code>main</code>. Training runs only on the MI300X, and every GPU run needs Jasraj's go-ahead and a cost against the 20 hours. prereg-v2 has reported, so figures use its real files; prereg-v3 effects stay sealed until it is tagged and has reported.</p>
@@ -175,49 +181,56 @@ main>*{min-width:0}
 <h2>Week by week to 31 Dec</h2>
 <p class="sub">Goal: frozen results and a complete paper draft by 31 Dec. January is for the reviewer simulation, fixes and the ICML submission. Full version: <code>PLAN_V8.md</code> §11.2.</p>
 <div class="people">
-<table style="min-width:1040px">
-<tr><th>Week · GPU</th><th>Jasraj</th><th>Eddie</th><th>Avyank</th><th>Eknoor</th><th>Done by Sunday</th></tr>
+<table style="min-width:1200px">
+<tr><th>Week · GPU</th><th>Jasraj</th><th>Eddie</th><th>Avyank</th><th>Eknoor</th><th>Arya (proposed)</th><th>Done by Sunday</th></tr>
 <tr><td><b>Nov 16–22</b><br>0</td>
 <td><ul class="tight"><li>✅ PRs #24 and #25 merged</li><li>Sign and tag prereg-v3 (PR #29 merged 20 Nov)</li><li>✅ <code>autopsy/probation.py</code> with CPU tests (PR #27)</li></ul></td>
 <td><ul class="tight"><li><code>Bspam_clip</code>, <code>Bspam_reset</code> (PR #28 open)</li><li>Always-trim and never-flag comparators</li></ul></td>
 <td><ul class="tight"><li>Clear PR #15's blockers</li><li><code>test_stats.py</code></li></ul></td>
 <td><ul class="tight"><li>Rework PR #23 to §2.6 on real prereg-v2 files</li><li>Draft related work</li></ul></td>
+<td><ul class="tight"><li>Accept the invite. Read §0–§2 and Appendix A.3</li></ul></td>
 <td>prereg-v3 tagged; probation core green in CI</td></tr>
 <tr><td><b>Nov 23–29</b><br>≈ 4.5 h</td>
 <td><ul class="tight"><li>G0 with the probation hooks inert (<code>xproc_gate --probation-inert</code>)</li><li>prereg-v3 E1: seed 1 timed first, then seeds 2–7</li></ul></td>
 <td><ul class="tight"><li><code>band_clamp</code></li><li>Bitwise replay check in the same session</li></ul></td>
 <td><ul class="tight"><li><code>snr.py</code> and the no-HVP localizer (§6.4 output)</li></ul></td>
 <td><ul class="tight"><li>Figs 1–3 on prereg-v2 data</li><li>Draft the method section</li></ul></td>
+<td><ul class="tight"><li>R-F2's prior-art check (Adam SDE, linearised response). Start the derivation</li></ul></td>
 <td>E1 committed; cost per seed measured</td></tr>
 <tr><td><b>Nov 30–Dec 6</b><br>≈ 4.3 h</td>
 <td><ul class="tight"><li>E2 β2 arms, β1 arms, E3 floor curve</li><li>RML-3 kill test and RML-2 echo checks</li></ul></td>
 <td><ul class="tight"><li>Comparators merged</li><li>Stress-bed config agreed with Jasraj</li></ul></td>
 <td><ul class="tight"><li>Oracle and Holm steps in <code>stats.py</code></li></ul></td>
 <td><ul class="tight"><li>Prereg appendix</li><li>Intro around both abstracts</li></ul></td>
+<td><ul class="tight"><li>R-F2's derivation merged before E2's β1 and β2 arms are read (later counts as post-hoc)</li></ul></td>
 <td>prereg-v3 core done; RML-2 and RML-3 gates read</td></tr>
 <tr><td><b>Dec 7–13</b><br>≈ 3.3 h</td>
 <td><ul class="tight"><li>RML stress bed: RML-1, RML-2, RML-3, RML-2+3 against skip-step, always-trim, never-flag, ZClip, rollback; 3 seeds</li><li>Read G4 and G5</li></ul></td>
 <td><ul class="tight"><li>Check the repair and baseline output</li><li>Start the baselines section</li></ul></td>
 <td><ul class="tight"><li>Statistics on the real results (C-1…C-4, Holm, CIs)</li></ul></td>
 <td><ul class="tight"><li>Real data into every figure and table</li></ul></td>
+<td><ul class="tight"><li>Score R-F2 on E2's arms; its curve goes into Fig 2. R-F3 (bounded null): prior-art check and bound</li></ul></td>
 <td>G4 and G5 read; only the reserve is left</td></tr>
 <tr><td><b>Dec 14–20</b><br>0</td>
-<td><ul class="tight"><li>Instrument, spike and theory sections</li></ul></td>
+<td><ul class="tight"><li>Instrument and spike sections (theory too, if Arya doesn't take it)</li></ul></td>
 <td><ul class="tight"><li>Baselines and repair sections to Eknoor</li></ul></td>
 <td><ul class="tight"><li>Localizer and statistics sections to Eknoor</li><li>Tab 2 final</li></ul></td>
 <td><ul class="tight"><li>Results section</li><li>Assemble draft 1</li></ul></td>
+<td><ul class="tight"><li>Theory section to Eknoor</li></ul></td>
 <td>Draft 1 has every section</td></tr>
 <tr><td><b>Dec 21–27</b><br>reserve</td>
 <td><ul class="tight"><li>Read draft 1</li><li>Reruns only if a result needs one</li></ul></td>
 <td><ul class="tight"><li>Check every repair and baseline number against the results files</li></ul></td>
 <td><ul class="tight"><li>Check every statistic against the results files</li></ul></td>
 <td><ul class="tight"><li>Draft 2 from everyone's comments</li></ul></td>
+<td><ul class="tight"><li>Check every theory number against the results files</li></ul></td>
 <td>Every number traced to a results file</td></tr>
 <tr><td><b>Dec 28–31</b><br>0</td>
 <td><ul class="tight"><li>Final scope check</li><li>Plan, status page and instrument release up to date</li></ul></td>
 <td><ul class="tight"><li>Confirm baselines and repair reproduce from the repo</li></ul></td>
 <td><ul class="tight"><li>Confirm the statistics reproduce from the repo</li></ul></td>
 <td><ul class="tight"><li>Complete draft</li><li>All figures rebuilt from the final results</li></ul></td>
+<td><ul class="tight"><li>Every derivation in <code>research/theory/</code>, with the results file it's scored on</li></ul></td>
 <td><b>Results frozen; complete paper draft</b></td></tr>
 </table>
 </div>
@@ -365,7 +378,7 @@ main>*{min-width:0}
 <tr><td><i class="dot d-todo"></i></td><td><b>Factorial, oracle, localize</b> modules.<br><code>research/autopsy/{factorial,oracle,localize}.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Localizer (C2)</b>: SNR, curvature, poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Repair operator (C3)</b>: stub. The RML undo in autopsy covers part of it.<br><code>research/repair/operator.py</code></td></tr>
-<tr><td><i class="dot d-todo"></i></td><td><b>Theory</b>: README only.<br><code>research/theory/README.md</code></td></tr>
+<tr><td><i class="dot d-todo"></i></td><td><b>Theory</b>: README only. Arya proposed as owner (R-F2, R-F3).<br><code>research/theory/README.md</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Figures</b>: stub. <b>Drivers</b>: proxy smoke and 124M run are TODO stubs.<br><code>analysis/figures.py · experiments/proxy/smoke.py · experiments/llm124m/run.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Scale-up code</b>: NeoX model, Pythia shard loader, QK-Norm / untied / μP variants, experiment YAMLs.<br><code>model/neox.py · tools/pythia_state.py · experiments/autopsy/*.yaml</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Tests for the new code</b> (PLAN §9.2 list): the schedule and fault tests are written (5 Nov, CI-tested); the rest and the math-SDPA HVP determinism check are not.<br><code>research/tests/test_autopsy.py · test_schedule_faults.py</code></td></tr>
