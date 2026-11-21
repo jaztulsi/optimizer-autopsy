@@ -30,7 +30,8 @@ bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are C
 `autopsy/cwb.py`, wired into `mve` behind `--cwb` as the `CWB@lag` and `RML-w@lag` arms (exploratory; CPU tests, not
 run on a GPU). RML-3's Appeal is unbuilt and held until its kill test passes; it will restore through the same `undo.undo` (PLAN_V8 §6.5). Damage triage (PLAN_V8 R-F6, Appendix A.3.1; exploratory, not preregistered) is in `research/repair/triage.py`: a read-only feature hook on `mve`'s dose arms and a numpy logistic fit (PR #32, merged 2026-11-20; CPU tests, not run on a GPU). It predicts which spikes leave damage and repairs nothing. C2 (localizer)
 and C3 (the repair operator) are **unbuilt** — `research/localizer/` and `research/repair/` hold comment-only TODO stubs (beside `triage.py`), and
-`research/theory/` is a README stub. If you are picking up C2/C3/theory, **read §7 first.**
+`research/theory/` holds one law: `coupling.py`, R-F2's m+v coupling law (CPU-tested; its prediction is frozen in
+`theory/README.md` before prereg-v3 runs). If you are picking up C2/C3/theory, **read §7 first.**
 
 ## 1. Non-negotiable guardrails (never violate these without explicit sign-off)
 - **Never run training or heavy compute on this machine.** All trunk runs, forks, snapshots,

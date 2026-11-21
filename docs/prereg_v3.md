@@ -223,4 +223,5 @@ python -m research.autopsy.mve $A --seed $SEED --betas $B1,0.95 --inject-step 18
 # E3: the chaos battery of docs/chaos_floor.md with --seed 1 and --inject-step in 160 500 1000 1400 1800 1950
 ```
 The flags are the ones `research/autopsy/mve.py` accepts today. The commands were not dry-run; check them in CI or
-on the GPU box before the tag.
+on the GPU box before the tag. `research/gpu/exea_prereg_v3.sh` runs these same commands on Exea Reserve (`exea.md`),
+together with G0 and the cost rule; if one changes, change the other to match.
