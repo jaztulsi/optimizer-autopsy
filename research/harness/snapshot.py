@@ -151,7 +151,9 @@ def save(snapshot: dict, path: str) -> None:
         "n_cuda_rng": n_cuda,
     }
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    save_file(tensors, path, metadata={"sidecar": json.dumps(sidecar)})
+    # Write then rename, so a run killed mid-save (Exea's 13:00 stop) leaves the old file or none, never half of one.
+    save_file(tensors, path + ".tmp", metadata={"sidecar": json.dumps(sidecar)})
+    os.replace(path + ".tmp", path)
 
 
 def load(path: str) -> dict:
