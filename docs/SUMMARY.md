@@ -246,6 +246,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-20 | prereg-v3's SPAM reset schedule corrected (resets at steps 499, 999, 1499 and 1999, so P5(b) is read on the fork from step 1000 only), suggested answers to its open decisions drafted, and the SPAM warmup problem at fork start found (PR #29, open). `Bspam_clip` and `Bspam_reset` wired (PR #28, open) |
 | 11-20 | RML-2 wired into `mve` as the `RML2` and `RML2@win` arms; G0's inert-hook option (`xproc_gate --probation-inert`); three code issues fixed: `sdc_grad` bit 30 planting, GPU test order, `trunk.py`'s preflight order (CPU tests only) |
 | 11-20 | PRs #29 and #30 merged into main; CI installs scipy and statsmodels so `analysis/stats.py` can be tested |
+| 11-20 | Damage triage proposed (PLAN_V8 R-F6, Appendix A.3.1). At a detected spike, a small model predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come from prereg-v3's dose arms with no extra GPU runs. `repair/triage.py` and a read-only hook on `mve`'s dose arms (CPU tests only) |
 
 ### 8 · Where things live
 

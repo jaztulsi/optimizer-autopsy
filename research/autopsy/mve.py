@@ -133,10 +133,12 @@ def phase_b(cfg, recipe, log0, dts, eps, coefs=(), dose_taus=(), extra=None):
     """{name: Branch} for the planted probes, built from B0's recorded window deltas. A width-w spike is
     planted as its w per-step deltas; the second spike/probe is the same window shifted by dt.
     Dose arms `Px<c>` plant c*G (same direction, pure amplitude) and meter its M5 dose x_bar into
-    extra[name]; `Px<c>|U_<ch>@tau` undo it from m/v; `Px<c>|cool@tau` undo v + global cooldown (H-D)."""
+    extra[name] (plus its read-only spike-time triage features, repair/triage.py); `Px<c>|U_<ch>@tau` undo it
+    from m/v; `Px<c>|cool@tau` undo v + global cooldown (H-D)."""
     from research.autopsy import undo
     from research.autopsy.probes import chain_opt, dose_meter, plant, planted_clean_fn, spike_delta
     from research.harness.fork import Branch
+    from research.repair.triage import features_hook
 
     extra = {} if extra is None else extra
 
@@ -160,7 +162,10 @@ def phase_b(cfg, recipe, log0, dts, eps, coefs=(), dose_taus=(), extra=None):
     for c in coefs:
         plants = [plant(deltas[s], {s: c}) for s in window]
         extra[f"Px{c:g}"] = {}
-        br[f"Px{c:g}"] = Branch(f"Px{c:g}", None, cfg, chain_opt(*plants, dose_meter(deltas, c, extra[f"Px{c:g}"])))
+        px = extra[f"Px{c:g}"]
+        br[f"Px{c:g}"] = Branch(
+            f"Px{c:g}", None, cfg, chain_opt(*plants, dose_meter(deltas, c, px), features_hook(window, px))
+        )
         for t in dose_taus:
             for ch in ("m", "v", "mv", "cool"):
                 name, log = f"Px{c:g}|{'cool' if ch == 'cool' else 'U_' + ch}@{t}", undo.new_log()
