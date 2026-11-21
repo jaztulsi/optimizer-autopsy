@@ -17,7 +17,12 @@ step T is in the same reset/clip/warmup phase as if SPAM had run from the start 
 
 REPORT SPAM PER SITE, never pooled across spike sites: its resets run on a fixed clock (every
 `delta_t` steps), so what it does to a spike depends on where the spike lands. With delta_t=500 the first
-reset is at step 499 -- 19 steps after a spike at 480, but 339 steps after a spike at 160.
+reset is at step 499 -- 19 steps after a spike at 480, but 339 steps after a spike at 160. The resets fall
+at steps 499, 999, 1499, 1999, ...: a run with max_steps = 2000 ends ON a reset (its last update is a fresh
+sign-like step at 1% LR), so an end-of-run metric of any arm with resets includes it.
+
+The two halves run apart as fork.make_baseline_branches' Bspam_clip (delta_t = 0: clipping only, no reset
+and so no warmup) and Bspam_reset (theta = 0: reset + warmup only, no clipping).
 
 Known departures from the authors' release (both shared by every branch, so Δ comparisons are unaffected):
   * The optimizer is torch AdamW, not an HF-style AdamW: eps is added to sqrt(v / bc2) rather than
