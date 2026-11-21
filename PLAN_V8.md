@@ -1041,7 +1041,8 @@ Jasraj's go-ahead. If seed 1 shows E1 costs more than planned, prereg-v3's cost 
 stress bed drops to 2 seeds.
 
 **What this leaves out:** prereg-v3 Extension A (step 160, 3.4 h), RML-2's X1 stall law (3 h; E2's β2 = 0.99 arm
-covers part of it) and X3 forecast (2 h), and 124M, Pythia-160M and the mid rung. G6 and G7 don't run, and Fig 6
+covers part of it) and X3 forecast (2 h; R-F6's damage triage, Appendix A.3.1, reuses its model on prereg-v3's dose arms
+at no GPU cost), and 124M, Pythia-160M and the mid rung. G6 and G7 don't run, and Fig 6
 stays proxy-only unless new hours arrive. The SDC work stays parked.
 
 **Open decision (Jasraj):** run the RML block as exploratory, or add it to prereg-v3 as an extension before the tag
@@ -1128,6 +1129,12 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
 ---
 
 ## 14 · Change log
+- **2026-11-20 (damage triage proposed; branch `docs/damage-triage-proposal`, CPU tests only):** R-F6 added to
+  Appendix A.3, with its spec in A.3.1. At a detected spike, a logistic model on seven optimizer-state features
+  predicts whether the spike will leave lasting damage (Y(none) > 0.01 nats). Labels come from prereg-v3's dose arms,
+  96 spikes with no extra GPU runs. Keep it if the leave-one-seed-out AUC, over pairs at the same dose in the same
+  regime (β1, β2, spike step), is ≥ 0.8 and at least 0.05 above spike size alone. Code: `research/repair/triage.py`;
+  `mve`'s dose arms log its features through a read-only hook. Exploratory, not preregistered.
 - **2026-11-20 (merges):** PRs #29 and #30 merged into main. Decision 9's suggested fix now matches the PR #28
   comment. CI installs scipy and statsmodels so `analysis/stats.py` can be tested.
 - **2026-11-20 (RML-2 in `mve`, G0 option, three code fixes; branch `autopsy/rml2-mve`, CPU tests only):**
@@ -1289,6 +1296,71 @@ kill-searched.
 | R-F3 (2026-11-16) | Bounded null: an upper bound on lasting damage from clip norm, β2 and dose, so "no lasting damage at a realistic dose" is a stated bound that the measurement checks, not only a null | Prior-art check owed | Core (theory) |
 | R-F4 (2026-11-16) | Damage forecast from the stability margin at fork time (preconditioned sharpness against 2/η), read on the E3 floor-curve forks; RML-2's forecast layer would use it | PARTIAL (Cohen et al. 2022, adaptive edge of stability) | Stretch, no extra GPU |
 | R-F5 (2026-11-16) | Why all 10 data-order forks ended below B\*: analysis of the existing prereg-v2 files | analysis only | Core (no GPU) |
+| R-F6 (2026-11-20, proposed) | Damage triage: at a detected spike, a small model on spike-time optimizer features predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come free from prereg-v3's dose arms (§A.3.1) | No match found in the 2026-11-20 searches; neighbours PARTIAL (ZClip, spike forecasting) | Stretch, no extra GPU |
+
+### A.3.1 Damage triage (R-F6, proposed 2026-11-20; exploratory, not preregistered)
+
+**Why.** On seed 0, prereg-v2 found no lasting damage at c = 1 and damage at c ≥ 10, with c = 10 right at the 0.01-nat
+bar (Y(none) = 0.0078 to 0.0114). A repair that fires on every detected spike edits state that often didn't need it.
+Triage asks a cheaper question first: will this spike leave damage? Forecasting whether a spike will come is taken (Kim
+2026; Wortsman et al. 2023). Triage predicts the outcome of a spike that has already happened.
+
+**What.** At the spike step a read-only hook logs seven numbers. They use RML-2's x = (1−β2)(g−m)²/v, read before the
+step:
+- log mean x, the spike-size baseline;
+- log of the largest per-tensor mean x;
+- the share of coordinates above the knee `x_knee(β1, β2)`;
+- cos(g, m);
+- log LR;
+- the v memory, −log(1−β2);
+- log step.
+
+An L2 logistic regression, fitted with numpy on a CPU, maps these to P(damage). The labels are exact. Y(none) is the
+held-out loss of the unrepaired dose arm `Px<c>` minus its clean twin B\* at the end of the run. A spike counts as
+damaging if Y(none) > 0.01 nats, prereg-v3 P1's practical size.
+
+**Data and cost.** The hook runs on prereg-v3's dose arms, so it needs no extra GPU runs; it adds a few fp64
+reductions at the spike step. That gives 96 spikes:
+- E1: 7 seeds × 2 phases × 3 doses = 42;
+- E2: 3 seeds × 4 rows × 3 doses = 36;
+- the β1 arms: 18.
+
+If the cost rule cuts E1 to five seeds, it is 84 spikes. They come from at most seven seeds and are not independent,
+which is why the test splits by seed. The hook must merge before E1 runs, or the features are not logged. It only
+reads, and a CPU test checks that losses are bitwise identical with and without it. G0 does not cover it.
+
+**Test (fixed before any data).** Each seed's spikes are scored by a model fitted on the other seeds. The AUC counts
+only pairs of spikes in the same cell: the same dose c, the same β1 and β2, and the same spike step, so a pair differs
+only in seed. Pooled over doses, spike size alone separates c = 1 from c = 30. Pooled over regimes, the LR, memory and
+step features could score a regime's base rate instead of the spike. Inside a cell those three are constant, so the
+test asks whether the spike-state features rank damage beyond spike size. The report gives the number of pairs.
+- **Keep:** AUC ≥ 0.8 and at least 0.05 above log mean x alone (method.md X3's bars).
+- **Uninformative:** the baseline alone reaches AUC ≥ 0.95. The data then cannot show a gain, and the result is
+  reported as such.
+- **Drop:** anything else. Triage then stays a line in this appendix.
+
+The pooled AUCs are reported beside it. Expected [I]: almost all cells with both outcomes are at c = 10 and the middle
+β2 doses, where the labels sit near the bar; their pairs come from different seeds (7 in E1, 3 in E2 and the β1 arms).
+If each cell holds only one outcome, there are too few pairs to read, and the result is reported as uninformative.
+
+**Prior art.** Web and arXiv searches on 2026-11-20 found no model that predicts whether a training-loss spike leaves
+lasting damage. Any "first" claim covers only these searches. The nearest work:
+- ZClip ([2504.02507](https://arxiv.org/abs/2504.02507)): separates benign from harmful spikes by a gradient-norm
+  z-score, in order to clip them;
+- the LING MoE report ([2503.05139](https://arxiv.org/abs/2503.05139)): narrow vs wide spikes, with skip and re-inject;
+- [2603.16731](https://arxiv.org/abs/2603.16731): stale optimizer state and resets;
+- spike forecasting: Kim 2026 ([ICML workshop](https://icml.cc/virtual/2026/80057)) and Wortsman et al. 2023
+  ([2309.14322](https://arxiv.org/abs/2309.14322));
+- predicting weights (Introspection, Sinha et al. 2017, [1704.04959](https://arxiv.org/abs/1704.04959)): a different
+  target.
+
+**Code.** `research/repair/triage.py` holds the hook, the reader for `mve` result files, the fit, the leave-one-seed-out
+AUC and a report CLI. Its tests are in `research/tests/test_triage.py`. `mve.phase_b` chains the hook on each `Px<c>`
+arm. These are CPU tests only; nothing has run on a GPU.
+
+**Links.** RML-2's forecast layer (method.md §2.6) uses the same kind of model to forecast onsets; X3, its test, is cut
+from the budget. Triage uses that model on a question the budgeted forks already answer. R-F4's stability margin could
+become an eighth feature if E3 measures it.
 
 ### A.4 Detection (BACKUP 2 side product)
 
