@@ -1,6 +1,6 @@
 # Optimizer Autopsy: the project in one place
 
-*Updated 2026-11-20. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
+*Updated 2026-11-21. Two versions: a short one (under 2,000 characters) and a long one. Both describe the
 project itself: the idea, what is new about it, how it is built, and what it has found so far. Update both
 together whenever the code or the results change.*
 
@@ -17,11 +17,11 @@ inflated v stalls learning but also caps that echo. So cleaning v alone should b
 (B\*) from one snapshot. Retroactive undo edits, the Reversible Moment Log (RML), remove the spike's share of m, v
 or both at a chosen lag, weights untouched. Damage is the held-out loss gap to B\*, read against a
 chaos floor from 1-ulp placebo forks. Four tests: the memory-written share (ordered by β1), protective v,
-interference between two spikes, and RML repair vs baselines such as skip-step.
+interference between two spikes, and RML repair vs baselines.
 
 **Tactics.**
 - Undo at lags 0…64 traces when memory writes the damage.
-- Re-planting the measured spike gradient gives dose, ±sign, two-spike and refractory probes.
+- Re-planting the spike gradient gives dose, ±sign, two-spike and refractory probes.
 - A w/m/v swap factorial and a β1 × β2 cross separate the channels.
 - An effect counts only at \|Δ/σ_chaos\| ≥ 2; thresholds are fixed before data.
 
@@ -34,7 +34,7 @@ direct, m-echo and v-stall parts.
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
-- Next: prereg-v3 (seeds 1–7, β arms; not tagged), then RML-1, RML-2 (built, not run) and RML-3 (unbuilt) side by side. Localizer and theory not built.
+- Next: prereg-v3 (seeds 1–7, β arms; not tagged), then RML-1, CWB (RML-1 + weights), RML-2 (both built, not run) and RML-3 (unbuilt) side by side. Localizer and theory not built.
 
 ---
 
@@ -177,7 +177,7 @@ AdaGC, and rollback-and-skip at matched compute.
 | Model: GPT-2-style nanoGPT, proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains (held-out loss 10.8 → 2.83 in 2,000 steps) | `research/model/` |
 | LR schedule (warmup + cosine / WSD), applied inside `train_forward`, so trunk, gate and every fork follow it; `lr_bump` and the cooldown arm scale it. No `schedule` key = constant LR, loop unchanged | ◐ written 2026-11-05, CI-tested (fdff507); not run on a GPU | `research/harness/schedule.py` |
 | Bit-flip faults: one fp32 bit of a gradient (`sdc_grad`), of v or of m, at a known step; a parity residual (AdamW's moment recurrence, checked each step) on B\* and B0 | ◐ written 2026-11-05, wired into `mve`, CI-tested (fdff507) | `research/autopsy/faults.py` |
-| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 11-20; CPU tests, not run on a GPU). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. Damage triage (PLAN_V8 R-F6, exploratory) is in `repair/triage.py`: it predicts which spikes leave damage and repairs nothing (PR #32, merged 11-20; CPU tests, not run on a GPU). The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
+| Localizer (which coordinates carry the damage), repair operator, theory | ⬜ stubs. RML-1 covers part of the repair; RML-2's core (coordinate probation) is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 11-20; CPU tests, not run on a GPU). RML-3 (row appeal) is designed, not built, and waits on its kill test; it restores through the same `undo.undo`. CWB (RML-1 + w, EXPERIMENT_CATALOG A5) is in `autopsy/cwb.py`, behind `mve --cwb` as `CWB@lag` and `RML-w@lag`: it also moves the weights, so the spike's update and its echo go without a rollback (exploratory; CPU tests, not run on a GPU). Damage triage (PLAN_V8 R-F6, exploratory) is in `repair/triage.py`: it predicts which spikes leave damage and repairs nothing (PR #32, merged 11-20; CPU tests, not run on a GPU). The localizer's output format is fixed in PLAN_V8 §6.4 | `research/localizer/`, `repair/`, `theory/` |
 | Factorial and causal-oracle modules; GPT-NeoX + Pythia state loader; QK-Norm / μP variants; figures | ⬜ not written | — |
 | Toy Hessian-vector product (double-backward) | ◐ written, needs fixes (PR #15). Its latest commit (9d9b2fa) adds an HVP and a top-k eigensolve; CI lint fails on it; not reviewed | — |
 
@@ -248,6 +248,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-20 | PRs #29 and #30 merged into main; CI installs scipy and statsmodels so `analysis/stats.py` can be tested |
 | 11-20 | Damage triage proposed (PLAN_V8 R-F6, Appendix A.3.1). At a detected spike, a small model predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come from prereg-v3's dose arms with no extra GPU runs. `repair/triage.py` and a read-only hook on `mve`'s dose arms (PR #32, merged 11-20; 102 tests green in CI on main, nothing run on a GPU) |
 | 11-20 | Next MI300X session booked. Open decision 6 built: `dose_meter` logs the 10/50/90% quantiles of x next to x̄ (PR #34, CPU test; it merges if the team says yes). Arya re-invited; proposed role: attribution (`analysis/attribution.py`) |
+| 11-21 | CWB built (RML-1 + w, EXPERIMENT_CATALOG A5, PLAN_V8 R-F7): a shadow AdamW state skips the spike window (`CWB@lag`, counterfactual skip-step) or steps on the clean twin's gradient (`RML-w@lag`, counterfactual B\*), then overwrites w, m and v at RML-1's lag. In `mve` behind `--cwb`; exploratory, gated offline by damage triage (CPU tests only, nothing run on a GPU) |
 
 ### 8 · Where things live
 

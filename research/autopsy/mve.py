@@ -2,7 +2,7 @@
 
     python -m research.autopsy.mve --config research/experiments/proxy/config.yaml \
         --kind corrupt_batch --inject-step 160 --out results/autopsy
-    python -m research.autopsy.mve ... --battery repair --lag 3          # C-4 repair battery
+    python -m research.autopsy.mve ... --battery repair --lag 3          # C-4 repair battery (--cwb: + A5 arms)
     python -m research.autopsy.mve --config ... --battery chaos --inject-step 1000 \
         --placebo 111 --placebo-channels w,g,opt --data-forks 8      # chaos floor only (docs/chaos_floor.md)
 
@@ -182,7 +182,7 @@ def phase_b(cfg, recipe, log0, dts, eps, coefs=(), dose_taus=(), extra=None):
     return br
 
 
-def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=None):
+def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=None, cwb_arms=False):
     """C-4: the Task-9 battery (Bs clip at 0.5x trunk clip, PLAN_V8 §7.2) + published baselines + RML
     (state-only, fired `lag` steps after the window -- a detector-timed lag, not the oracle):
     RML@lag = full m+v undo; RML-cool = m+v undo + global cooldown; RML-sel = m undo + v undo on the top
@@ -190,10 +190,13 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     RML-2 (autopsy/probation.py, docs/novelty/method.md §3; no clean twin, no lag): RML2 arms wherever x_i reaches
     the knee, RML2@win only inside the spike window (oracle timing). K = 3, level 3 SE. extra[name]["verdicts"] lists
     (armed step, closed step, verdict, phi, |S|).
+    `cwb_arms` (exploratory, EXPERIMENT_CATALOG A5; autopsy/cwb.py) adds CWB@lag, which also moves w by skipping the
+    window in a shadow state (its counterfactual is Bskipstep, no clean twin), and RML-w@lag, the same with the clean
+    twin's step in the window (its counterfactual is B*, RML-1 plus w). extra[name] gets a_norm and w_norm.
     `detector_t0` defaults to the step the same detector lag implies (window end + lag), so the detector-timed
     baselines (skip-step, rollback) act on the same information as RML instead of dropping out of the battery.
     `snap["rollback_snapshot"]` (set by run_instance) adds Brollback_k."""
-    from research.autopsy import probation, undo
+    from research.autopsy import cwb, probation, undo
     from research.harness.fork import Branch, compose, make_baseline_branches, make_branches
 
     window = list(range(recipe.inject_step, recipe.inject_step + recipe.width))
@@ -234,6 +237,12 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
         hook = probation.as_pre_opt_step(x_arm, arm_steps=arm_steps, out=st)
         extra[name] = {"x_arm": x_arm, "verdicts": st["verdicts"]}  # not st: open receipts hold tensors (JSON)
         br[name] = Branch(name, recipe.pre_step, cfg, hook)
+
+    if cwb_arms:  # opt-in, so the preregistered battery and its GPU cost stay as they were
+        for name, mode in ((f"CWB@{lag}", "skip"), (f"RML-w@{lag}", "clean")):
+            extra[name] = {}
+            fix, track = cwb.as_hooks(window, at, mode, data_dir=data_dir, out=extra[name])
+            br[name] = Branch(name, compose(recipe.pre_step, fix), cfg, track)
     return br
 
 
@@ -373,7 +382,8 @@ def run_instance(args) -> str:
         print(f"[{tag}] {name}: val@end={vals.get(last - shift)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":
-        for name, br in repair_battery(cfg, recipe, data_dir, snap, args.lag, args.detector_t0, extra).items():
+        battery = repair_battery(cfg, recipe, data_dir, snap, args.lag, args.detector_t0, extra, args.cwb)
+        for name, br in battery.items():
             run(name, br)
         return out_path
     if args.battery == "chaos":
@@ -466,6 +476,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--detector-t0", type=int, default=None, help="repair battery: detector step (default: window end + --lag)"
     )
+    ap.add_argument("--cwb", action="store_true", help="repair battery: add the CWB@lag and RML-w@lag arms (A5)")
     ap.add_argument("--data-dir", default=None)
     ap.add_argument("--shard", default="proxy")
     ap.add_argument("--out", default="results/autopsy")
