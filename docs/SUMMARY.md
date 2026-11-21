@@ -247,7 +247,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-20 | RML-2 wired into `mve` as the `RML2` and `RML2@win` arms; G0's inert-hook option (`xproc_gate --probation-inert`); three code issues fixed: `sdc_grad` bit 30 planting, GPU test order, `trunk.py`'s preflight order (CPU tests only) |
 | 11-20 | PRs #29 and #30 merged into main; CI installs scipy and statsmodels so `analysis/stats.py` can be tested |
 | 11-20 | Damage triage proposed (PLAN_V8 R-F6, Appendix A.3.1). At a detected spike, a small model predicts whether the spike will leave lasting damage, so only those spikes get repaired. Labels come from prereg-v3's dose arms with no extra GPU runs. `repair/triage.py` and a read-only hook on `mve`'s dose arms (PR #32, merged 11-20; 102 tests green in CI on main, nothing run on a GPU) |
-| 11-20 | Next MI300X session booked. Open decision 6 built: `dose_meter` logs the 10/50/90% quantiles of x next to x̄ (PR #34, CPU test; it merges if the team says yes). Arya re-invited; proposed role: theory (R-F2, R-F3) |
+| 11-20 | Next MI300X session booked. Open decision 6 built: `dose_meter` logs the 10/50/90% quantiles of x next to x̄ (PR #34, CPU test; it merges if the team says yes). Arya re-invited; proposed role: attribution (`analysis/attribution.py`) |
 
 ### 8 · Where things live
 
