@@ -329,6 +329,9 @@ def test_repair_battery_times_detector_arms_at_the_rml_lag(monkeypatch):
     assert all(br[n].pre_opt_step is not None for n in ("RML2", "RML2@win"))
     assert extra["RML2"]["x_arm"] == probation.x_knee(0.9, 0.95)
     assert json.loads(json.dumps(extra["RML2@win"])) == {"x_arm": extra["RML2"]["x_arm"], "verdicts": []}
+    assert not {"CWB@3", "RML-w@3"} & set(br)  # the A5 arms are opt-in
+    br = mve.repair_battery(cfg, recipe, "unused", {"meta": {}}, lag=3, cwb_arms=True)
+    assert all(br[n].pre_step is not None and br[n].pre_opt_step is not None for n in ("CWB@3", "RML-w@3"))
 
 
 def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_path, monkeypatch):
@@ -360,7 +363,7 @@ def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_pat
     out = tmp_path / "out"
     argv = ["--config", str(tmp_path / "cfg.yaml"), "--kind", "corrupt_batch", "--inject-step", str(inj)]
     argv += ["--battery", "repair", "--lag", str(lag), "--horizons", "4"]
-    argv += ["--data-dir", str(tmp_path), "--out", str(out), "--skip-preflight"]
+    argv += ["--data-dir", str(tmp_path), "--out", str(out), "--skip-preflight", "--cwb"]
 
     mve.main(argv)
     path = next(out.glob("*.json"))
@@ -373,6 +376,7 @@ def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_pat
     want = {str(h) for h in res["horizons"]}
     assert len(want) == 2 and all(set(br[n]["val"]) == want for n in ("B*", "Brollback", "Brollback_k"))
     assert all("verdicts" in br[n]["metrics"] for n in ("RML2", "RML2@win"))  # RML-2 ran and its log is in the JSON
+    assert all(br[n]["metrics"]["a_norm"] > 0 for n in ("CWB@1", "RML-w@1"))  # --cwb: both A5 arms committed
 
     kept = br.pop("Brollback_k")
     path.write_text(json.dumps(res))

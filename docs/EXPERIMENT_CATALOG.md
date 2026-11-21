@@ -314,6 +314,12 @@ sixteen names.**
 - **CPU test.** The policy picks the operator correctly from (τ, β1, β2).
 
 ### A5 · CWB: Counterfactual Weight Back-Projection (retroactive skip without rollback)
+- **Status (2026-11-21): built** as `research/autopsy/cwb.py`, wired into `mve --cwb` as `CWB@lag` and `RML-w@lag`
+  (PLAN_V8 R-F7). It is an explicit fp64 shadow AdamW state (w~ = w + A) rather than the moment-subtraction form
+  below. The shadow skips the window the way `Bskipstep` does (m, v and Adam's step frozen), so test (a) is exact
+  against `Bskipstep`; the subtraction form keeps the step count and puts v̄ in v, so it is not. A clean mode steps on
+  the clean twin's gradient instead (counterfactual B\*). Tests (a) and (b) are in `research/tests/test_cwb.py`,
+  CPU only; not run on a GPU.
 - **Counterfactual moments.** For k ≥ s on the flagged support (or all coordinates):
   - m̃_k = m_k − (1−β1)β1^{k−s} g_s;
   - ṽ_k = v_k − (1−β2)β2^{k−s}(g_s² − v̄).
