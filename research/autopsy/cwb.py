@@ -66,28 +66,28 @@ def as_hooks(window, at_step: int, mode: str = "skip", data_dir=None, clean_fn=N
         if step < window[0] or step >= at_step:
             return
         model, opt = ctx["model"], ctx["opt"]
+        if step == window[0]:  # fork the shadow from the live state; a rerun of the branch starts afresh
+            sh.clear()
+            wd = {id(p): g["weight_decay"] for g in opt.param_groups for p in g["params"]}
+            for n, p in model.named_parameters():
+                st = opt.state.get(p, {})
+                if "exp_avg" in st:
+                    sh[n] = {
+                        "w": p.detach().double().clone(),
+                        "m": st["exp_avg"].double().clone(),
+                        "v": st["exp_avg_sq"].double().clone(),
+                        "t": int(st["step"]),
+                        "wd": wd[id(p)],
+                    }
+        if step not in inside:
+            grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
+        elif mode == "skip":
+            return
+        elif clean_fn is not None:
+            grads = clean_fn(step, ctx)
+        else:  # a forward and backward pass, so it must stay outside no_grad
+            grads = undo.clean_final_grads(model, ctx["cfg"], data_dir, step)
         with torch.no_grad():
-            if step == window[0]:  # fork the shadow from the live state; a rerun of the branch starts afresh
-                sh.clear()
-                wd = {id(p): g["weight_decay"] for g in opt.param_groups for p in g["params"]}
-                for n, p in model.named_parameters():
-                    st = opt.state.get(p, {})
-                    if "exp_avg" in st:
-                        sh[n] = {
-                            "w": p.detach().double().clone(),
-                            "m": st["exp_avg"].double().clone(),
-                            "v": st["exp_avg_sq"].double().clone(),
-                            "t": int(st["step"]),
-                            "wd": wd[id(p)],
-                        }
-            if step not in inside:
-                grads = {n: p.grad for n, p in model.named_parameters() if p.grad is not None}
-            elif mode == "skip":
-                return
-            elif clean_fn is not None:
-                grads = clean_fn(step, ctx)
-            else:
-                grads = undo.clean_final_grads(model, ctx["cfg"], data_dir, step)
             adam(step, ctx["cfg"], grads)
 
     def pre_step(step, ctx):
