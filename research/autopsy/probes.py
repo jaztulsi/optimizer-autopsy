@@ -58,7 +58,12 @@ def planted_clean_fn(G: dict, at: dict):
 def dose_meter(G_by_step: dict, coef: float, out: dict):
     """Read-only `pre_opt_step` (chain it AFTER the plant): the pre-registered M5 dose (PLAN_V8 §2)
     x_bar = sum_i |u_i| x_i / sum_i |u_i|, x_i = (1-b2)(coef G_i)^2 / v_bar_i, v_bar = v before the spike
-    step, u = that step's weight update; summed over the window. Writes out["xbar"]."""
+    step, u = that step's weight update; summed over the window. Writes out["xbar"], plus out["x_q10"], ["x_q50"] and
+    ["x_q90"]: the unweighted 10/50/90% quantiles of x on the hit support (every coordinate with G_i != 0, window steps
+    pooled; docs/prereg_v3.md open decision 6). Two doses can share x_bar while their spread of x differs."""
+    import numpy as np
+
+    hits = []  # ponytail: exact quantiles from a CPU copy of every hit x; a histogram if 124M host memory binds
 
     def hook(step, ctx):
         G = G_by_step.get(step)
@@ -69,8 +74,10 @@ def dose_meter(G_by_step: dict, coef: float, out: dict):
         for n, p in ctx["model"].named_parameters():
             st = opt.state.get(p, {})
             if n in G and "exp_avg_sq" in st:
-                x = (1 - b2) * (coef * G[n].to(p.device)) ** 2 / st["exp_avg_sq"].clamp_min(1e-30)
+                g = G[n].to(p.device)
+                x = (1 - b2) * (coef * g) ** 2 / st["exp_avg_sq"].clamp_min(1e-30)
                 pre[n] = (p, p.detach().clone(), x)
+                hits.append(x[g != 0].cpu().numpy())
 
         def after():
             for p, w0, x in pre.values():
@@ -78,6 +85,9 @@ def dose_meter(G_by_step: dict, coef: float, out: dict):
                 out["num"] = out.get("num", 0.0) + float((u * x).sum())
                 out["den"] = out.get("den", 0.0) + float(u.sum())
             out["xbar"] = out["num"] / out["den"] if out.get("den") else None
+            xs = np.concatenate(hits) if hits else np.empty(0)
+            qs = np.quantile(xs, (0.1, 0.5, 0.9)).tolist() if xs.size else [None] * 3
+            out.update(zip(("x_q10", "x_q50", "x_q90"), qs))
 
         return after
 
