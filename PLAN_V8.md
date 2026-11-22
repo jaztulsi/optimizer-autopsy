@@ -1152,6 +1152,13 @@ applies again *(proposed)*: P1 moves to NeurIPS 2027, plus an ICML-workshop pape
 ---
 
 ## 14 · Change log
+- **2026-11-21 (R-F2 written: the m+v coupling law; CPU test only, nothing run on a GPU):** the R-F2 row in
+  Appendix A.3 updated. `research/theory/coupling.py` gives R_v and π from the linear response of Adam to one spike
+  (open loop, a quadratic loss, dominated coordinates), with no fitted parameter. Its large-dose limit is set by
+  r = β1/√β2. `research/theory/README.md` freezes the predictions and an exploratory scoring rule on prereg-v3's
+  E1, E2 and β1 arms (16 cells: level within 0.15, order, and the expected direction of failure) before any v3
+  run. The CI test drives torch AdamW through `undo`'s record and undo hooks. Prior art: PARTIAL (Liu & Li 2026;
+  Patitucci & Mokhtari 2026). Adding it to prereg-v3 as a secondary row is the team's call before the tag.
 - **2026-11-21 (RML-1 + w: CWB built; branch `feat/rml1-cwb`, CPU tests only, nothing run on a GPU):** R-F7 added
   to Appendix A.3 and §6.5. `research/autopsy/cwb.py` implements EXPERIMENT_CATALOG A5 as an explicit fp64 shadow
   AdamW state (w~ = w + A) that skips the window (`CWB@lag`, counterfactual `Bskipstep`) or steps on the clean twin's
@@ -1321,7 +1328,7 @@ kill-searched.
 | #8 | Strong baseline set; best-baseline primary contrast | TAKEN (baselines) | Core |
 | #27 / #28 | Edit-size Pareto with matched `Br`; recovery per GPU-second vs rollback | PARTIAL | Core |
 | R-F1 (2026-11-16) | RML-2+3 routing: row-level appeal for partial batches, coordinate probation for whole-batch events (§6.5) | NEW within the project; prior-art check owed | Core (stress bed) |
-| R-F2 (2026-11-16) | m+v coupling law: linearise Adam around the spike. Undoing v alone lowers v on the spiked coordinates, so 1/√v raises their step size and amplifies the m left behind. Predicts the undo-v / undo-m+v damage ratio from β1, β2 and lag; scored on prereg-v3's β1 and β2 arms (no extra GPU) | Prior-art check owed (Adam SDE and linearised-response work) | Core (theory, Fig 2) |
+| R-F2 (2026-11-16; written 2026-11-21) | m+v coupling law: linearise Adam around the spike. Undoing v alone lowers v on the spiked coordinates, so 1/√v raises their step size and amplifies the m left behind. Predicts the undo-v / undo-m+v damage ratio R_v and the protection share π from β1, β2, lag, the steps left and the logged dose x̄, with no fitted parameter; π is the scored form (R_v only as a bound, since Y(undo-m+v) is predicted to sit in the chaos floor). Scored on prereg-v3's E1, E2 and β1 arms (no extra GPU). Built: `research/theory/coupling.py`; frozen prediction and scoring rule in `research/theory/README.md`. CPU test only | No source derives the ratio or π (2026-11-21 searches). PARTIAL: Liu & Li [2608.19762](https://arxiv.org/abs/2608.19762) linearise (θ, m, v) but keep the dose term (1−β2)ξ² out of their operator (§3.3); Patitucci & Mokhtari [2602.10204](https://arxiv.org/abs/2602.10204) (temporal coupling) | Core (theory, Fig 2) |
 | R-F3 (2026-11-16) | Bounded null: an upper bound on lasting damage from clip norm, β2 and dose, so "no lasting damage at a realistic dose" is a stated bound that the measurement checks, not only a null | Prior-art check owed | Core (theory) |
 | R-F4 (2026-11-16) | Damage forecast from the stability margin at fork time (preconditioned sharpness against 2/η), read on the E3 floor-curve forks; RML-2's forecast layer would use it | PARTIAL (Cohen et al. 2022, adaptive edge of stability) | Stretch, no extra GPU |
 | R-F5 (2026-11-16) | Why all 10 data-order forks ended below B\*: analysis of the existing prereg-v2 files | analysis only | Core (no GPU) |

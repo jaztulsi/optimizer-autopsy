@@ -378,7 +378,9 @@ def run_instance(args) -> str:
         }
         if pr:
             res["branches"][name]["parity"] = _parity_summary(pr, args.inject_step)
-        json.dump(res, open(out_path, "w"), indent=1)
+        with open(out_path + ".tmp", "w") as f:  # then rename: a kill mid-write (Exea's 13:00 stop) can't truncate it
+            json.dump(res, f, indent=1)
+        os.replace(out_path + ".tmp", out_path)
         print(f"[{tag}] {name}: val@end={vals.get(last - shift)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":

@@ -17,11 +17,11 @@ All code lives under `research/`. The repo-root `index.html` is the GitHub Pages
 | `analysis/` | held-out eval (token-disjoint slots), stats, attribution, figures | ◐ eval done; stats partial (no sign-flip test yet); figures stub (PR #23 open, dummy data) |
 | `localizer/` | **C2**: which state coordinates carry the damage (SNR, curvature, poison score) | ⬜ stubs (output contract: PLAN_V8 §6.4) |
 | `repair/` | **C3**: edit the localized optimizer state | ⬜ stub; RML-1 in `autopsy/` covers part of it. RML-2's core is in `autopsy/probation.py` (PR #27), wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 2026-11-20; CPU tests, not run on a GPU); RML-3 is designed (PLAN_V8 §6.5), unbuilt. CWB (RML-1 + w, A5) is `autopsy/cwb.py`, behind `mve --cwb` (CPU tests, not run on a GPU). `triage.py`: damage triage (PLAN_V8 R-F6, exploratory), a read-only feature hook on `mve`'s dose arms and a numpy logistic fit (PR #32, merged 2026-11-20; CPU tests, not run on a GPU) |
-| `theory/` | closed-form predictions (ψ_k, AR(2), echo / stall laws) | ⬜ README only |
+| `theory/` | closed-form predictions (ψ_k, AR(2), echo / stall laws) | ◐ `coupling.py`: R-F2's m+v coupling law, CPU-tested (`tests/test_coupling.py`), frozen prediction in `README.md`; the rest not written |
 | `data/` | tokenize + shard the corpus (uint16 memmap; a batch is a pure function of the step) | ✅ |
 | `model/` | nanoGPT: proxy (≈ 11M params, ≈ 1.3M outside the tied token embedding) and 124M | ✅ proxy trains on the MI300X |
 | `experiments/` | `proxy/` and `llm124m/` configs; their drivers (`smoke.py`, `run.py`) are TODO stubs; use `autopsy.mve` | ◐ |
-| `gpu/` | `step_timer`, the cross-process gate `xproc_gate.py`, older evidence scripts; all run on the MI300X (this folder was `kaggle/` until 2026-11-01) | ✅ ran on the MI300X |
+| `gpu/` | `step_timer`, the cross-process gate `xproc_gate.py`, older evidence scripts; all run on the MI300X (this folder was `kaggle/` until 2026-11-01). `exea_prereg_v3.sh`: prereg-v3's runner for Exea Reserve, which the root `exea.md` calls; it can resume | ✅ ran on the MI300X; `exea_prereg_v3.sh` not run |
 | `tests/` | CPU tests, run in GitHub CI only | ✅ |
 
 ## Compute
