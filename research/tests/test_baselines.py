@@ -221,9 +221,9 @@ def test_spam_fork_warmup_follows_only_resets_the_fork_ran():
         assert all(spam.phase(s, start=start) == _v2_phase(s) for s in range(start, 2000)), start
     # make_baseline_branches passes start = inject_step: Bspam forked at 1000 neither damps nor skips clipping.
     recipe = SimpleNamespace(pre_step=None, inject_step=1000, width=1)
-    rec = _spam_call(make_baseline_branches(_CFG, recipe)["Bspam"], 1000)[0]
+    rec = _spam_call(make_baseline_branches(_CFG, recipe)["Bspam"].pre_opt_step, 1000)[0]
     assert rec["scale"] == 1.0 and rec["clipped"] == 2 and not rec["reset"]
-    rec = _spam_call(make_baseline_branches(_CFG, recipe, spam_params={"start": 0})["Bspam"], 1000)[0]
+    rec = _spam_call(make_baseline_branches(_CFG, recipe, spam_params={"start": 0})["Bspam"].pre_opt_step, 1000)[0]
     assert rec["scale"] < 0.02 and rec["clipped"] == 0  # the override restores the old clock
 
 
