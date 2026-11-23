@@ -286,7 +286,9 @@ def make_baseline_branches(
     clip value as their own cap. Both are stateful -- pass the `state_dict()` of a copy primed on the
     trunk via `observer()` (see their module docstrings), or they start cold. `run_branch` deep-copies the
     hook each run, so a branch can be reused (second seed, determinism check) and always starts from the
-    primed state. `spam_params` overrides SPAM's paper defaults (for all three SPAM arms).
+    primed state. `spam_params` overrides SPAM's paper defaults (for all three SPAM arms). SPAM's warmup
+    and grace follow only resets the fork itself ran (`start` = inject_step, the fork's first step; see
+    baselines/spam.py); pass `spam_params={"start": 0}` for the pre-2026-11-22 clock.
 
     Bspam_clip and Bspam_reset split SPAM into its two halves (prereg-v3 P5(b)): Bspam_clip is spike-aware
     clipping alone (delta_t = 0: no momentum reset, so no post-reset warmup either); Bspam_reset is the
@@ -316,7 +318,7 @@ def make_baseline_branches(
 
     max_norm = _baseline_max_norm(cfg)
     inj, w = recipe.inject_step, recipe.width
-    sp = dict(spam_params or {})
+    sp = {"start": inj, **(spam_params or {})}  # forks start at inject_step; start=0 = v2's all-global clock
     sp_clip, sp_reset = {**sp, "delta_t": 0}, {**sp, "theta": 0.0}  # SPAM's two halves, apart
     optional = {}
     if detector_t0 is not None:

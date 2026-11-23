@@ -12,8 +12,12 @@ final, accumulated + clipped gradient, right before `opt.step()`):
      (v is ~0 there, so every entry would read as a spike).
   3. Cosine warmup: for `warmup` steps after each reset the update is scaled from 0.01 up to 1.
 
-All three schedules are keyed to the GLOBAL step (training step 0 = SPAM's first step), so a fork at
-step T is in the same reset/clip/warmup phase as if SPAM had run from the start of training.
+Resets are keyed to the GLOBAL step (training step 0 = SPAM's first step), so a fork at step T resets at
+the same steps as SPAM run from the start of training. Warmup and grace follow only a reset SPAM itself ran:
+the trunk is plain AdamW, so a fork that starts SPAM at `start` > 0 inherits a primed v and no reset. It runs
+at full LR with clipping on until its own first reset. (Until 2026-11-22 the warmup clock also ran from step
+0. The fork from step 1000 then started in the warmup after a step-999 reset that never happened: about 1%
+LR at the spike, and no clipping for 19 steps. `start=0` reproduces that.)
 
 REPORT SPAM PER SITE, never pooled across spike sites: its resets run on a fixed clock (every
 `delta_t` steps), so what it does to a spike depends on where the spike lands. With delta_t=500 the first
@@ -57,14 +61,25 @@ def warmup_scale(c: int, warmup: int = WARMUP) -> float:
     return 1.0 - 0.99 * (1.0 + math.cos(math.pi * c / (warmup + 1))) / 2.0
 
 
-def phase(step: int, *, theta: float = THETA, delta_t: int = DELTA_T, warmup: int = WARMUP, grace: int = GRACE):
+def phase(
+    step: int,
+    *,
+    theta: float = THETA,
+    delta_t: int = DELTA_T,
+    warmup: int = WARMUP,
+    grace: int = GRACE,
+    start: int = 0,
+):
     """What SPAM does at global `step`: (reset_now, clip_on, update_scale). Pure. `delta_t=0` disables
-    resets (and so warmup)."""
+    resets (and so warmup). `start`: the first step SPAM runs (a fork's start step; 0 = from scratch)."""
     cur = step + 1  # 1-based count of optimizer steps taken, including this one
     reset_now = delta_t > 0 and cur % delta_t == 0
-    clip_on = theta != 0 and cur >= grace and (delta_t == 0 or cur % delta_t >= grace)
-    # No warmup before the first reset; after a reset the warmup clock is 0 on the reset step itself.
-    scale = warmup_scale(cur % delta_t, warmup) if delta_t > 0 and cur >= delta_t else 1.0
+    # Steps since the last reset SPAM ran (0 on the reset step itself); None before its first one. The last
+    # global reset was step cur - cur % delta_t - 1; it ran only if that is >= start.
+    since = cur % delta_t if delta_t > 0 and cur - cur % delta_t > start else None
+    # Grace: v ~ 0 just after a reset, and at step 0 of training; a fork's inherited v is primed.
+    clip_on = theta != 0 and (start > 0 or cur >= grace) and (since is None or since >= grace)
+    scale = warmup_scale(since, warmup) if since is not None else 1.0
     return reset_now, clip_on, scale
 
 
@@ -88,13 +103,16 @@ def spike_clip_(opt, theta: float = THETA) -> int:
     return n
 
 
-def as_pre_opt_step(*, theta: float = THETA, delta_t: int = DELTA_T, warmup: int = WARMUP, grace: int = GRACE):
+def as_pre_opt_step(
+    *, theta: float = THETA, delta_t: int = DELTA_T, warmup: int = WARMUP, grace: int = GRACE, start: int = 0
+):
     """A `pre_opt_step(step, ctx)` running SPAM's reset -> clip -> warmup for this step on ctx['opt'].
-    Records {reset, clipped, scale} in ctx['spam'] for logging; returns an undo() when it scaled the LR."""
+    Records {reset, clipped, scale} in ctx['spam'] for logging; returns an undo() when it scaled the LR.
+    `start`: the step the fork starts at (see `phase`)."""
 
     def pre_opt_step(step, ctx):
         opt = ctx["opt"]
-        reset_now, clip_on, scale = phase(step, theta=theta, delta_t=delta_t, warmup=warmup, grace=grace)
+        reset_now, clip_on, scale = phase(step, theta=theta, delta_t=delta_t, warmup=warmup, grace=grace, start=start)
         if reset_now:
             zero_moments(opt)
         clipped = spike_clip_(opt, theta) if clip_on else 0

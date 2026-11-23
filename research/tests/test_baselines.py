@@ -197,6 +197,36 @@ def test_spam_params_reach_all_three_arms_but_never_undo_the_split():
     assert _spam_call(arms["Bspam_reset"], 250)[0]["clipped"] == 0
 
 
+def _v2_phase(step, *, theta=spam.THETA, delta_t=spam.DELTA_T, warmup=spam.WARMUP, grace=spam.GRACE):
+    """spam.phase as it was before 2026-11-22 (reset, clip and warmup all on the global clock), verbatim."""
+    cur = step + 1
+    reset_now = delta_t > 0 and cur % delta_t == 0
+    clip_on = theta != 0 and cur >= grace and (delta_t == 0 or cur % delta_t >= grace)
+    scale = spam.warmup_scale(cur % delta_t, warmup) if delta_t > 0 and cur >= delta_t else 1.0
+    return reset_now, clip_on, scale
+
+
+def test_spam_fork_warmup_follows_only_resets_the_fork_ran():
+    # start=0 (the default) is the old all-global clock, bit for bit -- prereg-v2 stays reproducible.
+    for kw in ({}, {"delta_t": 100}, {"delta_t": 0}, {"theta": 0.0}, {"grace": 5, "warmup": 30}):
+        assert all(spam.phase(s, start=0, **kw) == _v2_phase(s, **kw) for s in range(2100)), kw
+    # Fork from 1000 (prereg-v3 P5(b)): the trunk never reset at 999, so the spike step runs at full LR with
+    # clipping on -- the old clock gave ~1% LR and no clipping there.
+    assert _v2_phase(1000) == (False, False, spam.warmup_scale(1))  # the old clock, for the record
+    assert all(spam.phase(s, start=1000) == (False, True, 1.0) for s in range(1000, 1499))
+    assert spam.phase(1499, start=1000) == (True, False, spam.warmup_scale(0))  # its own first reset: as before
+    assert all(spam.phase(s, start=1000) == _v2_phase(s) for s in range(1499, 2000))
+    # Fork from 1800, and forks before the first reset (sites 160, 480): unchanged.
+    for start in (160, 480, 1800):
+        assert all(spam.phase(s, start=start) == _v2_phase(s) for s in range(start, 2000)), start
+    # make_baseline_branches passes start = inject_step: Bspam forked at 1000 neither damps nor skips clipping.
+    recipe = SimpleNamespace(pre_step=None, inject_step=1000, width=1)
+    rec = _spam_call(make_baseline_branches(_CFG, recipe)["Bspam"], 1000)[0]
+    assert rec["scale"] == 1.0 and rec["clipped"] == 2 and not rec["reset"]
+    rec = _spam_call(make_baseline_branches(_CFG, recipe, spam_params={"start": 0})["Bspam"], 1000)[0]
+    assert rec["scale"] < 0.02 and rec["clipped"] == 0  # the override restores the old clock
+
+
 def test_spam_resets_on_the_last_step_of_a_2000_step_run():
     # prereg-v3 runs max_steps = 2000: steps 0..1999. Resets fall at 499, 999, 1499 AND 1999, so every SPAM arm
     # with resets ends on one -- including a fork from 1800, which therefore is not reset-free.
