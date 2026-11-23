@@ -15,6 +15,8 @@ truth (location + cause) to score the localizer/detector against:
   (g) sdc_grad / v_bitflip / m_bitflip -- one fp32 bit flipped in a gradient element (before the clip) or in
                       stored Adam v / m, at `inject_step` (width 1). Silent-data-corruption ground truth;
                       see research/autopsy/faults.py.
+  (h) hard_rows    -- replace rows of the REAL batch with the highest-loss real rows of a fresh pool: the control
+                      RML-3's Appeal should keep, beside repeat_ngram's junk (docs/novelty/rml3_method.md §1.4).
 
 Each recipe is delivered as a `pre_step(step, ctx)` hook for `trunk.train_forward` -- it perturbs
 ONLY inside `[inject_step, inject_step+width)` and is otherwise a no-op. This keeps the base `cfg`
@@ -142,6 +144,43 @@ def _repeat_ngram(cfg, inject_step, width, n=8, frac=0.25, data_dir=None, seed=0
     return pre_step, f"repeated {n}-gram rows (frac={frac}) over steps [{inject_step},{inject_step + width})"
 
 
+def _hard_rows(cfg, inject_step, width, frac=0.25, pool=4, data_dir=None):
+    """The first ceil(frac*B) rows of the real batch become the highest-loss rows, at the current weights, of `pool`
+    fresh batches of training rows. Each step reads its own pool slots, from slot 2 * max_steps * grad_accum on, so
+    rows never repeat across a sustained stream. No random numbers. Raises if the pool would wrap past the shard's
+    end into data the run trains on (a 100-step stream at the proxy's 16,384 tokens a slot ends near 72M tokens)."""
+    if not 0 < frac <= 1 or pool < 1:
+        raise ValueError(f"need 0<frac<=1 and pool>=1, got frac={frac}, pool={pool}")
+    if data_dir is None:
+        raise ValueError("hard_rows needs data_dir")
+
+    def pre_step(step, ctx):
+        if not _in_window(step, inject_step, width):
+            return
+        import torch
+
+        from research.autopsy.appeal import row_losses
+        from research.data.prepare import _memmap, get_batch
+
+        m, c = ctx["model"], ctx["cfg"]
+        b, blk, ga = c["train"]["batch_size"], m.cfg.block_size, c["train"].get("grad_accum", 1)
+        dev = next(m.parameters()).device
+        # ponytail: 2 * max_steps is past every slot a trunk or fork reads here (fork horizons stay under max_steps);
+        # a longer fork would need a pool_start argument
+        slots = [2 * c["train"]["max_steps"] * ga + pool * (step - inject_step) + j for j in range(pool)]
+        if (slots[-1] + 1) * b * blk > len(_memmap(data_dir, "train")) - blk - 1:
+            raise ValueError(f"hard_rows pool slot {slots[-1]} wraps past the end of the train shard")
+        x, y = get_batch("train", step * ga, b, blk, data_dir, dev)
+        px, py = (torch.cat(t) for t in zip(*(get_batch("train", s, b, blk, data_dir, dev) for s in slots)))
+        loss = torch.cat([row_losses(m, a, t) for a, t in zip(px.split(b), py.split(b))])
+        top = loss.argsort(descending=True, stable=True)[: max(1, math.ceil(frac * b))]
+        x, y = x.clone(), y.clone()
+        x[: len(top)], y[: len(top)] = px[top], py[top]
+        ctx["batch"] = (x, y)
+
+    return pre_step, f"top-loss real rows (frac={frac}, pool={pool}) over steps [{inject_step},{inject_step + width})"
+
+
 def _v_inflate(cfg, inject_step, width, factor=1e4, targets=("transformer.h.0.attn.c_attn.weight",)):
     targets = tuple(targets)
 
@@ -167,6 +206,7 @@ _BUILDERS = {
     "precision": _precision,
     "corrupt_batch": _corrupt_batch,
     "repeat_ngram": _repeat_ngram,
+    "hard_rows": _hard_rows,
     "v_inflate": _v_inflate,
     "sdc_grad": sdc_grad,
     "v_bitflip": v_bitflip,
@@ -178,7 +218,7 @@ RECIPES = tuple(_BUILDERS)
 def induce(kind: str, cfg: dict, inject_step: int, width: int = 1, **params) -> SpikeRecipe:
     """Build a `SpikeRecipe` of `kind` that perturbs `[inject_step, inject_step+width)`. Extra kwargs
     tune the recipe (factor= for lr_bump/v_inflate, eps= for tiny_eps, dtype= for precision, n=/frac=/
-    data_dir= for repeat_ngram, targets= for v_inflate)."""
+    data_dir= for repeat_ngram, frac=/pool=/data_dir= for hard_rows, targets= for v_inflate)."""
     if kind not in _BUILDERS:
         raise ValueError(f"unknown spike kind {kind!r}; choose from {RECIPES}")
     if inject_step < 0 or width < 1:
@@ -203,7 +243,8 @@ def _selfcheck() -> None:
     def fake_opt():  # opt.param_groups is just a list of dicts, exactly what recipes mutate
         return SimpleNamespace(param_groups=[{"lr": base_lr, "eps": base_eps}, {"lr": base_lr, "eps": base_eps}])
 
-    assert set(RECIPES) == {"lr_bump", "tiny_eps", "precision", "corrupt_batch", "repeat_ngram", "v_inflate"} | {
+    assert set(RECIPES) == {"lr_bump", "tiny_eps", "precision", "corrupt_batch", "repeat_ngram", "hard_rows"} | {
+        "v_inflate",
         "sdc_grad",
         "v_bitflip",
         "m_bitflip",
@@ -238,15 +279,16 @@ def _selfcheck() -> None:
     r.pre_step(2, ctx)  # outside window -> untouched, no torch import
     assert ctx["batch"] is None
 
-    # (e, f) repeat_ngram / v_inflate: outside their windows they are no-ops (no torch, no model needed).
-    for kind in ("repeat_ngram", "v_inflate", "sdc_grad", "v_bitflip", "m_bitflip"):
-        r = induce(kind, cfg, inject_step=6, width=1, **({"frac": 1.0} if kind == "repeat_ngram" else {}))
+    # (e, f, h) repeat_ngram / v_inflate / hard_rows: outside their windows they are no-ops (no torch, no model needed).
+    kw = {"repeat_ngram": {"frac": 1.0}, "hard_rows": {"data_dir": "unread"}}
+    for kind in ("repeat_ngram", "hard_rows", "v_inflate", "sdc_grad", "v_bitflip", "m_bitflip"):
+        r = induce(kind, cfg, inject_step=6, width=1, **kw.get(kind, {}))
         ctx = {"batch": None}
         r.pre_step(2, ctx)
         assert ctx["batch"] is None, kind
 
     assert set(RECIPES) == set().union(*[{k} for k in _BUILDERS])  # all builders dispatchable
-    print("induce selfcheck OK: 9 recipes, window timing + LR/eps/precision control verified (torch-free)")
+    print("induce selfcheck OK: 10 recipes, window timing + LR/eps/precision control verified (torch-free)")
 
 
 if __name__ == "__main__":
