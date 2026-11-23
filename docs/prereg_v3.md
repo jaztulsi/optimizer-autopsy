@@ -1,7 +1,8 @@
-# Pre-registration v3 (DRAFT): replication, the 2 × 2 split, and the β regime
+# Pre-registration v3: replication, the 2 × 2 split, and the β regime
 
-**DRAFT, written 2026-11-12. Not signed off. Not tagged. It governs nothing until Jasraj signs it and the git tag
-`prereg-v3` exists.** Every threshold below is a proposal the team can change before the tag and not after. Background
+Written 2026-11-12, **before** any run it governs. Its nine open decisions were answered on 2026-11-22 (PR #42) and
+it was signed off by Jasraj on 2026-11-23 UTC. **Frozen by the git tag `prereg-v3`; nothing below may change after
+the tag.** Deviations go in the results note, as v2's did. Background
 and reasoning: `docs/novelty/upgraded_plan.md`. `docs/prereg_v2.md` is frozen and was not edited.
 
 ## Status of what came before
@@ -89,10 +90,14 @@ The SPAM split that v3's first draft put in P5 is secondary (S3), for the reason
 
 S3 is read at step 1000 only. SPAM resets when `(step + 1) % 500 == 0`, so at steps 499, 999, 1499 and 1999. A fork
 from step 1800 meets only the reset at step 1999, its last step, so it cannot show what a reset costs. The fork from
-step 1000 meets the reset at 1499. S3 is secondary because `spam.phase` counts SPAM's clock from global step 0
-while the trunk is plain AdamW: in the fork from step 1000, `Bspam_reset` runs the spike step at about 1% LR (the
-warmup after the step-999 reset the fork never ran), so its Y mixes the reset at 1499 with a muted spike. The
-results note states this, and that v2's `Bspam` at step 1000 ran with the same warmup.
+step 1000 meets the reset at 1499. S3 was made secondary because `spam.phase` counted SPAM's clock from global
+step 0 while the trunk is plain AdamW: in the fork from step 1000, `Bspam_reset` ran the spike step at about 1% LR
+(the warmup after the step-999 reset the fork never ran). PR #43 fixed that before the tag: v3's SPAM arms
+(`Bspam`, `Bspam_clip`, `Bspam_reset`) restart warmup and grace only after a reset the fork itself ran
+(`spam.phase(..., start=inject_step)`, set in `fork.make_baseline_branches`), so the spike step runs at full LR, with
+clipping on in the arms that clip. S3 stays secondary at sign-off: its two arms have not run on any seed, and adding it to Family A now
+would change that family's testing order. The results note states that v2's `Bspam` at step 1000 ran with the old
+clock (`start=0` reproduces it).
 
 **v2's hypotheses on seeds 1 to 4, as written in v2.** H-B, H-C, H-D, H-E and H-F are scored per seed with that
 seed's own floor, at the phases and doses run, and reported as "holds in k of 4 seeds". Two narrowings are declared
@@ -129,9 +134,9 @@ step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
 - The T1 pilot used seed 0 only (`results/mi300x_2026-10-27/t1_pilot/run.sh`, `--seed 0`, inject at 160), so seeds
   1–7 have not been run in any form.
 
-## Open decisions before the tag (for the team)
-Each decision had a suggested answer (Jasraj's draft, 2026-11-20). All are decided as of 2026-11-22, and the text
-above matches. The team can still change any of them before the tag, not after.
+## Decisions made before the tag
+Each decision had a suggested answer (Jasraj's draft, 2026-11-20). All were decided on 2026-11-22 (PR #42), and the
+text above matches. They are frozen by the tag.
 
 1. Seven seeds, or five with t-tests from the start.
    **Decided: seven.** Five seeds cannot pass the exact test (smallest p 1/32 > 0.025), and a t-test on five values
@@ -174,7 +179,8 @@ above matches. The team can still change any of them before the tag, not after.
    **Decided: horizon 999 is added, and P5(b) moves to the secondary table as S3.** Both problems below are
    real, and the clock fix is in `spam.py`, Eddie's code; PR #28 merged on 22 Nov without it. Holding the tag
    for it would delay E1, so the split is reported with intervals and no claim. If the clock fix lands before
-   the tag, S3 can move back into Family A. The reasoning, as drafted on 2026-11-20:
+   the tag, S3 can move back into Family A. **At sign-off:** the fix landed first (PR #43); S3 stays secondary
+   (see under S3). The reasoning, as drafted on 2026-11-20:
    - **The last reset:** read P5(b) at step 1998 by adding 999 to the remedy battery's `--horizons` for the fork
      from step 1000 (`mve` reads a horizon h as step inject + h − 1). No GPU. Changing `max_steps` would also move
      every other result and break the comparison with v2.
@@ -207,7 +213,7 @@ The fork-step counts include replaying the trunk to the injection step for every
 forks per core invocation and 17 per remedy battery. Both counts are my reading of the battery, not a measurement.
 The other 4.0 hours go to the RML block (PLAN_V8 §11.2), which this document does not cover (open decision 2).
 
-## Run (draft commands; none has been run)
+## Run (none has been run)
 ```bash
 CFG=results/mi300x_2026-10-27/t1_pilot/config.yaml
 A="--config $CFG --kind corrupt_batch --data-dir $DATA"
@@ -229,6 +235,7 @@ python -m research.autopsy.mve $A --seed $SEED --betas $B1,0.95 --inject-step 18
     --out $OUT/s${SEED}_b1_${B1}
 # E3: the chaos battery of docs/chaos_floor.md with --seed 1 and --inject-step in 160 500 1000 1400 1800 1950
 ```
-The flags are the ones `research/autopsy/mve.py` accepts today. The commands were not dry-run; check them in CI or
-on the GPU box before the tag. `research/gpu/exea_prereg_v3.sh` runs these same commands on Exea Reserve (`exea.md`),
+The flags are the ones `research/autopsy/mve.py` accepts today: at sign-off every flag above was checked against its
+argparse by reading the code (empty lists such as `--dts ""` parse to `[]`). The commands were not dry-run; a flag error
+stops a command at its first seed, before its later seeds run. `research/gpu/exea_prereg_v3.sh` runs these same commands on Exea Reserve (`exea.md`),
 together with G0 and the cost rule; if one changes, change the other to match.
