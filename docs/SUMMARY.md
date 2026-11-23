@@ -34,7 +34,7 @@ direct, m-echo and v-stall parts.
   "no lasting damage at realistic dose" applies.
 - At 10× and 30×: undoing m+v removes 73–103% of the damage; undoing v alone is 2–24× worse.
 - RML at lag 3 closed 68% at step 1800 (bar: 80%).
-- Next: prereg-v3 (seeds 1–7, β arms; not tagged), then RML-1, CWB (RML-1 + w), RML-2 (built, not run) and RML-3 (unbuilt). R-F2 predicts v3's β arms. Localizer: CPU-tested only.
+- Next: prereg-v3 (seeds 1–7, β arms; tagged 11-23, not run), then RML-1, CWB (RML-1 + w), RML-2 (built, not run) and RML-3 (unbuilt). R-F2 predicts v3's β arms. Localizer: CPU-tested only.
 
 ---
 
@@ -182,7 +182,7 @@ AdaGC, and rollback-and-skip at matched compute.
 
 **Known code issues:**
 - Fixed in PR #30 (merged 11-20; CPU tests in CI, nothing run on a GPU): `mve` no longer plants phase-B arms for `sdc_grad` at bit 30, which on a GPU planted a reversed gradient; the test suite stays on the CPU on a GPU machine (`research/tests/conftest.py`), so its seeding tests no longer fail there; `trunk.py`'s `main` runs the environment check in a child process, as `mve` does, instead of crashing after CUDA starts.
-- SPAM's warmup clock counts from the global step. A fork from step 1000 therefore starts `Bspam` and `Bspam_reset` inside the warmup that follows SPAM's step-999 reset, which the fork never ran: the spike step runs at about 1% LR and full LR returns only at step 1149, while `Bspam_clip` runs at full LR. Full `Bspam` does not clip the spike either: step 1000 falls in the 20-step grace after that reset. For this reason PR #42 reads the SPAM split as secondary S3, with no claim (decision 9 in [`prereg_v3.md`](prereg_v3.md)). PR #43 (open, waits for sign-off) fixes it: warmup and grace now follow only resets the fork itself ran, and forks from 160, 480 and 1800 are unchanged. prereg-v2's `Bspam` at step 1000 had the same warmup.
+- Fixed before the prereg-v3 tag (PR #43): SPAM's warmup clock counted from the global step, so a fork from step 1000 started `Bspam` and `Bspam_reset` inside the warmup after SPAM's step-999 reset, which the fork never ran (the spike step at about 1% LR, and full `Bspam` inside its 20-step grace, so no clipping). Warmup and grace now follow only resets the fork itself ran; forks from 160, 480 and 1800 are unchanged. prereg-v2's `Bspam` at step 1000 ran with the old clock (`start=0` reproduces it). The SPAM split stays secondary S3 in prereg-v3 (decision 9 in [`prereg_v3.md`](prereg_v3.md)).
 
 ### 6 · Results so far (AMD MI300X, 2026-10-27)
 
@@ -196,7 +196,7 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 - **Speed** [V]: 22.2 ms/step solo for the proxy at batch 64, ≈ 33 ms/step per deterministic fork when forks share
   the GPU, and ≈ 1.3× throughput from packing two forks. That is ≈ 43 s (0.012 GPU-h) per end-of-schedule proxy
   branch.
-- **GPU budget:** 20 MI300X-hours in total, about 5.1 used so far. The next session was booked on 11-20; prereg-v3 E1 runs in it once the tag is in.
+- **GPU budget:** 20 MI300X-hours in total, about 5.1 used so far. The next session was booked on 11-20; prereg-v3 (tagged 11-23) E1 runs in it.
 - **Pilot** [V, exploratory]: 120 of 120 branches with 0 crashes. Width-1 spikes at step 160, seed 0, constant LR,
   with `corrupt_batch` and `repeat_ngram` at β1 = 0.9, `lr_bump`, and `corrupt_batch` at β1 = 0.8 and 0.95.
   - **Spikes this small mostly wash out.** Lasting damage was 0.0003–0.0117 nats, while the 1-ulp chaos scale
@@ -251,7 +251,8 @@ Evidence: [`results/mi300x_2026-10-27/`](../results/mi300x_2026-10-27/).
 | 11-21 | R-F2 written (PLAN_V8 Appendix A.3): the m+v coupling law. A closed-form linear response of Adam to one spike predicts the protection share π and Y(undo-v)/Y(undo-m+v) from β1, β2, lag, the steps left and the logged dose x̄, with no fitted parameter. `theory/coupling.py`, CPU test against AdamW through the real undo hooks; prediction and scoring rule frozen in `theory/README.md` before prereg-v3 runs. Exploratory; prior art PARTIAL (Liu & Li 2026 keep the dose term out of their linear operator) |
 | 11-21 | Exea Reserve runner drafted: the root `exea.md` (setup / start / resume / stop / save) and `gpu/exea_prereg_v3.sh` run prereg-v3 from its tag on Exea's MI300X in the daily 10:00–13:00 PST window. G0 runs on day 1, and each later day adds a fork that must match day 1 bit for bit. The cost rule is applied before seed 2; finished instances are skipped and unfinished ones resume branch by branch. `mve`'s results file and `snapshot.save` now write atomically. Not run anywhere |
 | 11-22 | PR #37 merged (R-F2 coupling law, Exea runner; `test_coupling.py` passes in CI). PR #34 merged, so open decision 6 is answered yes: `dose_meter` logs the 10/50/90% quantiles of x. Dependabot #9–#13 held, with a comment on each, until prereg-v3 has run (pins are checked by `check_env`, and any bump needs the Δ==0 gate on the MI300X). PR #15 merged: Avyank's curvature localizer (HVP on the GPT loss, the preconditioned H̃, top-k eigsh) and a v̄ accumulator, with 10 CPU tests in CI; not run on a GPU. Follow-ups (a `jvp` HVP, two v̄ implementations) are in a comment on the PR |
-| 11-22 | prereg-v3's open decisions answered in PR #42 (open; waits for sign-off, then the tag): seven seeds; Extension A (step 160) removed, so the plan uses 10.9 of 14.9 GPU-hours and the RML block's 4.0 hours get their own pre-registration; P4(a)'s [1.5, 2.5], S1's tolerances and the 0.3-nat exclusion kept; raw fork files stay committed; the SPAM split moves from P5(b) to secondary S3, read at horizon 999. PR #28 (SPAM's two halves) and PR #40 (Avyank's localizer, weeks 4–8) merged. `analysis/stats.py` gets the exact sign-flip test; `spikes/capture.py` saves a debiased v̄ at each normal step, which the localizer's driver needs, and `k2.py` records them (PR #41, merged; the localizer reads this v̄). PR #43 (open, waits for sign-off) fixes SPAM's fork clock. CPU tests only; nothing run on a GPU |
+| 11-22 | prereg-v3's open decisions answered in PR #42: seven seeds; Extension A (step 160) removed, so the plan uses 10.9 of 14.9 GPU-hours and the RML block's 4.0 hours get their own pre-registration; P4(a)'s [1.5, 2.5], S1's tolerances and the 0.3-nat exclusion kept; raw fork files stay committed; the SPAM split moves from P5(b) to secondary S3, read at horizon 999. PR #28 (SPAM's two halves) and PR #40 (Avyank's localizer, weeks 4–8) merged. `analysis/stats.py` gets the exact sign-flip test; `spikes/capture.py` saves a debiased v̄ at each normal step, which the localizer's driver needs, and `k2.py` records them (PR #41, merged; the localizer reads this v̄). PR #43 fixes SPAM's fork clock. CPU tests only; nothing run on a GPU |
+| 11-23 | PRs #42 and #43 merged; prereg-v3 signed off by Jasraj and tagged `prereg-v3` (UTC). S3 stays secondary. The run commands were checked against `mve`'s argparse by reading, not dry-run. Nothing run on a GPU |
 
 ### 8 · Where things live
 
