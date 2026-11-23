@@ -8,6 +8,7 @@ import math
 import numpy as np
 import pytest
 import torch
+import yaml
 
 from research.analysis import damage_law
 from research.autopsy import echo
@@ -89,7 +90,7 @@ def test_mve_echo_battery_matches_the_law_at_small_lr(tmp_path, monkeypatch):
     for split in ("train", "val"):
         np.random.default_rng(0).integers(0, 16, size=8000, dtype=np.uint16).tofile(tmp_path / f"{split}.bin")
     cfg = {**_CFG, "optim": {**_CFG["optim"], "lr": 1e-6}, "train": {**_CFG["train"], "max_steps": 160}}
-    (tmp_path / "cfg.yaml").write_text(json.dumps(cfg))  # JSON is valid YAML
+    (tmp_path / "cfg.yaml").write_text(yaml.safe_dump(cfg))  # not json.dumps: YAML 1.1 reads its "1e-06" as a string
     argv = ["--config", str(tmp_path / "cfg.yaml"), "--inject-step", "100", "--battery", "echo", "--echo-z", "6,30"]
     argv += ["--horizons", "60", "--data-dir", str(tmp_path), "--out", str(tmp_path / "out"), "--skip-preflight"]
     mve.main(argv)
