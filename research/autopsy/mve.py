@@ -5,6 +5,7 @@
     python -m research.autopsy.mve ... --battery repair --lag 3          # C-4 repair battery (--cwb: + A5 arms)
     python -m research.autopsy.mve --config ... --battery chaos --inject-step 1000 \
         --placebo 111 --placebo-channels w,g,opt --data-forks 8      # chaos floor only (docs/chaos_floor.md)
+    python -m research.autopsy.mve ... --kind hard_rows --battery appeal --appeal-k 10   # RML-3 kill test, part 1
 
 One instance = one (spike kind, inject step, width, seed, betas). Everything forks from ONE snapshot at
 `inject_step` (pre-spike, primed for ZClip/AdaGC) and runs to end of schedule; every branch gets the same
@@ -42,6 +43,7 @@ import time
 from research.autopsy.faults import TARGET
 
 FAULTS = ("sdc_grad", "v_bitflip", "m_bitflip")
+ROW_KINDS = ("repeat_ngram", "hard_rows")  # replace the first rows of the real batch, so they read data_dir
 # These leave the gradient untouched, so G - G* = 0: nothing to plant in phase B. sdc_grad flips g itself, so it
 # keeps phase B like corrupt_batch (the record hook's clean recompute doesn't re-flip: the hook fires once), except
 # at bit 30 (`_b_names`).
@@ -246,6 +248,31 @@ def repair_battery(cfg, recipe, data_dir, snap, lag, detector_t0=None, extra=Non
     return br
 
 
+def appeal_battery(cfg, recipe, data_dir, k, extra):
+    """RML-3 kill test, part 1 (docs/novelty/rml3_method.md §8.2): B* and B0, with Appeal's measurement hook
+    (autopsy/appeal.py) on B0. The hook only reads, so B0 is still the recipe run. It names the injected rows (the
+    first ceil(frac*B), where repeat_ngram and hard_rows both put them) and logs their robust z (criterion a) and,
+    K steps later, their evidence, p and phi against the shadow rows (criterion b), in extra["B0"]."""
+    import math
+
+    import torch
+
+    from research.autopsy import appeal
+    from research.harness.fork import Branch, compose
+
+    n = math.ceil(recipe.params.get("frac", 0.25) * cfg["train"]["batch_size"])
+    window = range(recipe.inject_step, recipe.inject_step + recipe.width)
+
+    def injected(step, losses):
+        mask = torch.zeros(len(losses), dtype=torch.bool)
+        mask[:n] = step in window
+        return mask
+
+    pre, pre_opt, st = appeal.make(data_dir, lag=k, flag_fn=injected)
+    extra["B0"] = {"k": k, "injected_rows": n} | {key: st[key] for key in ("verdicts", "flagged", "batch_events")}
+    return {"B*": Branch("B*", None, cfg), "B0": Branch("B0", compose(recipe.pre_step, pre), cfg, pre_opt)}
+
+
 def _prime_parity(on_step, at: int):
     """`pre_step`, composed BEFORE the fault: at the fork's first step `at`, hand parity_residual's `on_step` the
     restored m, v as its previous copy. Without it the flip at `at` has nothing to compare against and reads
@@ -303,7 +330,7 @@ def run_instance(args) -> str:
     if args.betas:
         cfg["optim"]["betas"] = [float(b) for b in args.betas.split(",")]
     data_dir = args.data_dir or cfg.get("data", {}).get("dir") or resolve_data_dir(args.shard)
-    params = {"data_dir": data_dir} if args.kind == "repeat_ngram" else {}
+    params = {"data_dir": data_dir} if args.kind in ROW_KINDS else {}
     kind = args.kind or "chaos"
     if args.kind in FAULTS:
         if args.fault_bit is None:  # no default: bit 30 zeroes a whole sdc_grad step on GPU (faults.py docstring)
@@ -388,6 +415,10 @@ def run_instance(args) -> str:
         for name, br in battery.items():
             run(name, br)
         return out_path
+    if args.battery == "appeal":
+        for name, br in appeal_battery(cfg, recipe, data_dir, args.appeal_k, extra).items():
+            run(name, br)
+        return out_path
     if args.battery == "chaos":
         br = {"B*": Branch("B*", None, cfg)}
         br |= placebo_branches(cfg, args.inject_step, args.placebo, args.placebo_channels, data_dir, args.data_forks)
@@ -435,6 +466,8 @@ def expected_branches(args) -> list[str]:
         return []  # ponytail: battery names come from fork.make_*branches; completion unchecked for repair
     if args.battery == "chaos":
         return ["B*"] + _placebo_names(args)
+    if args.battery == "appeal":
+        return ["B*", "B0"]
     taus, c2_taus = _undo_taus(args)
     names = ["B*", "B0"] + [f"U_mv@{t}" for t in taus]
     names += [f"U_{c}@{t}" for t in c2_taus for c in ("m", "v")]
@@ -446,7 +479,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument("--config", required=True)
     ap.add_argument(
         "--kind",
-        choices=["corrupt_batch", "repeat_ngram", "lr_bump", *FAULTS],
+        choices=["corrupt_batch", *ROW_KINDS, "lr_bump", *FAULTS],
         help="spike recipe (omit for --battery chaos)",
     )
     ap.add_argument("--fault-target", default=TARGET, help="bit-flip kinds: parameter name whose g / m / v is hit")
@@ -473,7 +506,8 @@ def parser() -> argparse.ArgumentParser:
         help="dose arms: plant c*G on the clean stream, e.g. 1,3,10,30",
     )
     ap.add_argument("--dose-taus", type=_ints, default=_ints("0"), help="undo lags for the dose arms")
-    ap.add_argument("--battery", choices=["core", "repair", "chaos"], default="core")
+    ap.add_argument("--battery", choices=["core", "repair", "chaos", "appeal"], default="core")
+    ap.add_argument("--appeal-k", type=int, default=10, help="appeal battery: evidence steps K before a verdict")
     ap.add_argument("--lag", type=int, default=3, help="repair battery: RML undo lag after the window")
     ap.add_argument(
         "--detector-t0", type=int, default=None, help="repair battery: detector step (default: window end + --lag)"
@@ -491,6 +525,8 @@ def main(argv=None):
     args = ap.parse_args(argv)
     if args.kind is None and args.battery != "chaos":
         ap.error("--kind is required unless --battery chaos")
+    if args.battery == "appeal" and args.kind not in ROW_KINDS:
+        ap.error(f"--battery appeal needs a row recipe: --kind {' or '.join(ROW_KINDS)}")
 
     if not args.skip_preflight:
         # entrypoint: pinned env + determinism before any CUDA work. In a child process, because check_env ends by
