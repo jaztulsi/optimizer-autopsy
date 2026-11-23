@@ -2,7 +2,8 @@
 
 Each entry pins everything the downstream consumers need, checked against the real interfaces (CLAUDE.md §7):
   * localizer (C2) scores a (w, m, v) snapshot at the detector trigger t0 against the pre-spike running
-    average v̄ (`vbar_uri`) and matched NORMAL-step snapshots (PLAN V6 §3.6), with a fixed probe batch.
+    average v̄ (`vbar_uri`) and matched NORMAL-step snapshots, each with its own v̄ (`normal_vbar_uris`, same
+    order; PLAN V6 §3.6), with a fixed probe batch.
   * repair (C3) + forks (harness/fork.py) rebuild the cfg, data stream and spike hook to replay the spike
     from `fork_snapshot_uri`, with B* = the same run with the hook omitted.
   * attribution scores held-out val loss per branch and needs the evidence behind each label.
@@ -61,6 +62,7 @@ class SpikeEntry:
     fork_step: int  # that snapshot's `step` (<= inject_step for induced, <= t0 for natural)
     vbar_uri: str  # pre-spike running average of v at the fork point
     normal_snapshot_uris: tuple[str, ...]  # matched non-spike steps for v̄ + thresholds (PLAN V6 §3.6)
+    normal_vbar_uris: tuple[str, ...] = ()  # v̄ at each of those steps, same order (localizer thresholds)
     probe: dict = field(default_factory=lambda: dict(PROBE))
 
     # --- label + provenance ---
@@ -98,6 +100,11 @@ def validate(e: SpikeEntry, *, L: int = 2) -> None:
         problems.append(f"detection_mode must be 'predictive' or 'onset', got {e.detection_mode!r}")
     if not e.normal_snapshot_uris:
         problems.append("the localizer needs >= 1 normal-step snapshot")
+    if len(e.normal_vbar_uris) != len(e.normal_snapshot_uris):
+        problems.append(
+            f"{len(e.normal_snapshot_uris)} normal snapshots but {len(e.normal_vbar_uris)} normal v_bars"
+            " (capture runs before 2026-11-22 saved none; re-capture)"
+        )
     if e.label not in ("provisional", "confirmed"):
         problems.append(f"label must be 'provisional' or 'confirmed', got {e.label!r}")
     elif e.label == "confirmed" and (not e.evidence or (e.source == "induced" and e.seed == TUNING_SEED)):
@@ -123,6 +130,7 @@ def entries_from_run(run: dict, *, evidence: str, L: int = 2) -> list[SpikeEntry
         "seed": run["seed"],
         "detector_params": run["detector_params"],
         "normal_snapshot_uris": tuple(run["normal_snapshots"]),
+        "normal_vbar_uris": tuple(run.get("normal_vbars", ())),
         "evidence": evidence,
         "hardware": run["hardware"],
     }
@@ -210,5 +218,6 @@ def load_k2(path: str) -> K2Manifest:
     """Read a manifest. Consumers iterate `.entries` and load snapshots via harness.snapshot.load()."""
     with open(path) as fp:
         raw = json.load(fp)
-    entries = [SpikeEntry(**{**e, "normal_snapshot_uris": tuple(e["normal_snapshot_uris"])}) for e in raw["entries"]]
+    tup = ("normal_snapshot_uris", "normal_vbar_uris")
+    entries = [SpikeEntry(**{**e, **{f: tuple(e.get(f, ())) for f in tup}}) for e in raw["entries"]]
     return K2Manifest(version=raw["version"], entries=entries)

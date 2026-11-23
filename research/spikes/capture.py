@@ -7,9 +7,12 @@ and natural.py launch every run as its own subprocess (`--one <json spec>`). One
     already contains the injection, so forks cannot replay from it. NATURAL run: keeps a RAM ring of
     snapshots and takes the newest one at least `lookback` steps before t0;
   * keeps v̄, a running average (EMA, `vbar_beta`) of Adam's v, and saves its fork-time copy -- the pre-spike
-    baseline of the localizer's poison score (PLAN V6 §3.6);
-  * keeps the newest NORMAL snapshots (every `save_every` steps) until the first trigger; the `n_normal`
-    newest at least `normal_gap` steps before the first fork point are kept, the rest deleted;
+    baseline of the localizer's poison score (PLAN V6 §3.6). The EMA starts at zero and is read divided by
+    1 - beta^n, as AdamW reads its moments: the same estimator as localizer.poison.VBarAccumulator (lag 0);
+    seeding it with the first raw v (5% of g^2 at beta2 = 0.95) would weigh it 0.99^s, 0.67 at step 40;
+  * keeps the newest NORMAL snapshots (every `save_every` steps) until the first trigger, each with v̄ at that
+    step (`normal_vbar_<step>`, the localizer's thresholds need both); the `n_normal` newest at least
+    `normal_gap` steps before the first fork point are kept, the rest deleted;
   * on each qualifying trigger (>= inject_step for induced; `cooldown` apart; at most `max_triggers`) saves
     the t0 snapshot, the fork snapshot and v̄;
   * logs per-tensor telemetry every step (RESEARCH.md §3) for offline detector research;
@@ -46,8 +49,10 @@ KNOBS = {  # capture defaults; a spec may override any of them
     "snap_every": 10,
     "ring": 8,
     "lookback": 20,
-    "save_every": 40,
-    "n_normal": 3,
+    # localize_run scores each normal step against the others (leave one out, >= 3 others), so >= 4 are needed;
+    # 6 every 20 steps fits before the site-160 fork (steps 40..140) and leaves each normal 5 others.
+    "save_every": 20,
+    "n_normal": 6,
     "normal_gap": 20,
     "cooldown": 50,
     "max_triggers": 3,
@@ -123,23 +128,27 @@ def run_one(spec: dict) -> dict:
 
     det = OnlineDetector(load_params(spec.get("detector_results", "results")))  # spike_run.py's tuned point
     losses, gradnorms, telemetry, triggers = [], [], [], []
-    st = {"vbar": None, "named": None, "groups": None, "pinned": None, "first_fork": None, "last": None}
+    st = {"vbar": None, "n": 0, "named": None, "groups": None, "pinned": None, "first_fork": None, "last": None}
     ring: deque = deque(maxlen=k["ring"])
     pool: deque = deque(maxlen=k["n_normal"] + 2 + (k["lookback"] + k["normal_gap"]) // k["save_every"])
     saved: dict = {}  # snapshot step -> (snapshot path, vbar path), so a shared fork point is saved once
 
-    def save_pair(step, snap, vbar_cpu, tag):
+    def save_vbar(vb, path):
         from safetensors.torch import save_file
 
+        save_file({n: t.contiguous() for n, t in vb.items()}, path)
+
+    def save_pair(step, snap, vbar_cpu, tag):
         if step not in saved:
             sp, vp = os.path.join(out, f"{tag}_{step}.safetensors"), os.path.join(out, f"vbar_{step}.safetensors")
             save_snapshot(snap, sp)
-            save_file({n: t.contiguous() for n, t in vbar_cpu.items()}, vp)
+            save_vbar(vbar_cpu, vp)
             saved[step] = (sp, vp)
         return saved[step]
 
     def vbar_cpu():
-        return {n: t.detach().to("cpu", torch.float32).clone() for n, t in st["vbar"].items()}
+        c = 1.0 - k["vbar_beta"] ** st["n"]  # debiased, as in on_step
+        return {n: (t / c).to("cpu", torch.float32) for n, t in st["vbar"].items()}
 
     # ZClip/AdaGC shadow priming (PR #14, same as harness.fork.prime_trunk): they watch every trunk step
     # without touching grads; each fork snapshot carries their state in meta["baseline_priming"].
@@ -157,10 +166,12 @@ def run_one(spec: dict) -> dict:
         if st["named"] is None:
             st["named"] = list(model.named_parameters())
             st["groups"] = {id(p): g for g in opt.param_groups for p in g["params"]}
-            st["vbar"] = {n: opt.state[p]["exp_avg_sq"].detach().clone() for n, p in st["named"]}
+            st["vbar"] = {n: torch.zeros_like(opt.state[p]["exp_avg_sq"]) for n, p in st["named"]}
         losses.append(float(info["loss"]))
         gradnorms.append(float(info["grad_norm"]))
         rows = []
+        st["n"] += 1
+        c = 1.0 - k["vbar_beta"] ** st["n"]  # zero-started EMA / c: a weighted mean of the v's seen so far
         with torch.no_grad():
             for n, p in st["named"]:
                 state, grp, vb = opt.state[p], st["groups"][id(p)], st["vbar"][n]
@@ -170,7 +181,7 @@ def run_one(spec: dict) -> dict:
                     rows.append(torch.full((len(SIGNALS),), float("nan"), device=v.device))
                     continue
                 step = int(state["step"].item() if torch.is_tensor(state["step"]) else state["step"])
-                rows.append(tensor_signals(p.grad, state["exp_avg"], v, vb, step, grp["betas"], grp["eps"]))
+                rows.append(tensor_signals(p.grad, state["exp_avg"], v, vb / c, step, grp["betas"], grp["eps"]))
             telemetry.append(torch.stack(rows).tolist())
         nxt = s + 1  # a snapshot taken now has step = the next step to run
         meta = {"run_id": spec["run_id"], "seed": spec["seed"]}
@@ -180,10 +191,13 @@ def run_one(spec: dict) -> dict:
             ring.append((nxt, capture(model, opt, nxt, meta={**meta, "role": "ring", **primed()}), vbar_cpu()))
         if not triggers and nxt % k["save_every"] == 0:
             path = os.path.join(out, f"normal_{nxt}.safetensors")
+            vpath = os.path.join(out, f"normal_vbar_{nxt}.safetensors")  # not vbar_<step>: that is a fork's
             save_snapshot(capture(model, opt, nxt, meta={**meta, "role": "normal"}), path)
+            save_vbar(vbar_cpu(), vpath)
             if len(pool) == pool.maxlen:
-                os.remove(pool[0][1])
-            pool.append((nxt, path))
+                for f in pool[0][1:]:
+                    os.remove(f)
+            pool.append((nxt, path, vpath))
 
         fired = det.update(info["loss"], info["grad_norm"])
         eligible = fired and (inject is None or s >= inject) and len(triggers) < k["max_triggers"]
@@ -217,10 +231,11 @@ def run_one(spec: dict) -> dict:
     run_trunk(cfg, data_dir, steps=n_steps, on_step=on_step, pre_step=pre_step, deterministic=True)
 
     keep = pick_normals([p[0] for p in pool], st["first_fork"], k["n_normal"], k["normal_gap"]) if triggers else []
-    for step, path in pool:
+    for step, *files in pool:
         if step not in keep:
-            os.remove(path)
-    normals = [os.path.join(out, f"normal_{s}.safetensors") for s in keep]
+            for f in files:
+                os.remove(f)
+    kept = [p for p in pool if p[0] in keep]  # pool and keep are both in step order
     np.savez_compressed(
         os.path.join(out, "telemetry.npz"),
         signals=np.asarray(telemetry, dtype=np.float32),
@@ -242,7 +257,8 @@ def run_one(spec: dict) -> dict:
         "detector_params": asdict(det.p),
         "n_fired": int(sum(trigger_mask(losses, gradnorms, det.p))),  # every firing step, false alarms included
         "triggers": triggers,
-        "normal_snapshots": normals,
+        "normal_snapshots": [p[1] for p in kept],
+        "normal_vbars": [p[2] for p in kept],  # same order; research/gpu/localize_run.py reads both
         "knobs": k,
         "telemetry": os.path.join(out, "telemetry.npz"),
         "hardware": {
@@ -335,7 +351,7 @@ def _selfcheck() -> None:
             "data_dir": d,
             "detector_results": d,  # no tuned result here -> default thresholds, independent of results/
             "overrides": {"train.batch_size": 16},
-            "knobs": {"save_every": 10, "normal_gap": 5},
+            "knobs": {"save_every": 5, "normal_gap": 5},  # 7 normal steps before the fork at 40; 6 kept
             "recipe": {
                 "kind": "corrupt_batch",
                 "inject_step": inject,
@@ -352,7 +368,14 @@ def _selfcheck() -> None:
         assert tr["fork_step"] == inject <= tr["t0"], tr
         t0_snap, fork_snap = load(tr["t0_snapshot"]), load(tr["fork_snapshot"])
         assert t0_snap["step"] == tr["t0"] + 1 and fork_snap["step"] == inject
-        assert run["normal_snapshots"] and all(os.path.exists(p) for p in run["normal_snapshots"])
+        normals, nvbars = run["normal_snapshots"], run["normal_vbars"]
+        assert len(normals) == len(nvbars) >= 4, (normals, nvbars)  # localize_run's leave-one-out needs >= 4
+        assert all(os.path.exists(p) for p in normals + nvbars) and not set(nvbars) & {tr["vbar"]}
+        from safetensors.torch import load_file
+
+        last = load(normals[-1])
+        vb = load_file(nvbars[-1])
+        assert vb.keys() == last["v"].keys() and all(vb[n].shape == last["v"][n].shape for n in vb)
         tel = np.load(run["telemetry"])
         assert tel["signals"].shape == (80, len(tel["names"]), len(SIGNALS))
 
