@@ -17,13 +17,15 @@ and reasoning: `docs/novelty/upgraded_plan.md`. `docs/prereg_v2.md` is frozen an
 
 **Core (E1): seeds 1 to 7.** Seeds 1–4 are v2's confirmatory seeds. Seeds 5–7 are an extension declared here so that
 an exact test can pass (see Statistics).
-- **Phases:** inject at 1000 and 1800. Step 160 is not in the core (see Extension A).
+- **Phases:** inject at 1000 and 1800. Step 160 is not run under this document and stays exploratory (open
+  decision 2).
 - **Doses:** c ∈ {1, 10, 30}. c = 3 is dropped; on seed 0 its cells sat inside the scatter between arms.
 - **Arms at each dose, τ = 0:** none, undo-m, undo-v, undo-m+v, global cooldown (the five arms the battery runs).
 - **Chaos floor:** K = 8 placebo forks per phase per seed, w channel (v2's primary channel).
 - **Remedy battery at c = 1, lag 3:** v2's arms and comparators, plus two new comparators:
   `Bspam_clip` (SPAM with `delta_t = 0`, no reset) and `Bspam_reset` (SPAM with `theta = 0`, no clip). PR #28
-  wires both in `fork.make_baseline_branches`, with CI tests; it must merge before the tag.
+  (merged 2026-11-22) wires both in `fork.make_baseline_branches`, with CI tests. The remedy battery
+  also reads horizon 999 (step 1998 for the fork from step 1000), for S3.
 
 **β2 arms (E2): seeds 1 to 3, β1 = 0.9.** The end of the run is one v-memory, 1/(1−β2) steps, after the spike.
 
@@ -42,10 +44,6 @@ at step 1800 from E1. (v2 ran these at step 160; step 1800 is used here because 
 
 **Floor curve (E3): seed 1.** `--battery chaos`, K = 8, forks from steps 160, 500, 1000, 1400, 1800 and 1950.
 Descriptive only.
-
-**Extension A: step 160 on seeds 1 to 4**, same doses, arms, floor and remedy battery as the core. It runs only
-after E1, E2, the β1 arms and E3, and only if the GPU ledger then shows at least 3.5 hours beyond a 3-hour reserve.
-That rule depends on the ledger alone.
 
 ## Quantities
 For one seed, one injection step and one dose, with Y(arm) = held-out loss at the end of the run minus the clean
@@ -68,13 +66,10 @@ hypothesis that fails; the later ones are reported as "not tested".
 | ID | Prediction | Per-seed statistic | Pass criterion |
 |---|---|---|---|
 | P1 | No lasting damage from the real spike | mean over steps 1000 and 1800 of Y(none) | two one-sided t-tests put the mean over seeds inside ±0.01 nats |
-| P5 | Clearing v does harm; SPAM's cost comes from its reset | (a) min over both steps of Y(`Bvreset`) − Y(none) − 0.01; (b) at step 1000, Y(`Bspam_reset`) − Y(`Bspam_clip`) | both (a) and (b) positive by the exact test |
+| P5 | Clearing v does harm | min over both steps of Y(`Bvreset`) − Y(none) − 0.01 | positive by the exact test |
 
 At c = 1, "none" is B0, the real spike, as in v2's third outcome; the planted `Px1` arm is reported beside it.
-P5(b) is read at step 1000 only. SPAM resets when `(step + 1) % 500 == 0`, so at steps 499, 999, 1499 and 1999.
-A fork from step 1800 meets only the reset at step 1999, its last step, which runs at 1% LR (the start of the
-warmup), so it cannot show what a reset costs. The fork from step 1000 meets the resets at 1499 and 1999. Every arm
-with resets ends on one, and its end-of-run Y includes it (open decision 9).
+The SPAM split that v3's first draft put in P5 is secondary (S3), for the reason given under open decision 9.
 
 **Family B: the mechanism at high dose (c = 10 and 30).**
 
@@ -90,10 +85,18 @@ with resets ends on one, and its end-of-run Y includes it (open decision 9).
 |---|---|---|
 | S1 | One v-memory after the spike, π depends on the dose x̄ and not on β2 | for dose pairs whose logged x̄ agree within a factor of 2, the seed-mean π differs by less than 0.15 between every pair of β2 values. Pairs that do not match are "not testable" |
 | S2 | The hand theory says π falls as β1 rises; seed 0 showed the opposite at step 160 | two-sided: report the order of the seed-mean π(c = 10, step 1800) across β1 = 0.8, 0.9, 0.95 |
+| S3 | SPAM's cost comes from its reset, not its clip | at step 1000 and c = 1, Y(`Bspam_reset`) − Y(`Bspam_clip`) read at horizon 999 (step 1998), so the reset at step 1999 is left out. Seed mean with a bootstrap interval and the per-seed values; the sign-flip p is shown but carries no claim |
+
+S3 is read at step 1000 only. SPAM resets when `(step + 1) % 500 == 0`, so at steps 499, 999, 1499 and 1999. A fork
+from step 1800 meets only the reset at step 1999, its last step, so it cannot show what a reset costs. The fork from
+step 1000 meets the reset at 1499. S3 is secondary because `spam.phase` counts SPAM's clock from global step 0
+while the trunk is plain AdamW: in the fork from step 1000, `Bspam_reset` runs the spike step at about 1% LR (the
+warmup after the step-999 reset the fork never ran), so its Y mixes the reset at 1499 with a muted spike. The
+results note states this, and that v2's `Bspam` at step 1000 ran with the same warmup.
 
 **v2's hypotheses on seeds 1 to 4, as written in v2.** H-B, H-C, H-D, H-E and H-F are scored per seed with that
 seed's own floor, at the phases and doses run, and reported as "holds in k of 4 seeds". Two narrowings are declared
-now: H-A is scored on the phases run (two, or three if Extension A runs) instead of "≥ 2 of 3"; H-A2 is scored at
+now: H-A is scored on the two phases run instead of "≥ 2 of 3"; H-A2 is scored at
 step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
 
 ## Statistics
@@ -113,61 +116,65 @@ step 1800 on seeds 1–3 instead of step 160. No v2 threshold changes.
   paired t-test at α = 0.025. This is decided before seed 2 starts and is written into the results note.
 - **Exclusion.** A seed is excluded only if its `Δ==0` gate fails, or its clean run ends more than 0.3 nats above
   seed 0's clean run (2.833). Excluded seeds are listed with the reason.
-- **Order of runs:** E1, E2, β1 arms, E3, Extension A. Anything else (a lag sweep, Lion, `lr_bump`) is exploratory and
-  is not covered by this document.
+- **Order of runs:** E1, E2, β1 arms, E3. Anything else (step 160, a lag sweep, Lion, `lr_bump`, the localizer) is
+  exploratory and is not covered by this document. The RML block (PLAN_V8 §11.2) is not covered either; its
+  stress-bed thresholds go in a separate pre-registration, tagged before the stress bed runs.
 - Deviations are logged in the results note the way v2's were.
 
 ## What was known when this draft was written
 - All of seed 0: `docs/prereg_v2_results.md`, the sealed report, the 2 × 2 reading and the scored blind predictions
-  (`docs/novelty/method.md` §6.1a). On seed 0, P1 to P4 and P5(a) hold. That is why seed 0 is excluded. P5(b)'s two
-  arms have not been run on any seed.
+  (`docs/novelty/method.md` §6.1a). On seed 0, P1 to P5 hold. That is why seed 0 is excluded. S3's two arms have
+  not been run on any seed.
 - No run of this design on any seed other than 0.
 - The T1 pilot used seed 0 only (`results/mi300x_2026-10-27/t1_pilot/run.sh`, `--seed 0`, inject at 160), so seeds
   1–7 have not been run in any form.
 
 ## Open decisions before the tag (for the team)
-Each decision has a suggested answer (Jasraj's draft, 2026-11-20). None is decided until the team agrees and the
-text above is changed to match.
+Each decision had a suggested answer (Jasraj's draft, 2026-11-20). All are decided as of 2026-11-22, and the text
+above matches. The team can still change any of them before the tag, not after.
 
 1. Seven seeds, or five with t-tests from the start.
-   *Suggested: seven.* Five seeds cannot pass the exact test (smallest p 1/32 > 0.025), and a t-test on five values
+   **Decided: seven.** Five seeds cannot pass the exact test (smallest p 1/32 > 0.025), and a t-test on five values
    rests on a normality assumption that five values cannot check. The cost rule already falls back to five if seed 1
    shows seven would cost more than 6 hours. Seeds 6 and 7 cost about 1.2 hours [estimate].
 2. Whether Extension A (step 160) comes before or after a lag sweep at β2 = 0.999.
-   *Suggested: neither runs under this document.* PLAN_V8 §11.2 gives the hours after the core to the RML block
+   **Decided: neither runs under this document; Extension A is removed.** PLAN_V8 §11.2 gives the hours after the core to the RML block
    (4.0 h). Extension A's ledger rule would still fire: after G0 and the core, about 6.8 hours remain [estimate],
-   above the 6.5 hours the rule asks for, so it would take the RML block's hours. Either remove Extension A (step 160
-   stays exploratory and H-A is scored on two phases), or make its rule hold back the RML block's 4.0 hours as well.
-   The lag sweep stays exploratory, as the Rules already say.
+   above the 6.5 hours the rule asks for, so it would take the RML block's hours. So Extension A is removed: step 160
+   stays exploratory and H-A is scored on two phases. The lag sweep stays exploratory, as the Rules already say.
 3. P4(a)'s interval [1.5, 2.5]. Seed 0 gave 1.95 and 2.31 at these two steps.
-   *Suggested: keep it.* It is centred on the theory's exponent 2, not on seed 0, and it excludes both rival
+   **Decided: keep it.** It is centred on the theory's exponent 2, not on seed 0, and it excludes both rival
    readings, a slope of 1 and a slope of 3. Narrowing it toward seed 0's values would tune it to an excluded seed.
    It tests precision as well as the mean: with seven seeds, the interval fits only if the per-seed slopes have a
    standard deviation below about 0.4 to 0.5 [estimate]. That spread is unknown.
 4. S1's tolerances (0.15 in π, a factor of 2 in x̄).
-   *Suggested: keep both.* S1 is secondary, so a loose tolerance costs little. No run has measured how much π varies
+   **Decided: keep both.** S1 is secondary, so a loose tolerance costs little. No run has measured how much π varies
    between seeds, so a tighter number would be a guess. The measured differences are reported with intervals either
    way.
 5. **Answered:** Eddie wires `Bspam_clip` and `Bspam_reset` in `fork.make_baseline_branches`, so every repair
-   battery gets them (PR #28, CI green, not merged yet).
+   battery gets them (PR #28, merged 2026-11-22).
 6. Whether to log the 10%, 50% and 90% quantiles of x on the hit support as well as x̄ (a logging change only).
    *Suggested: yes, if it lands before the tag.* It needs no GPU: a change to `probes.dose_meter` with a CPU test in
    CI. It helps S1, because two trunks can share x̄ while their spread of x differs. If it is not ready, skip it
    rather than hold the tag; S1 is secondary. **Answered yes, 2026-11-22 (PR #34 merged):** `dose_meter` now writes
    `x_q10`, `x_q50` and `x_q90` next to `xbar` (unweighted, window steps pooled), with a CPU test.
 7. The exclusion threshold of 0.3 nats.
-   *Suggested: keep it.* The rule is meant to catch a broken run (wrong data, a diverged trunk), not a seed that ends
+   **Decided: keep it.** The rule is meant to catch a broken run (wrong data, a diverged trunk), not a seed that ends
    a little worse. Only seed 0 has run this configuration, so the normal spread between seeds is unknown, and a tight
    threshold could drop honest seeds. 0.3 nats is about 10% of seed 0's 2.833.
 8. Whether the raw fork files stay committed beside the report. They hold every arm's held-out loss at each horizon
    and its training-loss trace; the sealed report keeps per-horizon values only for the four undo arms. The
    exploratory regret analysis in `novelty/rml3_method.md` §2.3 was run from them. No extra GPU.
-   *Suggested: keep them committed.* v2's 104 result files are 7.2 MB in all, and snapshots stay out of git
+   **Decided: keep them committed.** v2's results folder (`results/mi300x_2026-11-10/`) holds 113 files,
+   12 MB in all, and snapshots stay out of git
    (`*.safetensors` is in `.gitignore`). v3 runs about four times v2's fork-steps, so a few tens of MB [estimate].
    They are the only record of the non-undo arms at each horizon.
 9. Whether P5(b)'s Y should avoid SPAM's last reset at step 1999: read Y one step earlier, or pick a `max_steps`
    that does not end on a reset. As written, the reset at 1999 is inside the end-of-run Y of `Bspam_reset`.
-   *Suggested, in two parts.*
+   **Decided: horizon 999 is added, and P5(b) moves to the secondary table as S3.** Both problems below are
+   real, and the clock fix is in `spam.py`, Eddie's code; PR #28 merged on 22 Nov without it. Holding the tag
+   for it would delay E1, so the split is reported with intervals and no claim. If the clock fix lands before
+   the tag, S3 can move back into Family A. The reasoning, as drafted on 2026-11-20:
    - **The last reset:** read P5(b) at step 1998 by adding 999 to the remedy battery's `--horizons` for the fork
      from step 1000 (`mve` reads a horizon h as step inject + h − 1). No GPU. Changing `max_steps` would also move
      every other result and break the comparison with v2.
@@ -194,12 +201,11 @@ should be lower.
 | β1 arms | 46,000 | 0.5 |
 | E3, floor curve | 48,000 | 0.5 |
 | Reserve | | 3.0 |
-| Extension A | 340,000 | 3.4 |
-| **Total** | | **14.3 of 14.9** |
+| **Total** | | **10.9 of 14.9** |
 
 The fork-step counts include replaying the trunk to the injection step for every invocation, and assume about 29
 forks per core invocation and 17 per remedy battery. Both counts are my reading of the battery, not a measurement.
-With Extension A the plan leaves 0.6 hours, so any exploratory run competes with it (open decision 2).
+The other 4.0 hours go to the RML block (PLAN_V8 §11.2), which this document does not cover (open decision 2).
 
 ## Run (draft commands; none has been run)
 ```bash
@@ -208,7 +214,7 @@ A="--config $CFG --kind corrupt_batch --data-dir $DATA"
 # E1: seeds 1..7, phases 1000 / 1800
 python -m research.autopsy.mve $A --seed $SEED --inject-step $INJ --horizons 1,20,100,200 --taus 0 --c2-taus 0 \
     --dts "" --plant-coefs 1,10,30 --dose-taus 0 --placebo 8 --placebo-channels w --out $OUT/s${SEED}_inj$INJ
-python -m research.autopsy.mve $A --seed $SEED --inject-step $INJ --horizons 1,20,100,200 --battery repair --lag 3 \
+python -m research.autopsy.mve $A --seed $SEED --inject-step $INJ --horizons 1,20,100,200,999 --battery repair --lag 3 \
     --out $OUT/s${SEED}_repair_inj$INJ
 # E2: seeds 1..3. (B2, INJ, COEFS, HOR) = (0.95, 1980, "1,10,30", "1,10"), (0.99, 1900, "1,22.4,67.1", "10,50"),
 #     (0.999, 1000, "1,70.7,212", "100,500"), (0.99, 1000, "1,22.4,67.1", "100,500")

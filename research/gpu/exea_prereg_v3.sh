@@ -2,7 +2,7 @@
 # prereg-v3 (docs/prereg_v3.md) on Exea Reserve's MI300X: exea.md's START and RESUME both run this file.
 # Safe to rerun every day: a finished job leaves a .done marker, and mve resumes an unfinished one branch by branch
 # from its own --out. The job list copies prereg_v3.md's "Run" section as drafted on 2026-11-21: change both together
-# before the tag. Extension A is left out (open decision 2, and its ledger rule needs a person).
+# before the tag. Extension A was removed (open decision 2, decided 2026-11-22).
 set -u
 export CUBLAS_WORKSPACE_CONFIG=:4096:8  # before any python imports torch (CLAUDE.md §1)
 CK=${EXEA_CHECKPOINT_DIR:?run this from exea.md}
@@ -59,7 +59,7 @@ missing() { while read -r name _; do [ -e "$OUT/$name/.done" ] || echo "$name"; 
 e1() {  # core: phases 1000 and 1800, dose arms + floor, and the remedy battery at lag 3
   for inj in 1000 1800; do
     echo "s$1_inj$inj $A --seed $1 --inject-step $inj --horizons 1,20,100,200 --plant-coefs 1,10,30 $DOSE"
-    echo "s$1_repair_inj$inj $A --seed $1 --inject-step $inj --horizons 1,20,100,200 --battery repair --lag 3"
+    echo "s$1_repair_inj$inj $A --seed $1 --inject-step $inj --horizons 1,20,100,200,999 --battery repair --lag 3"
   done
 }
 
