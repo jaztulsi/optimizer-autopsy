@@ -43,8 +43,8 @@ def test_each_arm_on_the_spike_step():
         snap = capture(model, opt, step=3)
         w0, m0, v0 = (snap[k] for k in ("w", "m", "v"))
 
-        def fork(arm=None, z=10.0):
-            hook, out = echo.make(arm, z, 1, at=3, steps=1) if arm else (None, {})
+        def fork(arm=None, z=10.0, sign=1):
+            hook, out = echo.make(arm, z, sign, at=3, steps=1) if arm else (None, {})
             got = {}
 
             def grab(step, info):
@@ -61,6 +61,9 @@ def test_each_arm_on_the_spike_step():
         assert _close(none[T][1] - plain[T][1], (1 - b1) * 10 * v0[T].sqrt() * s)  # m took ε1 G
         assert out["lrs"] == pytest.approx([lr * math.sqrt(1 - b2**4) / (1 - b1**4)])  # Adam's 4th step
         assert out["d"] == pytest.approx(float(((none[T][0].double() - w0[T].double()) * s).mean()))
+        minus, out = fork("none", sign=-1)
+        assert _close(minus[T][1] - plain[T][1], -(none[T][1] - plain[T][1]))  # m took -ε1 G
+        assert out["d"] == pytest.approx(float(((minus[T][0].double() - w0[T].double()) * s).mean()))  # unsigned s
 
         undo_v, _ = fork("undo_v")
         assert torch.equal(undo_v[T][1], none[T][1]) and _close(undo_v[T][2], plain[T][2])  # in m, not in v

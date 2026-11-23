@@ -66,8 +66,8 @@ def make(arm: str, z: float, sign: int, at: int, steps: int, target: str = TARGE
         with torch.no_grad():
             if step == at:
                 v = opt.state[p]["exp_avg_sq"]
-                s = signs(p.shape, seed).to(p.device) * sign
-                G = z * v.sqrt() * s
+                s = signs(p.shape, seed).to(p.device)  # unsigned: d is read against s in both forks
+                G = (z * sign) * v.sqrt() * s
                 grads = [q.grad for q in model.parameters() if q.grad is not None]
                 n0 = _norm(grads)
                 if arm == "undo_v":  # pre-compensate: this step's v = b2 v + (1 - b2) g² then holds no G
