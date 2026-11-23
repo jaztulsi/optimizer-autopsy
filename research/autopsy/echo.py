@@ -4,8 +4,8 @@ measure how far it moves that tensor over the fork, against the echo law (analys
 The plant is G = z · sqrt(v_bar) · s on every entry of `target`: s a fixed random sign, v_bar the raw exp_avg_sq
 before the step (Adam's bias correction goes into the logged step sizes). It is added to the final gradient, after
 the trunk's clip, as autopsy/probes.plant does. Each (arm, z) runs as two forks, +G and -G. Each logs
-d = mean(s · (w_end - w_start)) over `target`, and the echo is (d+ - d-) / 2, which cancels the stall and the drift
-(both even in G). The arms:
+d = mean(s · (w_end - w_start)) over `target`, and the echo is (d- - d+) / 2 (a step moves w against G), which
+cancels the stall and the drift (both even in G). The arms:
   none    nothing: (a, b) = (1, 1), predicted Ψ(z)
   clip    at the spike step, the whole gradient scaled back to its pre-plant norm (a clip at the normal size, as
           ZClip and AdaGC aim for): (c, c²) with c logged, predicted Ψ(cz)
@@ -123,7 +123,7 @@ def branches(cfg: dict, at: int, zs, steps: int, extra: dict, target: str = TARG
 
 
 def summarize(branches: dict, betas, theta: float = spam.THETA) -> dict:
-    """Per (arm, z) with both forks done: the echo (d+ - d-) / 2, the law's prediction for the arm, their ratio, and
+    """Per (arm, z) with both forks done: the echo (d- - d+) / 2, the law's prediction for the arm, their ratio, and
     `left`, the arm's echo over the none arm's at that z. The verdict reads X4's row (method.md §6.2): pass if every
     ratio is within ±20% and SPAM leaves >= 90% at z >= 30, fail if any is off by more than 40%, else neither."""
     m = {k: b["metrics"] for k, b in branches.items() if k.startswith("X4_")}
@@ -139,7 +139,7 @@ def summarize(branches: dict, betas, theta: float = spam.THETA) -> dict:
             pred = echo(z, 1.0, 0.0, betas, lrs)
         else:  # spam's clip only bites above sqrt(theta); stable is predicted to leave the echo alone
             pred = echo(min(z, math.sqrt(theta)) if arm == "spam" else z, betas=betas, lrs=lrs)
-        d = (plus["d"] - minus["d"]) / 2
+        d = (minus["d"] - plus["d"]) / 2  # Adam steps against the gradient: +G moves w by -E s
         cells[k[3:-1]] = {"arm": arm, "z": z, "echo": d, "pred": pred, "ratio": d / pred}
     for c in cells.values():
         none = cells.get(f"none_z{c['z']:g}")
