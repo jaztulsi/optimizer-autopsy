@@ -26,7 +26,9 @@ set -e
 git fetch --quiet origin tag prereg-v3 --no-tags
 git checkout --quiet --detach prereg-v3
 CK="$EXEA_CHECKPOINT_DIR"
-[ -x "$CK/venv/bin/python" ] || python3 -m venv "$CK/venv"
+# numpy 2.0.2 has wheels only up to Python 3.12 and scipy 1.16.3 needs 3.11+, so use 3.12 or 3.11 when the box has one
+PYB=$(command -v python3.12 || command -v python3.11 || command -v python3)
+[ -x "$CK/venv/bin/python" ] || "$PYB" -m venv "$CK/venv"
 "$CK/venv/bin/pip" install --quiet torch==2.10.0 --index-url https://download.pytorch.org/whl/rocm7.1
 "$CK/venv/bin/pip" install --quiet -r research/requirements.txt
 "$CK/venv/bin/python" -c "import torch; assert torch.version.hip and torch.cuda.is_available(), 'no ROCm GPU'"
