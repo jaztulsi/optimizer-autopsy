@@ -1,7 +1,6 @@
 import torch
-from model import TinyModel
 
-torch.manual_seed(0)
+from research.localizer.toy_hvp.model import TinyModel
 
 
 def flatten_params(model):
@@ -12,7 +11,7 @@ def set_flat_params(model, flat):
     idx = 0
     for p in model.parameters():
         n = p.numel()
-        p.data.copy_(flat[idx:idx + n].reshape(p.shape))
+        p.data.copy_(flat[idx : idx + n].reshape(p.shape))
         idx += n
 
 
@@ -43,6 +42,7 @@ def hvp(model, x, y, v):
 
 
 if __name__ == "__main__":
+    torch.manual_seed(0)
     model = TinyModel()
     x = torch.randn(5, 4)
     y = torch.randn(5, 2)
@@ -54,4 +54,3 @@ if __name__ == "__main__":
     Hv = hvp(model, x, y, v)
     print(f"H @ v shape: {Hv.shape}")
     print(f"H @ v (first 5 entries): {Hv[:5]}")
-    

@@ -872,6 +872,11 @@ def _selfcheck_proxy(device=None, steps=3, probe=4, k=3) -> dict:
 
     report = fd_check(model, pb, index=idx)
     print_fd_check(report)
+    best = report["best"]
+    # fp32 valley is expected near rel_l2 ~ 1e-3 (see fd_check); 1e-2 leaves margin, cos is the robust column.
+    assert best["cos"] > 0.999 and best["rel_l2"] < 1e-2, (
+        f"FD check failed at real scale: best rel_l2={best['rel_l2']:.3e}, cos={best['cos']:.6f}"
+    )
 
     # One HVP must be bit-reproducible on a fixed batch (§3.1).
     g = torch.Generator(device="cpu").manual_seed(0)

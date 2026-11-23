@@ -1,8 +1,12 @@
-import torch
-from model import TinyModel
-from hvp import hvp, flatten_params, set_flat_params, compute_loss
+import math
+import sys
 
-torch.manual_seed(0)
+import torch
+
+from research.localizer.toy_hvp.hvp import compute_loss, flatten_params, hvp, set_flat_params
+from research.localizer.toy_hvp.model import TinyModel
+
+TOLERANCE = 1e-3  # max relative difference allowed between HVP and finite differences
 
 
 def finite_diff_hvp(model, x, y, v, eps=1e-4):
@@ -26,29 +30,46 @@ def finite_diff_hvp(model, x, y, v, eps=1e-4):
     return (flat_grad_plus - flat_grad_minus) / (2 * eps)
 
 
-if __name__ == "__main__":
+def check(seed=0, eps=1e-4):
+    """Compare the HVP with finite differences. Returns the max relative difference.
+
+    Raises AssertionError if the result is not finite or is above TOLERANCE, so a broken HVP
+    fails a test instead of only printing FAIL.
+    """
+    # Seed here, not at import time: importing this file must not reset anyone else's random stream.
+    gen = torch.Generator().manual_seed(seed)
+    torch.manual_seed(seed)  # TinyModel's weight init uses the global stream
+
     # float64: finite differences divides by a small eps, which
     # amplifies float32 rounding noise. float64 avoids that.
     model = TinyModel().double()
-    x = torch.randn(5, 4).double()
-    y = torch.randn(5, 2).double()
+    x = torch.randn(5, 4, generator=gen, dtype=torch.float64)
+    y = torch.randn(5, 2, generator=gen, dtype=torch.float64)
 
     n_params = sum(p.numel() for p in model.parameters())
-    v = torch.randn(n_params).double()
+    v = torch.randn(n_params, generator=gen, dtype=torch.float64)
     v = v / v.norm()
 
     Hv_exact = hvp(model, x, y, v)
-    Hv_approx = finite_diff_hvp(model, x, y, v, eps=1e-4)
+    Hv_approx = finite_diff_hvp(model, x, y, v, eps=eps)
 
     abs_diff = (Hv_exact - Hv_approx).abs()
     rel_diff = abs_diff / (Hv_exact.abs() + 1e-8)
+    worst = rel_diff.max().item()
 
     print(f"Max absolute difference: {abs_diff.max().item():.2e}")
-    print(f"Max relative difference: {rel_diff.max().item():.2e}")
+    print(f"Max relative difference: {worst:.2e}")
     print(f"Mean relative difference: {rel_diff.mean().item():.2e}")
 
-    if rel_diff.max().item() < 1e-3:
-        print("\nPASS: double-backward HVP matches finite differences.")
-    else:
-        print("\nFAIL: something is wrong with the HVP implementation.")
-        
+    assert math.isfinite(worst), "HVP or finite-difference result is not finite (NaN or inf)"
+    assert worst < TOLERANCE, f"HVP does not match finite differences: max rel diff {worst:.2e} >= {TOLERANCE:.0e}"
+    return worst
+
+
+if __name__ == "__main__":
+    try:
+        check()
+    except AssertionError as e:
+        print(f"\nFAIL: {e}")
+        sys.exit(1)
+    print("\nPASS: double-backward HVP matches finite differences.")
