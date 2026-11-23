@@ -8,13 +8,19 @@ running average of `v` before this; `VBarAccumulator` is an `on_step(step, info)
 `train_forward`, so it rides the trunk run that is being snapshotted rather than needing a
 second pass.
 
-# TODO: poison_score(snapshot, batch, weights) -> combined per-group score from snr + curvature.
-# TODO: localize(snapshot, batch, k) -> top-k implicated groups (the repair target set).
+Week 5 (below `VBarAccumulator`): `poison_ratios` (p_i), `psi_k`, `group_drift`, `group_sign`,
+`curvature_share`, `null_thresholds` (tau_p, tau_s, tau_d from matched normal steps), `poisoned_directions`
+(P), `poison_score`, and `localize`, which returns PLAN_V8 §6.4's `Localization`. `research/localizer/pipeline.py`
+turns snapshots into the flat inputs these take.
 """
 
 from __future__ import annotations
 
 from collections import deque
+
+import numpy as np
+
+from research.localizer.snr import as_np
 
 
 def compose_on_step(*hooks):
@@ -223,6 +229,279 @@ class VBarAccumulator:
         self.last_step = sd.get("last_step")
         self.frozen = sd.get("frozen", False)
         self._pending.clear()
+
+
+# --------------------------------------------------------------------------------------
+# Week 5: poison score, psi_k, null-derived thresholds, localize (context-ai §4.7, PLAN_V8 §6.4)
+#
+# All numpy: the inputs are flat vectors in `curvature.layout` order (use `snr.flat_from_named`
+# on a snapshot's `v` and on a v_bar dict) and a frozen (k, dim) eigenvector block U from
+# `curvature.top_k_htilde`. torch is not needed here, so this layer is tested without it.
+# --------------------------------------------------------------------------------------
+
+LOCALIZATION_KEYS = ("groups", "selected", "method", "ref", "t", "cost_gpu_s")
+GROUP_KEYS = ("tensor", "rows", "score", "sign", "channel")
+
+
+def _orthonormal_rows(U, tol=1e-3) -> None:
+    k = U.shape[0]
+    err = float(np.abs(U @ U.T - np.eye(k)).max()) if k else 0.0
+    if err > tol:
+        raise ValueError(f"eigenvector rows are not orthonormal (max |U U^T - I| = {err:.2e})")
+
+
+def poison_ratios(U, v, vbar, eps=1e-12) -> np.ndarray:
+    """p_i = |u_i . (v - v_bar)| / (|u_i . v_bar| + eps), one value per row of U (context-ai §4.7)."""
+    U, v, vbar = as_np(U), as_np(v), as_np(vbar)
+    return np.abs(U @ (v - vbar)) / (np.abs(U @ vbar) + eps)
+
+
+def psi_k(U, v, vbar) -> float:
+    """psi_k = ||Pi_k (v - v_bar)|| / ||v - v_bar||: the fraction of the v change inside span(U).
+
+    U must have orthonormal rows (top_k_htilde's eigenvectors do), or Pi_k is not a projection.
+    0 when v did not move at all.
+    """
+    U, v, vbar = as_np(U), as_np(v), as_np(vbar)
+    _orthonormal_rows(U)
+    d = v - vbar
+    nd = float(np.linalg.norm(d))
+    if nd == 0.0:
+        return 0.0
+    return float(np.linalg.norm(U @ d) / nd)
+
+
+def group_drift(v, vbar, groups, eps=1e-30) -> dict:
+    """RMS of log(v / v_bar) per group: how far v moved from its pre-spike average, scale-free.
+
+    This is PLAN_V8 §6.4's magnitude control (||log v - log v_bar||), per group, as an RMS so groups
+    of different sizes are comparable. It needs no eigenvectors.
+    """
+    r = np.log((as_np(v) + eps) / (as_np(vbar) + eps))
+    return {gid: float(np.sqrt(np.mean(r[g["start"] : g["stop"]] ** 2))) for gid, g in groups.items()}
+
+
+def group_sign(v, vbar, groups, eps=1e-30) -> dict:
+    """PLAN_V8 §6.1's signed poison per group: +1 if v went UP on balance (over-preconditioned, stall),
+    -1 if it went down (under-preconditioned)."""
+    r = np.log((as_np(v) + eps) / (as_np(vbar) + eps))
+    return {gid: (1 if float(r[g["start"] : g["stop"]].sum()) >= 0 else -1) for gid, g in groups.items()}
+
+
+def curvature_share(U, directions, groups) -> dict:
+    """Share of the selected eigen-directions' energy that falls in each group (sums to 1 over groups).
+
+    For each direction i in `directions`, ||u_i restricted to the group||^2 is that group's share of
+    u_i (rows of U are unit vectors). Averaged over the directions. All zeros if `directions` is empty.
+    """
+    U = as_np(U)
+    idx = list(directions)
+    if not idx:
+        return {gid: 0.0 for gid in groups}
+    E = (U[idx] ** 2).sum(axis=0) / len(idx)
+    return {gid: float(E[g["start"] : g["stop"]].sum()) for gid, g in groups.items()}
+
+
+def _quantile(values, q, name, min_n) -> float:
+    a = np.asarray([x for x in values if np.isfinite(x)], dtype=np.float64)
+    if a.size == 0:
+        raise ValueError(f"no finite null values for {name}: calibration data is missing or empty")
+    if a.size < min_n:
+        raise ValueError(f"only {a.size} null values for {name} (need >= {min_n}); capture more normal steps")
+    return float(np.quantile(a, q))
+
+
+def null_thresholds(null, *, U=None, groups, q_p=0.95, q_s=0.5, q_d=0.95, min_steps=3, eps=1e-12) -> dict:
+    """tau_d, tau_p and tau_s from matched NORMAL steps -- never fixed constants (context-ai §4.7).
+
+    `null` is a list of dicts, one per normal step: {"v", "vbar"} as flat vectors, plus "dir_snr"
+    (a length-k array, the directional SNR at that step along the same frozen U) when U is given.
+
+      tau_d = the q_d quantile, over normal steps, of the LARGEST group drift at that step;
+      tau_p = the q_p quantile, over normal steps, of the LARGEST p_i at that step (needs U);
+      tau_s = the q_s quantile of every directional SNR value at every normal step (needs U).
+
+    WHY THE LARGEST, not every value pooled: a group is tested against tau_d once per group, so with
+    G groups a per-value 95th percentile flags about 5% of groups on a perfectly normal step -- with
+    the proxy's ~30 tensor groups, nearly every normal step would select something. Taking the
+    per-step maximum makes q_d the chance that a normal step selects ANY group. (Found by running
+    the planted test over 200 normal draws: pooled gave a 6% per-group false-positive rate.)
+
+    Raises if `null` is empty or has fewer than `min_steps` normal steps. With only a few normal
+    steps the quantile is close to the largest value seen, which is coarse; Week 9's calibration
+    sweeps are what fix that. The quantiles and sample sizes are returned for the provenance.
+    """
+    if not null:
+        raise ValueError("no normal-step calibration data: thresholds must come from matched normal steps")
+    max_drift, max_p, ss = [], [], []
+    for row in null:
+        if "v" not in row or "vbar" not in row:
+            raise ValueError("each null row needs 'v' and 'vbar'")
+        max_drift.append(max(group_drift(row["v"], row["vbar"], groups).values()))
+        if U is not None:
+            if row.get("dir_snr") is None:
+                raise ValueError("null row has no 'dir_snr'; it is needed when an eigenbasis is used")
+            max_p.append(float(poison_ratios(U, row["v"], row["vbar"], eps).max()))
+            ss.extend(as_np(row["dir_snr"]).tolist())
+    out = {
+        "tau_d": _quantile(max_drift, q_d, "per-step max group drift", min_steps),
+        "q_d": q_d,
+        "n_normal_steps": len(null),
+        "family": "per-step max",
+    }
+    if U is not None:
+        out.update(
+            tau_p=_quantile(max_p, q_p, "per-step max poison ratio p_i", min_steps),
+            tau_s=_quantile(ss, q_s, "directional SNR", min_steps),
+            q_p=q_p,
+            q_s=q_s,
+            n_null_snr=len(ss),
+        )
+    return out
+
+
+def poisoned_directions(p, dir_snr, tau_p, tau_s) -> list[int]:
+    """P = { i : p_i > tau_p AND SNR_i < tau_s } -- high poison and low signal (context-ai §4.7)."""
+    p, s = as_np(p), as_np(dir_snr)
+    if p.shape != s.shape:
+        raise ValueError(f"p has shape {p.shape}, dir_snr has {s.shape}")
+    return [int(i) for i in range(p.size) if p[i] > tau_p and s[i] < tau_s]
+
+
+def poison_score(drift, tau_d, share=None) -> dict:
+    """Per-group score: drift / tau_d, times (1 + G * curvature share) when an eigenbasis is used.
+
+    drift / tau_d > 1 means the group moved more than the normal-step null allows. G * share is 1
+    for a group holding an average share of the poisoned directions, so the curvature factor lifts
+    groups where the stiff, poisoned directions live and leaves the rest at x1. Without an
+    eigenbasis (the no-HVP localizer) the score is drift / tau_d alone.
+    """
+    if not tau_d > 0:
+        raise ValueError(f"tau_d must be > 0, got {tau_d}")
+    G = len(drift)
+    out = {}
+    for gid, d in drift.items():
+        s = d / tau_d
+        if share is not None:
+            s *= 1.0 + G * share.get(gid, 0.0)
+        out[gid] = float(s)
+    return out
+
+
+def localize(
+    *,
+    v,
+    vbar,
+    groups,
+    null,
+    t: int,
+    U=None,
+    dir_snr=None,
+    k_select=5,
+    q_p=0.95,
+    q_s=0.5,
+    q_d=0.95,
+    min_steps=3,
+    cost_gpu_s=0.0,
+    eps=1e-12,
+) -> dict:
+    """Score every group and select the repair targets; returns PLAN_V8 §6.4's `Localization`.
+
+    `v` is the snapshot's v at the failure step t and `vbar` the pre-spike v_bar, both flat. With
+    `U` (frozen top-k eigenvectors of H~ at t) and `dir_snr` (directional SNR along U at t) this is
+    the curvature localizer; without them it is the no-HVP localizer (drift only).
+
+    A group is selected if its drift is above tau_d; the selected set is the top `k_select` of
+    those by score (it can be empty -- nothing moved more than normal steps do). `rows` is
+    (start, stop) or None, so the result is JSON-safe; use `rows_slice` to get a slice back.
+    Everything the decision used goes in `provenance`.
+    """
+    v, vbar = as_np(v), as_np(vbar)
+    if v.shape != vbar.shape:
+        raise ValueError(f"v has shape {v.shape}, vbar has {vbar.shape}")
+    use_eig = U is not None
+    if use_eig and dir_snr is None:
+        raise ValueError("dir_snr is required with U (P needs both p_i and the directional SNR)")
+    if use_eig:
+        U = as_np(U)
+        if U.shape[1] != v.size:
+            raise ValueError(f"U has {U.shape[1]} columns, v has {v.size} entries")
+
+    th = null_thresholds(
+        null, U=U if use_eig else None, groups=groups, q_p=q_p, q_s=q_s, q_d=q_d, min_steps=min_steps, eps=eps
+    )
+    drift = group_drift(v, vbar, groups)
+    sign = group_sign(v, vbar, groups)
+    prov = {"thresholds": th, "drift": drift, "k_select": int(k_select)}
+
+    share = None
+    if use_eig:
+        p = poison_ratios(U, v, vbar, eps)
+        P = poisoned_directions(p, dir_snr, th["tau_p"], th["tau_s"])
+        share = curvature_share(U, P, groups)
+        prov.update(
+            p=p.tolist(),
+            dir_snr=as_np(dir_snr).tolist(),
+            poisoned_directions=P,
+            psi_k=psi_k(U, v, vbar),
+            curvature_share=share,
+        )
+    score = poison_score(drift, th["tau_d"], share)
+    eligible = [gid for gid in groups if drift[gid] > th["tau_d"]]
+    selected = sorted(eligible, key=lambda gid: -score[gid])[: int(k_select)]
+
+    loc = {
+        "groups": {
+            gid: {
+                "tensor": g["tensor"],
+                "rows": None if g["rows"] is None else [int(g["rows"][0]), int(g["rows"][1])],
+                "score": score[gid],
+                "sign": sign[gid],
+                "channel": "v",
+            }
+            for gid, g in groups.items()
+        },
+        "selected": selected,
+        "method": "curvature: drift x (1 + G*share of P), P = {p>tau_p, snr<tau_s}" if use_eig else "drift (no HVP)",
+        "ref": "vbar",
+        "t": int(t),
+        "cost_gpu_s": float(cost_gpu_s),
+        "provenance": prov,
+    }
+    validate_localization(loc)
+    return loc
+
+
+def rows_slice(rows):
+    """A Localization's `rows` ([start, stop] or None) as the slice PLAN_V8 §6.4 names."""
+    return None if rows is None else slice(int(rows[0]), int(rows[1]))
+
+
+def validate_localization(loc) -> None:
+    """Raise if `loc` does not match PLAN_V8 §6.4's Localization contract."""
+    for key in LOCALIZATION_KEYS:
+        if key not in loc:
+            raise ValueError(f"Localization is missing {key!r}")
+    if loc["ref"] not in ("B*", "vbar", "fresh_g2"):
+        raise ValueError(f"ref must be 'B*', 'vbar' or 'fresh_g2', got {loc['ref']!r}")
+    for gid, g in loc["groups"].items():
+        for key in GROUP_KEYS:
+            if key not in g:
+                raise ValueError(f"group {gid!r} is missing {key!r}")
+        if g["sign"] not in (1, -1):
+            raise ValueError(f"group {gid!r}: sign must be +1 or -1")
+        if g["channel"] not in ("m", "v", "m+v"):
+            raise ValueError(f"group {gid!r}: channel must be 'm', 'v' or 'm+v'")
+        r = g["rows"]
+        if r is not None and not isinstance(r, slice) and not (len(r) == 2 and int(r[0]) < int(r[1])):
+            raise ValueError(f"group {gid!r}: rows must be None, a slice, or [start, stop)")
+        if not np.isfinite(g["score"]):
+            raise ValueError(f"group {gid!r}: score is not finite")
+    missing = [gid for gid in loc["selected"] if gid not in loc["groups"]]
+    if missing:
+        raise ValueError(f"selected groups not in groups: {missing}")
+    if len(set(loc["selected"])) != len(loc["selected"]):
+        raise ValueError("selected has duplicates")
 
 
 # --------------------------------------------------------------------------------------
