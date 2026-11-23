@@ -124,11 +124,11 @@ main>*{min-width:0}
 <td><ul class="tight"><li>Baselines ran in the prereg-v2 battery on the MI300X (10 Nov); the bitwise replay check on the merged code is still owed</li><li><code>Bspam_clip</code> / <code>Bspam_reset</code> wired in PR #28 (CI green, not merged; prereg-v3 needs it before the tag)</li><li>SPAM's warmup clock at fork start confounds P5(b) (prereg-v3 open decision 9)</li><li>Edits to <code>fork.py</code> / <code>trunk.py</code> are harness-owner territory and need a GPU replay check</li></ul></td>
 <td><span class="pill p-wip">GPU ran, replay owed</span><br><span class="pill p-ok">CI ✓</span></td>
 <td><b>Stage 3</b> next session (<code>baseline_gpu_session.sh</code>), then as comparators in stage 6</td></tr>
-<tr><td><b>Avyank</b><br><code>avyankvanamali-star · 5 commits · PR #15</code></td>
-<td><ul class="tight"><li>Toy Hessian-vector product (double-backward) with a finite-difference check</li><li><code>curvature.py</code>: HVP on the GPT loss and a top-k eigensolve (Task 11)</li></ul></td>
+<tr><td><b>Avyank</b><br><code>avyankvanamali-star · PR #15 merged 22 Nov</code></td>
+<td><ul class="tight"><li>Toy Hessian-vector product (double-backward) with a finite-difference check</li><li><code>curvature.py</code>: HVP on the GPT loss, the preconditioned H̃ and a top-k eigensolve (Task 11)</li><li><code>poison.py</code>: a v̄ accumulator</li></ul></td>
 <td><ul class="tight"><li>Math is right (Pearlmutter)</li><li>Independent float64 check is the right kind of test</li><li>Becomes the cross-check for the planned jvp HVP</li></ul></td>
-<td><ul class="tight"><li>Reviewed 20 Nov: <code>curvature.py</code> (9d9b2fa) now runs the HVP on the GPT loss and indexes the tied weight once, which fixes the biggest item</li><li>Still open: <code>toy_hvp/</code> fails lint, seeds torch at import time (breaks Δ=0 replay), and its <code>verify.py</code> exits 0 on FAIL; <code>curvature.py</code> replaces it, so deleting <code>toy_hvp/</code> clears all three</li><li>Stray <code>research/localizer/.DS_Store</code></li><li>CI only runs <code>pytest research/tests/</code>, so <code>curvature.py</code>'s self-checks never run there</li><li>Earlier: pushed straight to main and turned CI red (main was reset)</li></ul></td>
-<td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-todo">CI red (lint)</span></td>
+<td><ul class="tight"><li>Merged 22 Nov: <code>adbec92</code> cleared the four merge blockers (<code>.DS_Store</code>, import-time seeds, a check that can fail, the GPT loss with the tied weight once); 10 CPU tests in <code>tests/test_localizer.py</code></li><li>Follow-ups, in a comment on the PR: the <code>jvp</code> HVP (PLAN_V8 §9.5), two v̄ implementations (<code>capture.py</code> and <code>poison.py</code>), Kaggle wording, <code>toy_hvp/</code> into the tests</li><li>Earlier: pushed straight to main and turned CI red (main was reset)</li></ul></td>
+<td><span class="pill p-todo">GPU ✗</span><br><span class="pill p-ok">CI ✓</span></td>
 <td><b>Stage 7</b>, after PR #15's fixes pass CI</td></tr>
 <tr><td><b>Eknoor</b><br><code>eknoorahluwalia1 · PR #22, #23</code></td>
 <td><ul class="tight"><li>Figures starter on dummy data, with a Gate B plot (PR #23)</li><li>Contributors list update (PR #22)</li></ul></td>
@@ -162,7 +162,7 @@ main>*{min-width:0}
 <td>MI300X access for the replay check (session booked 20 Nov)</td></tr>
 <tr><td><b>Avyank</b><br>Localizer + stats</td>
 <td><ul class="tight"><li>C2 localizer, <code>research/localizer/</code> (proposed)</li><li>Tests and analysis for <code>stats.py</code> (proposed)</li></ul></td>
-<td><ul class="tight"><li>Push the week 2–3 work to a branch</li><li>Clear PR #15's merge blockers</li><li><code>test_stats.py</code>, including the sign-flip test prereg-v3 uses</li><li><code>snr.py</code> and the no-HVP localizer (it gives RML-2 its support S)</li></ul></td>
+<td><ul class="tight"><li><code>test_stats.py</code>, including the sign-flip test prereg-v3 uses</li><li><code>snr.py</code> and the no-HVP localizer (it gives RML-2 its support S)</li><li>PR #15's follow-ups, the <code>jvp</code> HVP first</li></ul></td>
 <td>Nothing to start</td></tr>
 <tr><td><b>Eknoor</b><br>Figures + paper</td>
 <td><ul class="tight"><li>Builds the manuscript</li><li>Figs 1–6, Tabs 1–2, and the scripts that make them</li><li>Collects every owner's section</li></ul></td>
@@ -377,7 +377,7 @@ main>*{min-width:0}
 <tr><td><i class="dot d-ok"></i></td><td><b>Placebo arms (K = 8–16, w and g channels) + planted dose c ∈ {1,3,10,30} + cooldown arm</b>: built, CI-tested (be0c131, <code>--battery chaos</code>) and run on the MI300X on 10 Nov. The full K = 111 benchmark (≈ 7 GPU-h) has not run. Rounding chaos reaches ~0.003 nats, so effects are reported as d = Δ / σ_chaos.<br><code>research/autopsy/ · docs/chaos_floor.md</code></td></tr>
 <tr><td><i class="dot d-ok"></i></td><td><b>Brollback (Eddie, PR #20)</b>: rollback-and-skip at matched compute. Merged, wired into <code>mve</code> (PR #21) and ran in prereg-v2; the bitwise replay check runs at the next MI300X session.<br><code>research/baselines/rollback.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Factorial, oracle, localize</b> modules.<br><code>research/autopsy/{factorial,oracle,localize}.py</code></td></tr>
-<tr><td><i class="dot d-todo"></i></td><td><b>Localizer (C2)</b>: SNR, curvature, poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
+<tr><td><i class="dot d-wip"></i></td><td><b>Localizer (C2)</b>: curvature (HVP, H̃, top-k eigsh) and a v̄ accumulator are merged (Avyank, PR #15; CPU tests, not run on a GPU). SNR and the poison score are comment-only stubs.<br><code>research/localizer/*.py</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Repair operator (C3)</b>: stub. The RML undo in autopsy covers part of it.<br><code>research/repair/operator.py</code></td></tr>
 <tr><td><i class="dot d-wip"></i></td><td><b>Theory</b>: R-F2's m+v coupling law written (21 Nov): a closed form for the protection share π and Y(undo-v)/Y(undo-m+v) from β1, β2 and the logged dose, frozen before prereg-v3 runs. CPU test only. ψ_k, AR(2) and the stall law are not written.<br><code>research/theory/coupling.py · README.md</code></td></tr>
 <tr><td><i class="dot d-todo"></i></td><td><b>Figures</b>: stub. <b>Drivers</b>: proxy smoke and 124M run are TODO stubs.<br><code>analysis/figures.py · experiments/proxy/smoke.py · experiments/llm124m/run.py</code></td></tr>
