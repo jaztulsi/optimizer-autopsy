@@ -35,10 +35,23 @@ CK="$EXEA_CHECKPOINT_DIR"
 
 ## START
 
-Runs G0, then seed 1 of E1 on its own (the cost rule), then the rest in the order prereg-v3 gives. Each `mve`
+First, once: G0's RML-2 check (PLAN_V8 §11.2), which is not part of prereg-v3. A plain fork and a fork with the
+probation hook installed inert (`xproc_gate --probation-inert`) replay the same spikes from one snapshot in separate
+processes and must match bit for bit (`g0_inert/summary.json`). It runs before the runner, so it stays out of seed 1's
+timing, and a FAIL does not stop prereg-v3. It reruns next session only if it crashed before `compare`. This block
+runs tagged code: the `prereg-v3` tag already has the flag.
+
+Then the runner: G0, seed 1 of E1 on its own (the cost rule), then the rest in the order prereg-v3 gives. Each `mve`
 instance saves after every branch.
 
 ```bash
+G="${EXEA_CHECKPOINT_DIR:?}/prereg_v3/g0_inert" X="$EXEA_CHECKPOINT_DIR/venv/bin/python -m research.gpu.xproc_gate"
+if [ ! -e "$G/.done" ]; then
+  rm -rf "$G" && mkdir -p "$G"
+  { $X prime --out "$G" && $X fork --out "$G" --tag a && $X fork --out "$G" --tag p --probation-inert &&
+    $X compare --out "$G"; } > "$G/log.txt" 2>&1
+  [ -e "$G/summary.json" ] && touch "$G/.done"
+fi
 bash research/gpu/exea_prereg_v3.sh
 ```
 
