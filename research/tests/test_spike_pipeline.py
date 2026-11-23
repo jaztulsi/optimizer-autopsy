@@ -169,6 +169,7 @@ def _run(**kw):
         "stress": None,
         "detector_params": {"z": 4.0},
         "normal_snapshots": ["normal_120.safetensors"],
+        "normal_vbars": ["normal_vbar_120.safetensors"],
         "hardware": {"gpu": "MI300X", "torch": "x", "backend": "rocm", "deterministic": True},
         "triggers": [],
     }
@@ -245,6 +246,7 @@ def test_k2_validate_rejects_broken_entries():
         replace(base, detection_mode="predictive", lead=1, peak_step=base.t0 + 1),
         replace(base, label="confirmed", seed=k2.TUNING_SEED),  # tuning seed can't confirm
         replace(base, normal_snapshot_uris=()),
+        replace(base, normal_vbar_uris=()),  # a run.json from before capture saved normal v̄s
         replace(base, hardware={"backend": "cpu"}),
         replace(base, source="natural"),
     ):

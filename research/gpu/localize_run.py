@@ -18,11 +18,10 @@ on the 11M-parameter proxy, and every MI300X session needs the user's go-ahead (
     python -m research.gpu.localize_run --battery results/spikes          # Week 7: every run, every seed
     python -m research.gpu.localize_run --run ... --no-eig                # the no-HVP localizer only
 
-KNOWN GAP (needs a change to research/spikes/capture.py, which is not this file's to change):
-capture saves a v_bar only at fork points, not at the normal steps. The thresholds come from the
-normal steps and need (v, v_bar) at each of them, so this driver stops with an explanation if
-run.json has no "normal_vbars" list. Running capture with n_normal >= 4 is also needed for the
-leave-one-out normal scoring (each normal step needs >= 3 others as its null).
+The thresholds come from the normal steps and need (v, v_bar) at each of them: capture.py saves both and
+lists them in run.json["normal_vbars"] since 2026-11-22, and this driver stops with an explanation on an older
+run. The leave-one-out normal scoring needs n_normal >= 4 (each normal step needs >= 3 others as its null);
+capture keeps 6. Every v_bar here is capture's debiased EMA, the same estimator as poison.VBarAccumulator.
 """
 
 from __future__ import annotations
@@ -41,8 +40,7 @@ PROBE_STEP = 10_000  # the fixed probe batch, the same one curvature_run uses
 
 GAP = (
     "run.json has no 'normal_vbars': research/spikes/capture.py saved the normal-step snapshots without "
-    "their v_bar, so there is nothing to derive thresholds from. The fix is in capture.py (save the v_bar "
-    "next to each normal snapshot and list the paths as run['normal_vbars']); then re-capture."
+    "their v_bar (capture runs before 2026-11-22 did), so there is nothing to derive thresholds from; re-capture."
 )
 
 

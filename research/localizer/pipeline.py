@@ -98,8 +98,9 @@ def localize_spike(
     """One spike -> a validated `Localization` (PLAN_V8 §6.4), with the eigensolve evidence attached.
 
     `t0_snapshot` and each normal snapshot are harness.snapshot dicts; `vbar` and each normal's
-    v_bar are {param_name: tensor}. `normals` is a list of (snapshot, vbar) pairs. `t` defaults to
-    the t0 snapshot's step. The model is left holding the t0 weights.
+    v_bar are {param_name: tensor}: capture.py's debiased EMA of v (the same estimator as poison.VBarAccumulator
+    with lag 0), saved at the fork point for the spike and at each normal step. `normals` is a list of
+    (snapshot, vbar) pairs. `t` defaults to the t0 snapshot's step. The model is left holding the t0 weights.
     """
     import torch
 

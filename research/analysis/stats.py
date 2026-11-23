@@ -5,7 +5,7 @@ spike instance (same index = same instance). `clusters` (e.g. the data-order see
 differences to cluster means first, so the resampling unit is the cluster, not the fork.
 
 scipy and statsmodels are imported lazily: both are pinned (research/requirements.txt, requirements-dev.txt).
-CI installs neither, so only `_diffs` (numpy alone) is CI-tested.
+`_diffs` and `sign_flip_p` need numpy alone and are CI-tested (research/tests/test_stats.py, test_autopsy.py).
 """
 
 from __future__ import annotations
@@ -70,6 +70,22 @@ def tost(a, b, margin, clusters=None, alpha=0.05) -> dict:
         "superior": hi < 0,
         "equivalent": lo > -margin and hi < margin,
     }
+
+
+def sign_flip_p(x) -> float:
+    """Exact one-sided sign-flip p for "mean(x) > 0" (docs/prereg_v3.md, Statistics). `x`: one value per seed.
+
+    Under H0 each value's sign is a fair coin, so all 2^n sign patterns are equally likely:
+    p = #{patterns whose sum >= the observed sum} / 2^n. The smallest possible p is 1/2^n (1/128 for seven seeds)."""
+    x = np.asarray(x, dtype=np.float64)
+    if x.ndim != 1 or x.size == 0 or not np.all(np.isfinite(x)):
+        raise ValueError(f"need a non-empty 1-D array of finite values, got shape {x.shape}")
+    n = x.size
+    if n > 16:  # ponytail: full enumeration, 2^n rows; sample patterns instead if a design ever has > 16 seeds
+        raise ValueError(f"exact enumeration is capped at 16 values, got {n}")
+    signs = 1.0 - 2.0 * ((np.arange(2**n)[:, None] >> np.arange(n)) & 1)
+    tol = 1e-12 * max(1.0, float(np.abs(x).sum()))  # ties in exact arithmetic must not split on rounding
+    return float(np.mean(signs @ x >= x.sum() - tol))
 
 
 def holm(p) -> np.ndarray:
