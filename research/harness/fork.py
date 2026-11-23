@@ -286,7 +286,11 @@ def make_baseline_branches(
     clip value as their own cap. Both are stateful -- pass the `state_dict()` of a copy primed on the
     trunk via `observer()` (see their module docstrings), or they start cold. `run_branch` deep-copies the
     hook each run, so a branch can be reused (second seed, determinism check) and always starts from the
-    primed state. `spam_params` overrides SPAM's paper defaults.
+    primed state. `spam_params` overrides SPAM's paper defaults (for all three SPAM arms).
+
+    Bspam_clip and Bspam_reset split SPAM into its two halves (prereg-v3 P5(b)): Bspam_clip is spike-aware
+    clipping alone (delta_t = 0: no momentum reset, so no post-reset warmup either); Bspam_reset is the
+    periodic reset + warmup alone (theta = 0: no clipping). Bspam keeps both.
 
     Bskipstep skips the optimizer update over the spike window (vs Bs, which swaps the batch); Bvreset
     zeroes v only (m kept) once after the window, the blunt counterpart of Bg and of the v-repair arm.
@@ -312,6 +316,8 @@ def make_baseline_branches(
 
     max_norm = _baseline_max_norm(cfg)
     inj, w = recipe.inject_step, recipe.width
+    sp = dict(spam_params or {})
+    sp_clip, sp_reset = {**sp, "delta_t": 0}, {**sp, "theta": 0.0}  # SPAM's two halves, apart
     optional = {}
     if detector_t0 is not None:
         optional["Bskipstep_det"] = Branch(
@@ -333,7 +339,9 @@ def make_baseline_branches(
         **optional,
         "Bskipstep": Branch("Bskipstep", recipe.pre_step, cfg, pre_opt_step=skip_step.as_pre_opt_step(inj, w)),
         "Bvreset": Branch("Bvreset", compose(recipe.pre_step, reset.as_pre_step(inj + w, reset.V_ONLY)), cfg),
-        "Bspam": Branch("Bspam", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**(spam_params or {}))),
+        "Bspam": Branch("Bspam", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**sp)),
+        "Bspam_clip": Branch("Bspam_clip", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**sp_clip)),
+        "Bspam_reset": Branch("Bspam_reset", recipe.pre_step, cfg, pre_opt_step=spam.as_pre_opt_step(**sp_reset)),
         "Bzclip": Branch(
             "Bzclip",
             recipe.pre_step,

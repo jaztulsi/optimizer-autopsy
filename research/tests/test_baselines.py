@@ -149,6 +149,63 @@ def test_spam_hook_reset_warmup_and_undo():
     assert hook(250, {"opt": opt}) is None
 
 
+def _spam_arms(spam_params=None):
+    recipe = SimpleNamespace(pre_step=None, inject_step=10, width=1)
+    br = make_baseline_branches(_CFG, recipe, spam_params=spam_params)
+    return {n: br[n].pre_opt_step for n in ("Bspam", "Bspam_clip", "Bspam_reset")}
+
+
+def _spam_call(hook, step, v_val=1e-4, grad=None):
+    """Run one SPAM hook at `step` on a fresh AdamW; return (ctx['spam'], moments zeroed?, grad after)."""
+    p, q, opt = _adamw_with_state(v_val=v_val)
+    p.grad = torch.tensor([0.1, -0.1, 3.0, -5.0]) if grad is None else grad.clone()
+    q.grad = None  # only p carries spikes: theta * v = 0.5 here, and q's leftover grad of 1.0 would clip too
+    ctx = {"opt": opt}
+    undo = hook(step, ctx)
+    zeroed = float(opt.state[p]["exp_avg"].abs().sum()) == 0.0
+    if undo is not None:
+        undo()
+    return ctx["spam"], zeroed, p.grad.clone()
+
+
+def test_spam_halves_each_do_only_their_own_job():
+    arms = _spam_arms()
+    # A clip step (mid-cycle, past grace): full SPAM and the clip half trim the two spikes; the reset half doesn't.
+    for name, clips in (("Bspam", True), ("Bspam_clip", True), ("Bspam_reset", False)):
+        rec, zeroed, g = _spam_call(arms[name], 250)
+        assert (rec["clipped"] == 2) is clips and not rec["reset"] and not zeroed, name
+        assert torch.equal(g, torch.tensor([0.1, -0.1, 3.0, -5.0])) is not clips, name
+    # A reset step (global 499): full SPAM and the reset half zero m, v and start the 1% warmup; the clip half doesn't.
+    for name, resets in (("Bspam", True), ("Bspam_clip", False), ("Bspam_reset", True)):
+        rec, zeroed, _ = _spam_call(arms[name], 499)
+        assert rec["reset"] is resets and zeroed is resets, name
+        assert math.isclose(rec["scale"], 0.01) is resets, name
+    # Mid-warmup after that reset (global 520, past grace): the reset half still damps the update; the clip half never.
+    assert _spam_call(arms["Bspam_reset"], 520)[0]["scale"] < 1.0
+    assert _spam_call(arms["Bspam_clip"], 520)[0]["scale"] == 1.0
+    assert _spam_call(arms["Bspam_reset"], 520)[0]["clipped"] == 0
+
+
+def test_spam_params_reach_all_three_arms_but_never_undo_the_split():
+    arms = _spam_arms({"delta_t": 100, "theta": 1e9})  # reset every 100 steps; a threshold nothing reaches
+    assert _spam_call(arms["Bspam"], 99)[0]["reset"] and _spam_call(arms["Bspam_reset"], 99)[0]["reset"]
+    assert not _spam_call(arms["Bspam_clip"], 99)[0]["reset"]  # delta_t forced to 0 whatever the override
+    assert _spam_call(arms["Bspam"], 150)[0]["clipped"] == 0  # theta override reached full SPAM
+    assert _spam_call(arms["Bspam_clip"], 150)[0]["clipped"] == 0  # ... and the clip half
+    arms = _spam_arms({"theta": 1.0})  # a low threshold: the reset half must still never clip
+    assert _spam_call(arms["Bspam_clip"], 250)[0]["clipped"] > 0
+    assert _spam_call(arms["Bspam_reset"], 250)[0]["clipped"] == 0
+
+
+def test_spam_resets_on_the_last_step_of_a_2000_step_run():
+    # prereg-v3 runs max_steps = 2000: steps 0..1999. Resets fall at 499, 999, 1499 AND 1999, so every SPAM arm
+    # with resets ends on one -- including a fork from 1800, which therefore is not reset-free.
+    resets = [s for s in range(2000) if spam.phase(s)[0]]
+    assert resets == [499, 999, 1499, 1999]
+    assert [s for s in resets if s >= 1800] == [1999]
+    assert spam.phase(1999)[2] == spam.warmup_scale(0)  # that final update runs at 1% LR
+
+
 # --------------------------------------------------------------------------------------
 # ZClip
 # --------------------------------------------------------------------------------------
@@ -395,7 +452,7 @@ def test_run_fork_and_branch_pass_pre_opt_step_through():
 
         recipe = SimpleNamespace(pre_step=lambda s, c: None, inject_step=4, width=1)
         br = make_baseline_branches(_CFG, recipe)
-        assert set(br) == {"Bskipstep", "Bvreset", "Bspam", "Bzclip", "Badagc"}
+        assert set(br) == {"Bskipstep", "Bvreset", "Bspam", "Bspam_clip", "Bspam_reset", "Bzclip", "Badagc"}
         assert all(isinstance(b, Branch) for b in br.values())
         hooked = [b for n, b in br.items() if n != "Bvreset"]  # Bvreset acts via pre_step, not the grad hook
         assert all(b.pre_step is recipe.pre_step and b.pre_opt_step is not None for b in hooked)
