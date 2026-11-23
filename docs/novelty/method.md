@@ -316,7 +316,8 @@ Nothing below touches `harness/determinism.py` or `harness/preflight.py`, adds a
 3. `research/baselines/knee.py`: irreversible per-coordinate rejection at the knee, the simplest comparison arm.
 4. `research/repair/forecast.py`: feature logging in `on_step`, and a pure scoring function with weights kept in
    `experiments/proxy/`.
-5. `research/analysis/damage_law.py`: N_lost, Ψ, the ceiling, and the fits for §6.1.
+5. `research/analysis/damage_law.py`: N_lost, Ψ, the ceiling, and the fits for §6.1. Built 11-23 (PR #51):
+   Ψ, E(a, b) and the ceiling, which X4 (`autopsy/echo.py`, `mve --battery echo`) checks; N_lost and the fits wait for X1.
 6. `autopsy/mve.py`: new `Branch` entries in `repair_battery`. The support S with scores x is a `Localization` in
    the sense of PLAN_V8 §6.4, so the localizer stub gets its first real output for free.
 7. Gates before any data counts: the null-repair identity (installed, never armed, bitwise equal to no-op) and

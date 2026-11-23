@@ -6,6 +6,7 @@
     python -m research.autopsy.mve --config ... --battery chaos --inject-step 1000 \
         --placebo 111 --placebo-channels w,g,opt --data-forks 8      # chaos floor only (docs/chaos_floor.md)
     python -m research.autopsy.mve ... --kind hard_rows --battery appeal --appeal-k 10   # RML-3 kill test, part 1
+    python -m research.autopsy.mve --config ... --battery echo --inject-step 1000 --horizons 60   # X4 echo checks
 
 One instance = one (spike kind, inject step, width, seed, betas). Everything forks from ONE snapshot at
 `inject_step` (pre-spike, primed for ZClip/AdaGC) and runs to end of schedule; every branch gets the same
@@ -331,7 +332,7 @@ def run_instance(args) -> str:
         cfg["optim"]["betas"] = [float(b) for b in args.betas.split(",")]
     data_dir = args.data_dir or cfg.get("data", {}).get("dir") or resolve_data_dir(args.shard)
     params = {"data_dir": data_dir} if args.kind in ROW_KINDS else {}
-    kind = args.kind or "chaos"
+    kind = args.kind or args.battery  # chaos or echo: no recipe
     if args.kind in FAULTS:
         if args.fault_bit is None:  # no default: bit 30 zeroes a whole sdc_grad step on GPU (faults.py docstring)
             raise SystemExit(f"--kind {args.kind} needs --fault-bit (0 = mantissa LSB, 30 = exponent top)")
@@ -377,7 +378,12 @@ def run_instance(args) -> str:
 
     extra: dict = {}  # per-branch metrics filled by hooks (x_bar, lr factor, edit fraction)
 
-    def run(name, br):
+    def dump():
+        with open(out_path + ".tmp", "w") as f:  # then rename: a kill mid-write (Exea's 13:00 stop) can't truncate it
+            json.dump(res, f, indent=1)
+        os.replace(out_path + ".tmp", out_path)
+
+    def run(name, br, n=steps):
         if name in res["branches"]:
             return
         vals: dict = {}
@@ -392,22 +398,20 @@ def run_instance(args) -> str:
             par = parity_residual(pr)
             on_step = compose(on_step, par)
             br = replace(br, pre_step=compose(_prime_parity(par, args.inject_step), br.pre_step))
-        r = run_branch(data_dir, snap, br, steps, device=device, seed=False, on_step=on_step)
+        r = run_branch(data_dir, snap, br, n, device=device, seed=False, on_step=on_step)
         res["branches"][name] = {
             "val": {str(k + shift): v for k, v in vals.items()},
             "survival": r["survival"],
             "final_train_loss": r["final"],
             "train_losses": r["losses"],
-            "seconds": round((time.time() - t) * steps / (steps - wasted), 1),
+            "seconds": round((time.time() - t) * n / (n - wasted), 1),
             "wasted_steps": wasted,
             "horizon_shift": shift,
             "metrics": extra.get(name, {}),
         }
         if pr:
             res["branches"][name]["parity"] = _parity_summary(pr, args.inject_step)
-        with open(out_path + ".tmp", "w") as f:  # then rename: a kill mid-write (Exea's 13:00 stop) can't truncate it
-            json.dump(res, f, indent=1)
-        os.replace(out_path + ".tmp", out_path)
+        dump()
         print(f"[{tag}] {name}: val@end={vals.get(last - shift)} survival={r['survival']}", flush=True)
 
     if args.battery == "repair":
@@ -418,6 +422,16 @@ def run_instance(args) -> str:
     if args.battery == "appeal":
         for name, br in appeal_battery(cfg, recipe, data_dir, args.appeal_k, extra).items():
             run(name, br)
+        return out_path
+    if args.battery == "echo":  # X4 (docs/novelty/method.md §6.2): short forks, no B*
+        from research.autopsy import echo
+
+        x4 = echo.branches(cfg, args.inject_step, args.echo_z, args.echo_steps, extra, args.echo_param)
+        for name, br in x4.items():
+            run(name, br, args.echo_steps)
+        res["echo"] = echo.summarize(res["branches"], cfg["optim"]["betas"])
+        dump()
+        print(f"[{tag}] X4 verdict: {res['echo']['verdict']}", flush=True)
         return out_path
     if args.battery == "chaos":
         br = {"B*": Branch("B*", None, cfg)}
@@ -468,6 +482,10 @@ def expected_branches(args) -> list[str]:
         return ["B*"] + _placebo_names(args)
     if args.battery == "appeal":
         return ["B*", "B0"]
+    if args.battery == "echo":
+        from research.autopsy.echo import ARMS, name
+
+        return [name(a, z, s) for a in ARMS for z in args.echo_z for s in (1, -1)]
     taus, c2_taus = _undo_taus(args)
     names = ["B*", "B0"] + [f"U_mv@{t}" for t in taus]
     names += [f"U_{c}@{t}" for t in c2_taus for c in ("m", "v")]
@@ -480,7 +498,7 @@ def parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--kind",
         choices=["corrupt_batch", *ROW_KINDS, "lr_bump", *FAULTS],
-        help="spike recipe (omit for --battery chaos)",
+        help="spike recipe (omit for --battery chaos or echo)",
     )
     ap.add_argument("--fault-target", default=TARGET, help="bit-flip kinds: parameter name whose g / m / v is hit")
     ap.add_argument("--fault-index", type=int, default=0, help="bit-flip kinds: flat element index")
@@ -506,8 +524,16 @@ def parser() -> argparse.ArgumentParser:
         help="dose arms: plant c*G on the clean stream, e.g. 1,3,10,30",
     )
     ap.add_argument("--dose-taus", type=_ints, default=_ints("0"), help="undo lags for the dose arms")
-    ap.add_argument("--battery", choices=["core", "repair", "chaos", "appeal"], default="core")
+    ap.add_argument("--battery", choices=["core", "repair", "chaos", "appeal", "echo"], default="core")
     ap.add_argument("--appeal-k", type=int, default=10, help="appeal battery: evidence steps K before a verdict")
+    ap.add_argument(
+        "--echo-z",
+        type=lambda s: [float(z) for z in s.split(",") if z],
+        default=[2.0, 6.0, 10.0, 30.0],
+        help="echo battery: planted spike sizes z (in units of sqrt(v))",
+    )
+    ap.add_argument("--echo-steps", type=int, default=60, help="echo battery: fork length after the planted spike")
+    ap.add_argument("--echo-param", default="transformer.h.0.attn.c_attn.weight", help="echo battery: planted tensor")
     ap.add_argument("--lag", type=int, default=3, help="repair battery: RML undo lag after the window")
     ap.add_argument(
         "--detector-t0", type=int, default=None, help="repair battery: detector step (default: window end + --lag)"
@@ -523,8 +549,10 @@ def parser() -> argparse.ArgumentParser:
 def main(argv=None):
     ap = parser()
     args = ap.parse_args(argv)
-    if args.kind is None and args.battery != "chaos":
-        ap.error("--kind is required unless --battery chaos")
+    if args.kind is None and args.battery not in ("chaos", "echo"):
+        ap.error("--kind is required unless --battery chaos or echo")
+    if args.battery == "echo" and args.kind:
+        ap.error("--battery echo plants its own spike: omit --kind")
     if args.battery == "appeal" and args.kind not in ROW_KINDS:
         ap.error(f"--battery appeal needs a row recipe: --kind {' or '.join(ROW_KINDS)}")
 
