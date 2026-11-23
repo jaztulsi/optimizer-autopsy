@@ -1,0 +1,10 @@
+mve_fix_smoke rc=124 (124 = still running at timeout, good)
+0
+GPU: AMD Instinct MI300X VF
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] B*: val@end=2.833148365020752 survival=1
+GPU: AMD Instinct MI300X VF
+start 02:38:55
+forks done fail=0 03:23:49
+STAGE4_REPORT_FAILED
+two result files share the instance name chaos_w1_inj1000_seed0_b0.9-0.95_chaos: /shared-docker/runs/2026-11-10_stages/stage4/inj1000_g/chaos_w1_inj1000_seed0_b0.9-0.95_chaos.json and /shared-docker/runs/2026-11-10_stages/stage4/inj1000_w/chaos_w1_inj1000_seed0_b0.9-0.95_chaos.json
+ALL_END

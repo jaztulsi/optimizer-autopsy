@@ -1,0 +1,46 @@
+{
+ "chaos_w1_inj1800_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 13,
+  "expected": 13,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 10.6,
+  "Bstar_val": {
+   "1800": 2.9073571968078613,
+   "1819": 2.8845466995239257,
+   "1899": 2.8655817127227783,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "w": {
+    "1800": null,
+    "1819": null,
+    "1899": null,
+    "1999": null
+   },
+   "data": {
+    "1800": 0.0025290042699720222,
+    "1819": 0.005076018110109848,
+    "1899": 0.008325607923346547,
+    "1999": 0.004690246554961065
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": null,
+   "source": null
+  }
+ }
+}

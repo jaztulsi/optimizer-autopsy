@@ -1,0 +1,14 @@
+GPU: AMD Instinct MI300X VF
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] B*: val@end=2.882377052307129 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] B0: val@end=2.8867947387695314 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] U_mv@0: val@end=2.883515701293945 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] U_m@0: val@end=2.8789048194885254 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] U_v@0: val@end=2.885317153930664 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] P+: val@end=2.887258472442627 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] P-: val@end=2.88120644569397 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] Px10: val@end=2.896686143875122 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] Px10|U_m@0: val@end=2.895336694717407 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] Px10|U_v@0: val@end=2.9273995780944824 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] Px10|U_mv@0: val@end=2.8870757579803468 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.95-0.95_core] Px10|cool@0: val@end=2.924331111907959 survival=1
+/shared-docker/runs/2026-11-10_prereg_v2/beta0.95/corrupt_batch_w1_inj160_seed0_b0.95-0.95_core.json

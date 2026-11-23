@@ -1,0 +1,11 @@
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] B*: val@end=2.833148365020752 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_0: val@end=2.833148365020752 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#0: val@end=2.833061475753784 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#1: val@end=2.8333178520202638 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#2: val@end=2.833087902069092 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#3: val@end=2.833040313720703 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#4: val@end=2.8330647468566896 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#5: val@end=2.833106107711792 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#6: val@end=2.8332713222503663 survival=1
+[chaos_w1_inj160_seed0_b0.9-0.95_chaos] Pl_w#7: val@end=2.8331783771514893 survival=1
+/shared-docker/runs/2026-11-10_stages/stage4/inj160_w/chaos_w1_inj160_seed0_b0.9-0.95_chaos.json

@@ -1,0 +1,46 @@
+# Instrument report (effects sealed in sealed.json until the prereg tag)
+
+| instance | done/exp | non-survivors | P+ vs B0 max abs val | s/branch | B* val@end |
+|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | 12/12 | - | 0.00037805557250969457 | 136.5 | 2.7946564292907716 |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | 12/12 | - | 0.00046373367309548996 | 153.4 | 2.882377052307129 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 27/27 | - | 9.536743172944284e-08 | 98.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 27/27 | - | 0.0001307201385500889 | 146.0 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 60/60 | - | 1.907348634588857e-08 | 37.4 | 2.833148365020752 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | 15/0 | - | None | 169.2 | 2.833148365020752 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | 15/0 | - | None | 259.5 | 2.833148365020752 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | 15/0 | - | None | 56.1 | 2.833148365020752 |
+| chaos_w1_inj1000_seed0_b0.9-0.95_chaos | 10/10 | - | None | 109.1 | 2.833148365020752 |
+| chaos_w1_inj160_seed0_b0.9-0.95_chaos | 10/10 | - | None | 265.8 | 2.833148365020752 |
+
+| instance | sigma_chaos @end: w | g | opt | data-order | zero-pert max abs D | sigma unit |
+|---|---|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | - | - | - | - | - | - |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | - | - | - | - | - | 4.014646059693746e-07 (borrowed) |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | - | - | - | - | - | 0.00010417760436520842 (borrowed) |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 2.7086141440124646e-08 | 3.0755072579119685e-08 | - | - | 0.0 | 2.7086141440124646e-08 (own) |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_repair | - | - | - | - | - | 4.014646059693746e-07 (borrowed) |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_repair | - | - | - | - | - | 0.00010417760436520842 (borrowed) |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_repair | - | - | - | - | - | 2.7086141440124646e-08 (borrowed) |
+| chaos_w1_inj1000_seed0_b0.9-0.95_chaos | 4.014646059693746e-07 | - | - | - | 0.0 | 4.014646059693746e-07 (own) |
+| chaos_w1_inj160_seed0_b0.9-0.95_chaos | 0.00010417760436520842 | - | - | - | 0.0 | 0.00010417760436520842 (own) |
+
+## Triage (sealed until tagged): dose c -> x_bar (M5) -> d = D / sigma_chaos
+
+| instance | c | x_bar | d(none) | indirect share |
+|---|---|---|---|---|
+| corrupt_batch_w1_inj160_seed0_b0.8-0.95_core | 10 | 200.89751844145096 | None | 0.7201134844941055 |
+| corrupt_batch_w1_inj160_seed0_b0.95-0.95_core | 10 | 124.80847011246571 | None | 0.6716279540954141 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 1 | 9223.522176263457 | -353.6388846550905 | 19.505944784025747 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 3 | 147990.6140690306 | 10725.945525133546 | 0.6130256064988631 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 10 | 1284903.3510161336 | 28313.27407455493 | 0.8436352927653606 |
+| corrupt_batch_w1_inj1000_seed0_b0.9-0.95_core | 30 | 9862556.374988846 | 38303.10340719192 | 0.9311536431636399 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 1 | 1.4860347767463757 | 3.843895700030426 | -4.210002381520964 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 3 | 12.929653996810641 | 29.963803206442403 | 0.37498587005335093 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 10 | 296.09715484046285 | 74.68902640635555 | 0.7253008681327744 |
+| corrupt_batch_w1_inj160_seed0_b0.9-0.95_core | 30 | 1563.185153059211 | 239.84151540249752 | 0.9077727192227019 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 1 | 822.9897038008035 | 89720.82809991013 | 0.19746962609492913 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 3 | 8646.755267205888 | 217660.2558944481 | 0.997560644196974 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 10 | 80681.13255549781 | 407425.52525752113 | 1.0240544779698741 |
+| corrupt_batch_w1_inj1800_seed0_b0.9-0.95_core | 30 | 645664.6021126917 | 902359.3488541039 | 1.0258647531868523 |

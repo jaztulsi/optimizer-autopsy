@@ -1,0 +1,4 @@
+GPU: AMD Instinct MI300X VF
+[corrupt_batch_w1_inj160_seed0_b0.9-0.95_core] B*: val@end=2.833148365020752 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.9-0.95_core] B0: val@end=2.833679533004761 survival=1
+[corrupt_batch_w1_inj160_seed0_b0.9-0.95_core] U_mv@0: val@end=2.8352427291870117 survival=1

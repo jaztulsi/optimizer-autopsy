@@ -1,0 +1,120 @@
+{
+ "chaos_w1_inj1000_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 109.0,
+  "Bstar_val": {
+   "1000": 3.3097269535064697,
+   "1019": 3.2934172534942627,
+   "1099": 3.240818500518799,
+   "1199": 3.1784610843658445,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "g": {
+    "1000": 1.3243962659613294e-08,
+    "1019": 1.390207266601309e-08,
+    "1099": 1.0738292910652676e-08,
+    "1199": 1.436176877721971e-08,
+    "1999": 4.1229971636844973e-07
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": null,
+   "source": null
+  }
+ },
+ "chaos_w1_inj160_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 261.4,
+  "Bstar_val": {
+   "160": 4.635051307678222,
+   "179": 4.512507438659668,
+   "259": 4.200207004547119,
+   "359": 3.9986313152313233,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "g": {
+    "160": 1.4418200514269901e-08,
+    "179": 2.0390414356231725e-08,
+    "259": 1.419112782614179e-08,
+    "359": 1.8686385443371872e-08,
+    "1999": 7.49032011269136e-05
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": null,
+   "source": null
+  }
+ },
+ "chaos_w1_inj1800_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 31.2,
+  "Bstar_val": {
+   "1800": 2.9073571968078613,
+   "1819": 2.8845466995239257,
+   "1899": 2.8655817127227783,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "g": {
+    "1800": 2.4146450394137094e-08,
+    "1819": 1.1886820356857292e-08,
+    "1899": 1.3243962659613294e-08,
+    "1999": 3.2214878861076524e-08
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": null,
+   "source": null
+  }
+ }
+}

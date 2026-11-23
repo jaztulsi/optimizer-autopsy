@@ -1,0 +1,3 @@
+[c] noop: in-process equal=True warm 29.9 ms/step
+[c] lr_bump: in-process equal=True warm 29.9 ms/step
+[c] corrupt_batch: in-process equal=True warm 29.9 ms/step

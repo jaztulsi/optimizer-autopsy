@@ -1,0 +1,294 @@
+..................F...............FF....FF.F............................ [ 80%]
+..................                                                       [100%]
+=================================== FAILURES ===================================
+_____ test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes _____
+
+tmp_path = PosixPath('/tmp/pytest-of-root/pytest-0/test_repair_battery_runs_broll0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x78554573efc0>
+
+    def test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes(tmp_path, monkeypatch):
+        # The whole driver on a 1-layer GPT: horizons line up across branches, and a resumed run still has Brollback_k.
+        import numpy as np
+    
+        from research.autopsy import mve
+        from research.baselines.rollback import ROLLBACK_K as K
+    
+        monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+        for split in ("train", "val"):
+            np.random.default_rng(0).integers(0, 16, size=8000, dtype=np.uint16).tofile(tmp_path / f"{split}.bin")
+        inj, budget, lag, wasted = K + 1, 6, 1, 2  # the detector sees step inj + lag, so inj..t0 are wasted
+        cfg = {
+            "seed": 0,
+            "model": {
+                "n_layer": 1,
+                "n_head": 2,
+                "n_embd": 16,
+                "block_size": 8,
+                "vocab_size": 16,
+                "dropout": 0.0,
+                "bias": False,
+            },
+            "optim": {"lr": 3e-3, "weight_decay": 0.1, "betas": [0.9, 0.95], "grad_clip": 1.0},
+            "train": {"batch_size": 4, "grad_accum": 1, "max_steps": inj + budget},
+        }
+        (tmp_path / "cfg.yaml").write_text(json.dumps(cfg))  # JSON is valid YAML
+        out = tmp_path / "out"
+        argv = ["--config", str(tmp_path / "cfg.yaml"), "--kind", "corrupt_batch", "--inject-step", str(inj)]
+        argv += ["--battery", "repair", "--lag", str(lag), "--horizons", "4"]
+        argv += ["--data-dir", str(tmp_path), "--out", str(out), "--skip-preflight"]
+    
+        mve.main(argv)
+        path = next(out.glob("*.json"))
+        res = json.loads(path.read_text())
+        br = res["branches"]
+        assert br["B*"]["horizon_shift"] == 0
+        assert br["Brollback"]["horizon_shift"] == wasted
+        assert br["Brollback_k"]["horizon_shift"] == K + wasted
+        assert len(br["Brollback_k"]["train_losses"]) == budget - wasted  # matched compute
+        want = {str(h) for h in res["horizons"]}
+        assert len(want) == 2 and all(set(br[n]["val"]) == want for n in ("B*", "Brollback", "Brollback_k"))
+    
+        kept = br.pop("Brollback_k")
+        path.write_text(json.dumps(res))
+>       mve.main(argv)  # resume: the rollback snapshot comes back from its own file
+        ^^^^^^^^^^^^^^
+
+research/tests/test_autopsy.py:368: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/autopsy/mve.py:466: in main
+    print(run_instance(args))
+          ^^^^^^^^^^^^^^^^^^
+research/autopsy/mve.py:295: in run_instance
+    seed_everything(cfg.get("seed", 1337), deterministic=True)
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+----------------------------- Captured stdout call -----------------------------
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] B0: val@end=2.7787565061303434 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] B*: val@end=2.7771430621381668 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bg: val@end=2.7777897148835855 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bs: val@end=2.777398549142431 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bskipstep_det: val@end=2.778284902455377 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Brollback: val@end=2.7768703327804314 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Brollback_k: val@end=2.7779848712389588 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bskipstep: val@end=2.777276936124583 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bvreset: val@end=2.8073616281884615 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bspam: val@end=2.7787565061303434 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Bzclip: val@end=2.77875651101597 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] Badagc: val@end=2.77875651101597 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] RML@1: val@end=2.777657494193218 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] RML-cool@1: val@end=2.7776605369614775 survival=1
+[corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair] RML-sel@1: val@end=2.7776425529698856 survival=1
+/tmp/pytest-of-root/pytest-0/test_repair_battery_runs_broll0/out/corrupt_batch_w1_inj21_seed0_b0.9-0.95_repair.json
+______ test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe ______
+
+    def test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe():
+        import json
+    
+        fork_step = 4
+        with _tmpdir() as d:
+            data = _data_dir(d)
+>           snap = prime_trunk(_CFG, data, fork_step, device="cpu")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tests/test_baselines.py:418: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/harness/fork.py:262: in prime_trunk
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+research/harness/trunk.py:175: in run_trunk
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+____________ test_reused_branch_starts_from_primed_state_every_run _____________
+
+    def test_reused_branch_starts_from_primed_state_every_run():
+        with _tmpdir() as d:
+            data = _data_dir(d)
+>           snap = prime_trunk(_CFG, data, 4, device="cpu")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tests/test_baselines.py:453: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/harness/fork.py:262: in prime_trunk
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+research/harness/trunk.py:175: in run_trunk
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+_______ test_brollback_branch_is_matched_compute_rollback_on_unseen_data _______
+
+    def test_brollback_branch_is_matched_compute_rollback_on_unseen_data():
+        inj, t0, budget = 4, 6, 6
+        with _tmpdir() as d:
+            data = _data_dir(d)
+>           snap = prime_trunk(_CFG, data, inj, device="cpu")
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tests/test_baselines.py:541: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/harness/fork.py:262: in prime_trunk
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+research/harness/trunk.py:175: in run_trunk
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+___ test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute ____
+
+    def test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute():
+        inj, k, t0, budget = 6, 3, 8, 6
+        with _tmpdir() as d:
+            data = _data_dir(d)
+>           snap = prime_trunk(_CFG, data, inj, device="cpu", rollback_k=k)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+research/tests/test_baselines.py:575: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/harness/fork.py:262: in prime_trunk
+    run_trunk(cfg, data_dir, steps=fork_step, on_step=watch, deterministic=deterministic, device=device)
+research/harness/trunk.py:175: in run_trunk
+    seed_everything(cfg.get("seed", 1337), deterministic=deterministic)
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+_____________________________ test_bitwise_replay ______________________________
+
+steps = 50
+
+    def test_bitwise_replay(steps: int = 50) -> list[float]:
+        """Assert bit-identical replay and return the per-step max|Δ| (all 0.0) for logging."""
+        import torch
+    
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+>       seed_everything(1337)
+
+research/tests/test_determinism.py:60: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+research/harness/determinism.py:47: in seed_everything
+    _assert_preconditions()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    def _assert_preconditions() -> None:
+        """The two things that silently break determinism if wrong."""
+        import torch
+    
+        cublas = os.environ.get("CUBLAS_WORKSPACE_CONFIG")
+        if cublas not in _VALID_CUBLAS:
+            raise RuntimeError(
+                f"CUBLAS_WORKSPACE_CONFIG={cublas!r}; must be one of {_VALID_CUBLAS} and set BEFORE "
+                "`import torch` (in the launcher's first cell). cuBLAS reads it once at init."
+            )
+        if torch.cuda.is_initialized():
+>           raise RuntimeError(
+                "CUDA is already initialized; call seed_everything() before any CUDA op, or "
+                "use_deterministic_algorithms cannot cover work already scheduled."
+            )
+E           RuntimeError: CUDA is already initialized; call seed_everything() before any CUDA op, or use_deterministic_algorithms cannot cover work already scheduled.
+
+research/harness/determinism.py:32: RuntimeError
+=========================== short test summary info ============================
+FAILED research/tests/test_autopsy.py::test_repair_battery_runs_brollback_k_at_matched_horizons_and_resumes
+FAILED research/tests/test_baselines.py::test_prime_trunk_matches_plain_trunk_and_primed_state_is_json_safe
+FAILED research/tests/test_baselines.py::test_reused_branch_starts_from_primed_state_every_run
+FAILED research/tests/test_baselines.py::test_brollback_branch_is_matched_compute_rollback_on_unseen_data
+FAILED research/tests/test_baselines.py::test_brollback_k_rolls_back_k_further_on_unseen_data_at_matched_compute
+FAILED research/tests/test_determinism.py::test_bitwise_replay - RuntimeError...
+6 failed, 84 passed in 97.31s (0:01:37)
+tests rc=1

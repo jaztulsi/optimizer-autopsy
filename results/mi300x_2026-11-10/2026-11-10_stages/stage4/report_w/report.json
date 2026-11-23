@@ -1,0 +1,120 @@
+{
+ "chaos_w1_inj1000_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 109.1,
+  "Bstar_val": {
+   "1000": 3.3097269535064697,
+   "1019": 3.2934172534942627,
+   "1099": 3.240818500518799,
+   "1199": 3.1784610843658445,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "w": {
+    "1000": 1.4418200367401199e-08,
+    "1019": 1.69068386316957e-08,
+    "1099": 1.222362415992788e-08,
+    "1199": 2.1589720537326474e-08,
+    "1999": 4.014646059693746e-07
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": 4.014646059693746e-07,
+   "source": "own"
+  }
+ },
+ "chaos_w1_inj160_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 265.8,
+  "Bstar_val": {
+   "160": 4.635051307678222,
+   "179": 4.512507438659668,
+   "259": 4.200207004547119,
+   "359": 3.9986313152313233,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "w": {
+    "160": 2.8382255801502327e-08,
+    "179": 2.2219939021463617e-08,
+    "259": 2.5867513141762535e-08,
+    "359": 2.6487925547641427e-08,
+    "1999": 0.00010417760436520842
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": 0.00010417760436520842,
+   "source": "own"
+  }
+ },
+ "chaos_w1_inj1800_seed0_b0.9-0.95_chaos": {
+  "kind": null,
+  "seed": 0,
+  "done": 10,
+  "expected": 10,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": 31.2,
+  "Bstar_val": {
+   "1800": 2.9073571968078613,
+   "1819": 2.8845466995239257,
+   "1899": 2.8655817127227783,
+   "1999": 2.833148365020752
+  },
+  "c2_mv_arm_present": {
+   "0": false,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ],
+  "sigma_chaos": {
+   "w": {
+    "1800": 1.5078914993437273e-08,
+    "1819": 1.833543617183448e-08,
+    "1899": 1.1398588333256283e-08,
+    "1999": 2.3045171760705173e-08
+   }
+  },
+  "zero_pert_max_abs_D": 0.0,
+  "zero_pert_exact": true,
+  "sigma_unit": {
+   "value": 2.3045171760705173e-08,
+   "source": "own"
+  }
+ }
+}

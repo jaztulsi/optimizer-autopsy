@@ -1,0 +1,20 @@
+stage3 start 02:35:17
+stage3 rc=0 02:36:39
+fork determinism GATE OK on cuda: 15 steps, noop-vs-noop max|Δ|=0
+fork selfcheck OK on cuda: trunk->capture->save/load->noop gate, max|Δ|=0
+xproc_prime rc=0
+xproc_fork_a_concurrent rc=0
+xproc_fork_b_concurrent rc=0
+xproc_fork_c_solo rc=0
+xproc_compare rc=0
+XPROC GATE PASS
+baseline_gpu_checks rc=0
+brollback_rebuild: PASS {"PASS": true, "data_skip": 3, "brollback": {"PASS": true, "wasted_steps": 3, "horizon_shift": 3, "steps_run": 3, "losses_equal_rebuild": true, "losses_equal_rerun": true, "max
+data_offset: PASS {"PASS": true, "losses_equal": true, "max_abs_w": 0.0, "max_abs_v": 0.0}
+BASELINE GPU CHECKS PASS on cuda
+Tue Nov 10 02:36:39 UTC 2026
+ALL CHECKS PASS -> post /shared-docker/runs/2026-11-10_stages/stage3
+start 02:36:39
+forks done fail=1 02:36:41
+STAGE4_FAILED
+ALL_END

@@ -1,0 +1,14 @@
+GPU: AMD Instinct MI300X VF
+params (non-embedding): 10,986,816
+proxy step: n_layer=3 n_head=6 n_embd=192 block=256 batch=64 grad_clip=1.0  (warmup=10, timed=100)
+
+=== measured ===
+mean : 0.022225 s/step
+std  : 0.000076 s/step
+rate : 44.99 steps/sec
+
+=== GPU-hours estimate (edit RECIPES/BRANCHES/SEEDS/FORK_LENGTH at top) ===
+recipes=4  branches/site=7  seeds/branch=3  fork_length=200 steps
+total fork steps : 16,800
+GPU-hours        : 0.10  (= 16,800 x 0.022225s / 3600)
+EXIT=0

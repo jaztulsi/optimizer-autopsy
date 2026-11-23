@@ -1,0 +1,15 @@
+GPU: AMD Instinct MI300X VF
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] B*: val@end=2.833148365020752 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Pl_0: val@end=2.833148365020752 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Pl_w#0: val@end=2.833148326873779 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#0: val@end=2.7957070446014405 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#1: val@end=2.8016375637054445 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#2: val@end=2.796376085281372 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#3: val@end=2.797575693130493 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#4: val@end=2.807389144897461 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#5: val@end=2.7985144996643068 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#6: val@end=2.805990743637085 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#7: val@end=2.8046403312683106 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#8: val@end=2.7934157371521 survival=1
+[chaos_w1_inj1800_seed0_b0.9-0.95_chaos] Dord#9: val@end=2.799425973892212 survival=1
+/shared-docker/runs/2026-11-10_stages/dord_inj1800/chaos_w1_inj1800_seed0_b0.9-0.95_chaos.json

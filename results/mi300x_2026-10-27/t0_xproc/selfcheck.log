@@ -1,0 +1,2 @@
+fork determinism GATE OK on cuda: 15 steps, noop-vs-noop max|Δ|=0
+fork selfcheck OK on cuda: trunk->capture->save/load->noop gate, max|Δ|=0

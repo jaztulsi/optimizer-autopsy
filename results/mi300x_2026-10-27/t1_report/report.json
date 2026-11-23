@@ -1,0 +1,122 @@
+{
+ "corrupt_batch_w1_inj160_seed0_b0.8-0.95_core": {
+  "kind": "corrupt_batch",
+  "seed": 0,
+  "done": 19,
+  "expected": 19,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": 0.0012330436706542436,
+  "sec_per_branch_mean": 216.4,
+  "Bstar_val": {
+   "209": 4.354865760803222,
+   "309": 4.077231950759888,
+   "659": 3.569057388305664,
+   "1999": 2.79293194770813
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": true
+  },
+  "betas": [
+   0.8,
+   0.95
+  ]
+ },
+ "corrupt_batch_w1_inj160_seed0_b0.95-0.95_core": {
+  "kind": "corrupt_batch",
+  "seed": 0,
+  "done": 19,
+  "expected": 19,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": 0.0026618576049801668,
+  "sec_per_branch_mean": 177.2,
+  "Bstar_val": {
+   "209": 4.426239032745361,
+   "309": 4.156677761077881,
+   "659": 3.702376880645752,
+   "1999": 2.883144512176514
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": true
+  },
+  "betas": [
+   0.95,
+   0.95
+  ]
+ },
+ "corrupt_batch_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "corrupt_batch",
+  "seed": 0,
+  "done": 34,
+  "expected": 34,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": 0.00014551162719733668,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ]
+ },
+ "lr_bump_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "lr_bump",
+  "seed": 0,
+  "done": 14,
+  "expected": 14,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": null,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ]
+ },
+ "repeat_ngram_w1_inj160_seed0_b0.9-0.95_core": {
+  "kind": "repeat_ngram",
+  "seed": 0,
+  "done": 34,
+  "expected": 34,
+  "missing": [],
+  "non_survivors": [],
+  "parity_P+_vs_B0_max_abs_val": 0.00011867523193354046,
+  "sec_per_branch_mean": null,
+  "Bstar_val": {
+   "209": 4.368769416809082,
+   "309": 4.1077227115631105,
+   "659": 3.6365658473968505,
+   "1999": 2.832665271759033
+  },
+  "c2_mv_arm_present": {
+   "0": true,
+   "10": false
+  },
+  "betas": [
+   0.9,
+   0.95
+  ]
+ }
+}
