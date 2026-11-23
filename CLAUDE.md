@@ -20,7 +20,7 @@ current state, as a short summary (under 2,000 characters) plus a long one, is `
 whenever the state changes. (`docs/reference/context-ai.md` §14 is the Aug 2026 snapshot.) Don't ask the user to
 re-explain the project — read the repo instead.
 
-**Current build state (verify against code, not this line — it drifts; last checked 2026-11-21; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1; the next session was booked 2026-11-20):** C1 (harness:
+**Current build state (verify against code, not this line — it drifts; last checked 2026-11-22; GPU budget is 20 MI300X-hours in total, about 5.1 used, roles are in PLAN_V8 §11.1; the next session was booked 2026-11-20):** C1 (harness:
 determinism, snapshot, fork, `Δ==0` gate) is **built and GPU-verified on CUDA and on the AMD MI300X** (proxy,
 in-process + cross-process, 2026-10-27, `results/mi300x_2026-10-27/`). The P1 autopsy code (`research/autopsy/`:
 RML undo, planted probes, placebo floor, GPU driver) is written and CI-tested. Its core battery ran in the
@@ -29,7 +29,7 @@ bit-flip faults (`research/autopsy/faults.py`) were written 2026-11-05 and are C
 `docs/prereg_v2.md` was signed off, tagged `prereg-v2` and run on the MI300X on 2026-11-10 (seed 0; the frozen outcome "no lasting damage at realistic dose" applies; `docs/prereg_v2_results.md`). `docs/prereg_v3.md` is drafted, not tagged; open decision 6 (quantile logging) is answered yes: PR #34 merged 2026-11-22; PR #29 (merged 2026-11-20) fixed its SPAM reset schedule and suggests an answer to each open decision, and Eddie's PR #28 (open) wires `Bspam_clip` / `Bspam_reset`. Known problem: SPAM's warmup clock counts from the global step, so P5(b)'s fork from step 1000 runs `Bspam` / `Bspam_reset` at about 1% LR at the spike (open decision 9). The repair family is RML-1 (built, `autopsy/undo.py`), RML-2 (`docs/novelty/method.md`) and RML-3 (`docs/novelty/rml3_method.md`); RML-2 is written (`autopsy/probation.py`, PR #27) and wired into `mve` as the `RML2` and `RML2@win` arms (PR #30, merged 2026-11-20; CPU tests, not run on a GPU). RML-1 + w (CWB, EXPERIMENT_CATALOG A5, PLAN_V8 R-F7) is
 `autopsy/cwb.py`, wired into `mve` behind `--cwb` as the `CWB@lag` and `RML-w@lag` arms (exploratory; CPU tests, not
 run on a GPU). RML-3's Appeal is unbuilt and held until its kill test passes; it will restore through the same `undo.undo` (PLAN_V8 §6.5). Damage triage (PLAN_V8 R-F6, Appendix A.3.1; exploratory, not preregistered) is in `research/repair/triage.py`: a read-only feature hook on `mve`'s dose arms and a numpy logistic fit (PR #32, merged 2026-11-20; CPU tests, not run on a GPU). It predicts which spikes leave damage and repairs nothing. C2 (localizer)
-and C3 (the repair operator) are **unbuilt** — `research/localizer/` and `research/repair/` hold comment-only TODO stubs (beside `triage.py`), and
+is partly built: `localizer/curvature.py` (HVP on the GPT loss, the preconditioned `H̃`, top-k eigsh) and `poison.py`'s `VBarAccumulator` (Avyank, PR #15, merged 2026-11-22; CPU tests, not run on a GPU); `snr.py` and the poison score are still stubs. C3 (the repair operator) is **unbuilt** — `research/repair/` holds comment-only TODO stubs (beside `triage.py`), and
 `research/theory/` holds one law: `coupling.py`, R-F2's m+v coupling law (CPU-tested; its prediction is frozen in
 `theory/README.md` before prereg-v3 runs). If you are picking up C2/C3/theory, **read §7 first.**
 
@@ -150,8 +150,9 @@ gap before reporting costs one extra pass; the reviewer catching it costs a whol
 
 ## 7. Picking up localizer (C2) / repair (C3) / theory — read this first
 
-These three directories are **unbuilt** (comment-only TODO stubs; `repair/triage.py`, damage triage, is the one
-built file and edits no state). Everything they must code
+These three directories are **mostly unbuilt** (comment-only TODO stubs). The built files are `repair/triage.py`
+(damage triage; edits no state), `theory/coupling.py`, and `localizer/curvature.py` plus `poison.py`'s
+`VBarAccumulator` (PR #15). Everything they must code
 against already exists in `research/harness/`. The interfaces below are copied from the current
 code — trust them over any prose plan.
 
@@ -214,7 +215,8 @@ steps=None, start_step=None, device=None, on_step=None, grad_hook=None, pre_step
   matched-normal snapshots per spike, and `spikes/k2.py` records them in the K2 manifest (`vbar_uri`,
   `normal_snapshot_uris`). The paragraph below describes the gap it fills. **2026-10-29:** its `--selfcheck`
   crashed on the MI300X (eps read back as a string). The fix (f751e14) passed its self-check on the MI300X on
-  2026-11-10. The full capture battery has not run.
+  2026-11-10. The full capture battery has not run. **2026-11-22:** PR #15 added a second v̄, `localizer/poison.py`'s
+  `VBarAccumulator` (debiased EMA, lagged one step, `freeze()` at the spike); which one the localizer reads is open.
 - **`v̄` (pre-spike running average of `v`) does NOT exist yet.** PLAN_V6 §3.6 defines the poison score
   against a pre-spike running-average `v̄` and thresholds "derived from matched *normal* training steps."
   Nothing captures that: `snapshot.capture` grabs `v` at **one** step, proxy `config.yaml` has
