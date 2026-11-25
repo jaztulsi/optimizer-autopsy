@@ -43,6 +43,13 @@ processes and must match bit for bit (`g0_inert/summary.json`). It runs before t
 timing, and a FAIL does not stop prereg-v3. It reruns next session only if it crashed before `compare`. This block
 runs tagged code: the `prereg-v3` tag already has the flag.
 
+Next, once: Avyank's curvature check (`research/gpu/curvature_run.py`, Task 11): its CPU tier, then the FD sweep and
+top-3 eigsh of H̃ on the proxy. It is exploratory and not part of prereg-v3; like G0's check, it runs before the runner,
+outside seed 1's timing. It is capped at 0.25 GPU-h from the reserve: `timeout` stops it at 14 minutes, and it never reruns, even after a crash or a
+timeout. Its JSON records no wall-clock time, so `cProfile` times each function (`profile.txt`); the timestamps and
+the printed output are in `log.txt`. All of it lands in `results/exea_prereg_v3/curvature/` at SAVE. The `data/proxy`
+link is where the script looks for the shard.
+
 Then the runner: G0, seed 1 of E1 on its own (the cost rule), then the rest in the order prereg-v3 gives. Each `mve`
 instance saves after every branch.
 
@@ -53,6 +60,17 @@ if [ ! -e "$G/.done" ]; then
   { $X prime --out "$G" && $X fork --out "$G" --tag a && $X fork --out "$G" --tag p --probation-inert &&
     $X compare --out "$G"; } > "$G/log.txt" 2>&1
   [ -e "$G/summary.json" ] && touch "$G/.done"
+fi
+C="$EXEA_CHECKPOINT_DIR/prereg_v3/curvature" PY="$EXEA_CHECKPOINT_DIR/venv/bin/python"
+if [ ! -e "$C/.done" ]; then
+  mkdir -p "$C" data && { [ -e data/proxy ] || ln -s "$EXEA_CHECKPOINT_DIR/data/proxy" data/proxy; }
+  rc=0 && date -u +"start %FT%TZ %s" > "$C/log.txt"
+  EVIDENCE_OUT="$C" timeout -k 30 14m "$PY" -m cProfile -o "$C/profile.pstats" -m research.gpu.curvature_run \
+    >> "$C/log.txt" 2>&1 || rc=$?
+  date -u +"end %FT%TZ %s rc=$rc" >> "$C/log.txt"
+  S="import pstats, sys; pstats.Stats(sys.argv[1], stream=open(sys.argv[2], 'w')).sort_stats('cumtime').print_stats(40)"
+  "$PY" -c "$S" "$C/profile.pstats" "$C/profile.txt" || true  # no profile after a timeout: python is killed
+  touch "$C/.done"
 fi
 bash research/gpu/exea_prereg_v3.sh
 ```

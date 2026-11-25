@@ -1061,7 +1061,10 @@ back on 2026-11-10, so each GPU week below starts when the next session is booke
 2.8 h = 14.9 h. The estimates use prereg-v3's rate of about 100,000 fork-steps per hour, and each session still needs
 Jasraj's go-ahead. If seed 1 shows E1 costs more than planned, prereg-v3's cost rule cuts seeds first, and then the
 stress bed drops to 2 seeds. CWB's arms (`mve --cwb`, R-F7) are not in this split; they run only from the reserve,
-and only if Jasraj prices them after E1.
+and only if Jasraj prices them after E1. **2026-11-24:** Avyank's curvature check (`gpu/curvature_run.py`, Task 11) is
+queued in `exea.md`'s START for the next session, capped at 0.25 h from the reserve (2.8 → 2.55 h). The next spike
+capture, still unpriced, keeps about 20 normal steps per run for the localizer's thresholds (Avyank's request; capture's
+default `n_normal` is 6). At 20 steps apart only 7 fit before the site-160 fork, so that site needs closer spacing.
 
 **What this leaves out:** prereg-v3 Extension A (step 160, 3.4 h), RML-2's X1 stall law (3 h; E2's β2 = 0.99 arm
 covers part of it) and X3 forecast (2 h; R-F6's damage triage, Appendix A.3.1, reuses its model on prereg-v3's dose arms
